@@ -23,17 +23,17 @@ More features can be added to so_5_extra in future. Some of so_5_extra's feature
 
 so_5_extra can be obtained from source-code repository via Subversion. For example:
 
-    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.0.4 so_5_extra-1.0.4
+    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.2.0 so_5_extra-1.2.0
 
 so_5_extra can also be downloaded from the corresponding [Files](https://sourceforge.net/projects/sobjectizer/files/sobjectizer/so_5_extra/) section on SourceForge. There are two types of achives with so_5_extra: 
 
-* archives with so_5_extra sources only (with names like `so_5_extra-1.0.4.tar.xz`);
-* archives with so_5_extra and all dependecies, like SObjectizer and Asio. These archives have names like `so_5_extra-1.0.4-full.tar.xz`).
+* archives with so_5_extra sources only (with names like `so_5_extra-1.2.0.tar.xz`);
+* archives with so_5_extra and all dependecies, like SObjectizer and Asio. These archives have names like `so_5_extra-1.2.0-full.tar.xz`).
 
 If so_5_extra is got from repository or downloaded as archive without dependecies inside then obtaining of dependecies could be necessary. It can be done via mxxruexternals command: 
 
-    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.0.4 so_5_extra-1.0.4
-    cd so_5_extra-1.0.4
+    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.2.0 so_5_extra-1.2.0
+    cd so_5_extra-1.2.0
     mxxruexternals
 
 Note: `mxxruexternals` is a part of Mxx_ru gem. To use Mxx_ru it is necessary to install Ruby and then Mxx_ru gem (by `gem install Mxx_ru`).
@@ -46,16 +46,16 @@ so_5_extra is a header-only library. There is no need to compile and link so_5_e
 
 To build so_5_extra samples and tests it is necessary to use Ruby and Mxx_ru gem. For example:
 
-    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.0.4 so_5_extra-1.0.4
-    cd so_5_extra-1.0.4
+    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.2.0 so_5_extra-1.2.0
+    cd so_5_extra-1.2.0
     mxxruexternals
     cd dev
     ruby build.rb
 
 All tests and samples will be built. If it is necessary to build only examples it can be done by:
 
-    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.0.4 so_5_extra-1.0.4
-    cd so_5_extra-1.0.4
+    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.2.0 so_5_extra-1.2.0
+    cd so_5_extra-1.2.0
     mxxruexternals
     cd dev
     ruby sample/so_5_extra/build_samples.rb
