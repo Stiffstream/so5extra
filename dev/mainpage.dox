@@ -1,0 +1,41 @@
+/*!
+ * \mainpage
+ *
+ * \section so_5_extra_versions so_5_extra Version Info
+ *
+ * \subsection so_5_extra_v1_0_4 v.1.0.4
+ *
+ * Implementation of "async operation" added in form of
+ * so_5::extra::async_op::time_unlimited::make() and
+ * so_5::extra::async_op::time_limited::make() functions and
+ * related classes.
+ *
+ * Since v.1.0.4 so_5_extra requires SO-5.5.21 as minimal SObjectizer's
+ * version.
+ *
+ * \subsection so_5_extra_v1_0_3 v.1.0.3
+ *
+ * Implementation of retained_msg mbox is added.
+ * Retained message mbox related stuff live in
+ * so_5::extra::mboxes::retained_msg namespace.
+ *
+ * \subsection so_5_extra_v1_0_2 v.1.0.2
+ *
+ * Implementation of single-thread and thread-safe environment infrastructure
+ * on top of Asio. A new namespace
+ * so_5::extra::env_infrastructures::asio::simple_mtsafe is added.
+ * New example resolve_interactive is added.
+ *
+ * \subsection so_5_extra_v1_0_1 v.1.0.1
+ *
+ * Implementation of collecting mbox is added.
+ * Collecting mbox related stuff live in
+ * so_5::extra::mboxes::collecting_mbox namespace.
+ * See the main template class so_5::extra::mboxes::collecting_mbox::mbox_template_t for more details.
+ *
+ * Since v.1.0.1 so_5_extra required SO-5.5.19.3 as minimal SObjectizer's
+ * version.
+ */
+
+// vim:ft=cpp
+
