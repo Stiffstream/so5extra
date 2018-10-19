@@ -9,4 +9,6 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/shutdowner/build_samples.rb" )
 	required_prj( "#{path}/disp/build_samples.rb" )
 	required_prj( "#{path}/async_op/build_samples.rb" )
+	required_prj( "#{path}/revocable_timer/build_samples.rb" )
+	required_prj( "#{path}/enveloped_msg/build_samples.rb" )
 }

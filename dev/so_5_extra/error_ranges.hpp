@@ -35,6 +35,34 @@ const int retained_msg_mbox_errors = 20300;
  */
 const int async_op_errors = 20400;
 
+//! Starting point for errors of mboxes::proxy submodule.
+/*!
+ * \since
+ * v.1.2.0
+ */
+const int mboxes_proxy_errors = 20500;
+
+//! Starting point for errors of revocable_timer submodule.
+/*!
+ * \since
+ * v.1.2.0
+ */
+const int revocable_timer_errors = 20600;
+
+//! Starting point for errors of enveloped_msg submodule.
+/*!
+ * \since
+ * v.1.2.0
+ */
+const int enveloped_msg_errors = 20700;
+
+//! Starting point for errors of revocable_msg submodule.
+/*!
+ * \since
+ * v.1.2.0
+ */
+const int revocable_msg_errors = 20800;
+
 } /* namespace errors */
 
 } /* namespace extra */

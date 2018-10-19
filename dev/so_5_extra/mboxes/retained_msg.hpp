@@ -332,6 +332,37 @@ struct template_independent_mbox_data_t
 	};
 
 //
+// detect_invocation_type_for_retained_msg
+//
+/*!
+ * \brief Detection of invocation_type for a retained message.
+ *
+ * \since
+ * v.1.2.0
+ */
+inline invocation_type_t
+detect_invocation_type_for_retained_msg(
+	const message_ref_t & msg ) noexcept
+	{
+		invocation_type_t result = invocation_type_t::event;
+		switch( message_kind(msg) )
+			{
+			case message_t::kind_t::signal: /* already detected */ break;
+			case message_t::kind_t::classical_message: /* already detected */ break;
+			case message_t::kind_t::user_type_message: /* already detected */ break;
+			case message_t::kind_t::service_request:
+				result = invocation_type_t::service_request;
+			break;
+
+			case message_t::kind_t::enveloped_msg:
+				result = invocation_type_t::enveloped_msg;
+			break;
+			}
+
+		return result;
+	}
+
+//
 // actual_mbox_t
 //
 
@@ -437,6 +468,7 @@ class actual_mbox_t final
 
 				do_deliver_message_impl(
 						tracer,
+						invocation_type_t::event,
 						msg_type,
 						message,
 						overlimit_reaction_deep );
@@ -473,6 +505,28 @@ class actual_mbox_t final
 								message,
 								overlimit_reaction_deep );
 					}
+			}
+
+		virtual void
+		do_deliver_enveloped_msg(
+			const std::type_index & msg_type,
+			const message_ref_t & message,
+			unsigned int overlimit_reaction_deep ) override
+			{
+				typename Tracing_Base::deliver_op_tracer tracer{
+						*this, // as Tracing_base
+						*this, // as abstract_message_box_t
+						"deliver_enveloped_msg",
+						msg_type, message, overlimit_reaction_deep };
+
+				ensure_immutable_message( msg_type, message );
+
+				do_deliver_message_impl(
+						tracer,
+						invocation_type_t::enveloped_msg,
+						msg_type,
+						message,
+						overlimit_reaction_deep );
 			}
 
 		virtual void
@@ -588,6 +642,7 @@ class actual_mbox_t final
 		void
 		do_deliver_message_impl(
 			typename Tracing_Base::deliver_op_tracer const & tracer,
+			invocation_type_t invocation_type,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
 			unsigned int overlimit_reaction_deep ) const
@@ -608,6 +663,7 @@ class actual_mbox_t final
 								*(kv.first),
 								kv.second,
 								tracer,
+								invocation_type,
 								msg_type,
 								message,
 								overlimit_reaction_deep );
@@ -620,6 +676,7 @@ class actual_mbox_t final
 			agent_t & subscriber,
 			const subscriber_info_t & subscriber_info,
 			typename Tracing_Base::deliver_op_tracer const & tracer,
+			invocation_type_t invocation_type,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
 			unsigned int overlimit_reaction_deep ) const
@@ -634,7 +691,8 @@ class actual_mbox_t final
 						using namespace so_5::message_limit::impl;
 
 						try_to_deliver_to_agent(
-								invocation_type_t::event,
+								this->m_data.m_id,
+								invocation_type,
 								subscriber,
 								subscriber_info.limit(),
 								msg_type,
@@ -738,6 +796,7 @@ class actual_mbox_t final
 						using namespace so_5::message_limit::impl;
 
 						try_to_deliver_to_agent(
+								this->m_data.m_id,
 								invocation_type_t::service_request,
 								subscriber,
 								subscriber_info.limit(),
@@ -748,7 +807,7 @@ class actual_mbox_t final
 								[&] {
 									tracer.push_to_queue( std::addressof(subscriber) );
 
-									agent_t::call_push_service_request(
+									agent_t::call_push_event(
 											subscriber,
 											subscriber_info.limit(),
 											this->m_data.m_id,
@@ -799,6 +858,7 @@ class actual_mbox_t final
 								subscriber,
 								subscriber_info,
 								tracer,
+								detect_invocation_type_for_retained_msg( retained_msg ),
 								msg_type,
 								retained_msg,
 								overlimit_reaction_deep );

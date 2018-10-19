@@ -15,6 +15,9 @@
 #include <so_5/details/h/sync_helpers.hpp>
 
 #include <so_5/rt/h/mbox.hpp>
+#include <so_5/rt/h/enveloped_msg.hpp>
+
+#include <so_5/h/optional.hpp>
 
 #if defined(SO_5_VERSION)
 	#if (SO_5_VERSION < SO_5_VERSION_MAKE(5, 19, 3))
@@ -304,6 +307,39 @@ class collected_messages_bunch_t final
 	};
 
 //
+// detect_message_to_store
+//
+/*!
+ * \brief Detect the actual message to be collected (if it is present).
+ *
+ * SO-5.5.23 introduced enveloped messages. In the case of enveloped message
+ * the payload must be extrected and stored inside collected_mbox.
+ * This function checks the kind of a message and extract payload if
+ * message is an enveloped.
+ *
+ * Original value of \a what is returned in \a what is not an envelope.
+ *
+ * \since
+ * v.1.2.0
+ */
+inline optional< message_ref_t >
+detect_message_to_store( message_ref_t what )
+	{
+		if( message_t::kind_t::enveloped_msg == message_kind(what) )
+			{
+				// Envelope's payload must be extracted.
+				auto opt_payload_info = ::so_5::enveloped_msg::
+						extract_payload_for_message_transformation( what );
+				if( opt_payload_info )
+					return { opt_payload_info->message() };
+				else
+					return {};
+			}
+		else
+			return { std::move(what) };
+	}
+
+//
 // collected_messages_bunch_builder_t
 //
 /*!
@@ -344,18 +380,28 @@ class collected_messages_bunch_builder_t
 			//! messages_collected can be created inside this method.
 			std::size_t messages_to_collect )
 			{
-				message_type * storage = m_current_msg.get();
-				if( !storage )
+				// Since SO-5.5.23 it is necessary to check a type of message.
+				// If it is an envelope then the content of the envelope should
+				// be extracted.
+				auto opt_msg_to_store = detect_message_to_store(
+						std::move(message) );
+				// There can be a case when payload is missing.
+				// In that case nothing will be stored.
+				if( opt_msg_to_store )
 					{
-						m_current_msg.reset(
-								new message_type( messages_to_collect ) );
-						storage = m_current_msg.get();
-					}
+						message_type * storage = m_current_msg.get();
+						if( !storage )
+							{
+								m_current_msg.reset(
+										new message_type( messages_to_collect ) );
+								storage = m_current_msg.get();
+							}
 
-				storage->store_collected_messages(
-						m_collected_messages,
-						std::move( message ) );
-				++m_collected_messages;
+						storage->store_collected_messages(
+								m_collected_messages,
+								std::move( *opt_msg_to_store ) );
+						++m_collected_messages;
+					}
 			}
 
 		bool
@@ -681,6 +727,23 @@ class actual_mbox_t final
 				SO_5_THROW_EXCEPTION(
 						errors::rc_service_request_on_collecting_mbox,
 						"service request can't be performed on collecting-mbox" );
+			}
+
+		void
+		do_deliver_enveloped_msg(
+			const std::type_index & msg_type,
+			const message_ref_t & message,
+			unsigned int overlimit_reaction_deep ) override
+			{
+				ensure_valid_message_type( msg_type );
+
+				typename Tracing_Base::deliver_op_tracer tracer{
+						*this, // as Tracing_Base
+						*this, // as abstract_message_box_t
+						"collect_enveloped_msg",
+						msg_type, message, overlimit_reaction_deep };
+
+				collect_new_message( tracer, message );
 			}
 
 		virtual void

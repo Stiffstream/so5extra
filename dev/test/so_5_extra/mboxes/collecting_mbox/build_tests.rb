@@ -10,8 +10,14 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/simple/prj.ut.rb" )
 	required_prj( "#{path}/simple/prj_s.ut.rb" )
 
+	required_prj( "#{path}/simple_enveloped_msg/prj.ut.rb" )
+	required_prj( "#{path}/simple_enveloped_msg/prj_s.ut.rb" )
+
 	required_prj( "#{path}/simple_for_each/prj.ut.rb" )
 	required_prj( "#{path}/simple_for_each/prj_s.ut.rb" )
+
+	required_prj( "#{path}/simple_for_each_enveloped_msg/prj.ut.rb" )
+	required_prj( "#{path}/simple_for_each_enveloped_msg/prj_s.ut.rb" )
 
 	required_prj( "#{path}/simple_for_each_with_index/prj.ut.rb" )
 	required_prj( "#{path}/simple_for_each_with_index/prj_s.ut.rb" )
@@ -30,6 +36,9 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/simple_mutable_for_each/prj.ut.rb" )
 	required_prj( "#{path}/simple_mutable_for_each/prj_s.ut.rb" )
+
+	required_prj( "#{path}/simple_mutable_for_each_enveloped_msg/prj.ut.rb" )
+	required_prj( "#{path}/simple_mutable_for_each_enveloped_msg/prj_s.ut.rb" )
 
 	required_prj( "#{path}/simple_mutable_for_each_with_index/prj.ut.rb" )
 	required_prj( "#{path}/simple_mutable_for_each_with_index/prj_s.ut.rb" )

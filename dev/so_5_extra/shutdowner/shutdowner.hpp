@@ -654,6 +654,7 @@ class notify_mbox_t
 						using namespace so_5::message_limit::impl;
 
 						try_to_deliver_to_agent(
+								m_id,
 								invocation_type_t::event,
 								*(subscriber.m_subscriber),
 								subscriber.m_limits,

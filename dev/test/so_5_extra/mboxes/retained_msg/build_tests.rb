@@ -7,6 +7,9 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/simple/prj.ut.rb" )
 	required_prj( "#{path}/simple/prj_s.ut.rb" )
 
+	required_prj( "#{path}/simple_enveloped_msg/prj.ut.rb" )
+	required_prj( "#{path}/simple_enveloped_msg/prj_s.ut.rb" )
+
 	required_prj( "#{path}/simple_single_threaded/prj.ut.rb" )
 	required_prj( "#{path}/simple_single_threaded/prj_s.ut.rb" )
 
@@ -30,4 +33,7 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/mutable_msg/prj.ut.rb" )
 	required_prj( "#{path}/mutable_msg/prj_s.ut.rb" )
+
+	required_prj( "#{path}/mutable_enveloped_msg/prj.ut.rb" )
+	required_prj( "#{path}/mutable_enveloped_msg/prj_s.ut.rb" )
 }

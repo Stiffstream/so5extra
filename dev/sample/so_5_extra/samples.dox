@@ -33,5 +33,14 @@
  * \example async_op/time_limited/simple/main.cpp
  */
 
+/*!
+ * \example revocable_timer/simple/main.cpp
+ */
+
+/*!
+ * \example enveloped_msg/delivery_receipt/main.cpp
+ * \example enveloped_msg/time_limited_delivery/main.cpp
+ */
+
 // vim:ft=cpp
 

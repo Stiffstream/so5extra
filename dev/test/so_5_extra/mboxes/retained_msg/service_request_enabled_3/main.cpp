@@ -40,7 +40,7 @@ public :
 	so_evt_start() override
 	{
 		try {
-			const auto r = so_5::request_value<int, a_service_provider_t::get_value>(
+			(void)so_5::request_value<int, a_service_provider_t::get_value>(
 					m_mbox, so_5::infinite_wait, 0);
 
 			throw std::runtime_error( "request_value should fail" );

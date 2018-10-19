@@ -282,6 +282,7 @@ class mbox_template_t
 						tracer,
 						msg_type,
 						message,
+						invocation_type_t::event,
 						overlimit_reaction_deep );
 			}
 
@@ -301,6 +302,26 @@ class mbox_template_t
 						tracer,
 						msg_type,
 						message,
+						overlimit_reaction_deep );
+			}
+
+		void
+		do_deliver_enveloped_msg(
+			const std::type_index & msg_type,
+			const message_ref_t & message,
+			unsigned int overlimit_reaction_deep ) override
+			{
+				typename Tracing_Base::deliver_op_tracer tracer{
+						*this, // as Tracing_Base
+						*this, // as abstract_message_box_t
+						"deliver_enveloped_msg",
+						msg_type, message, overlimit_reaction_deep };
+
+				do_deliver_message_impl(
+						tracer,
+						msg_type,
+						message,
+						invocation_type_t::enveloped_msg,
 						overlimit_reaction_deep );
 			}
 
@@ -329,6 +350,7 @@ class mbox_template_t
 			typename Tracing_Base::deliver_op_tracer const & tracer,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
+			invocation_type_t invocation_type,
 			unsigned int overlimit_reaction_deep ) const
 			{
 				std::lock_guard< Lock_Type > lock( this->m_lock );
@@ -344,6 +366,7 @@ class mbox_template_t
 								tracer,
 								msg_type,
 								message,
+								invocation_type,
 								overlimit_reaction_deep );
 					}
 				else
@@ -356,12 +379,14 @@ class mbox_template_t
 			typename Tracing_Base::deliver_op_tracer const & tracer,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
+			invocation_type_t invocation_type,
 			unsigned int overlimit_reaction_deep ) const
 			{
 				using namespace so_5::message_limit::impl;
 
 				try_to_deliver_to_agent(
-						invocation_type_t::event,
+						this->m_id,
+						invocation_type,
 						*(agent_info.m_agent),
 						agent_info.m_limit,
 						msg_type,
@@ -426,6 +451,7 @@ class mbox_template_t
 				using namespace so_5::message_limit::impl;
 
 				try_to_deliver_to_agent(
+						this->m_id,
 						invocation_type_t::service_request,
 						*(agent_info.m_agent),
 						agent_info.m_limit,

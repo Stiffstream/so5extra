@@ -9,6 +9,26 @@
  * Older versions of SObjectizer 5.5 are not supported because
  * of use of new SObjectizer API introduced in v.5.5.23.
  *
+ * Class so_5::extra::mboxes::proxy::simple_t is added.
+ * This class simplifies development of custom mboxes in cases
+ * when main mbox's work can be delegated to some existing
+ * mbox.
+ *
+ * Namespace so_5::extra::revocable_msg added.
+ * This namespace contains several send() functions for sending
+ * revocable messages.
+ *
+ * Namespace so_5::extra::revocable_timer added.
+ * This namespace contains various send_delayed() and
+ * send_periodic() functions for working with revocable timer
+ * messages.
+ *
+ * Namespace so_5::extra::enveloped_msg added.
+ * This namespace contains various stuff for working with
+ * enveloped messages introduced in SObjectizer v.5.5.23.
+ * For example there is so_5::extra::enveloped_msg::time_limited_delivery_t
+ * envelope for delivery message/signal with a deadline.
+ *
  * \subsection so_5_extra_v1_1_0 v.1.1.0
  *
  * Since v.1.1.0 so_5_extra requires SObjectizer v.5.5.22.

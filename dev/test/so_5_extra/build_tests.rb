@@ -13,4 +13,10 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/disp/build_tests.rb" )
 
 	required_prj( "#{path}/async_op/build_tests.rb" )
+
+	required_prj( "#{path}/revocable_msg/build_tests.rb" )
+
+	required_prj( "#{path}/revocable_timer/build_tests.rb" )
+
+	required_prj( "#{path}/enveloped_msg/build_tests.rb" )
 }
