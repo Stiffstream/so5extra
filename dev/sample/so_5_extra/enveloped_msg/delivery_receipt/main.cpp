@@ -77,12 +77,17 @@ public:
 	{}
 
 	void
-	handler_found_hook(handler_invoker_t & invoker) noexcept override
+	access_hook(
+		access_context_t context,
+		handler_invoker_t & invoker) noexcept override
 	{
-		// Send delivery receipt.
-		so_5::send<delivery_receipt_t>(m_to, m_id);
+		if(access_context_t::handler_found == context)
+		{
+			// Send delivery receipt.
+			so_5::send<delivery_receipt_t>(m_to, m_id);
+		}
 		// Delegate an actual work to base class.
-		envelope_ns::just_envelope_t::handler_found_hook(invoker);
+		envelope_ns::just_envelope_t::access_hook(context, invoker);
 	}
 };
 

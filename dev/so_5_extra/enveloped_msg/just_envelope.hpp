@@ -41,14 +41,15 @@ namespace enveloped_msg {
  * 	// Inherit constructor from base class.
  * 	using base_type::base_type;
  *
- * 	// Override handler_found_hook and do some action after
+ * 	// Override access_hook and do some action after
  * 	// processing of payload.
  * 	void
- * 	handler_found_hook(
+ * 	access_hook(
+ * 		access_context_t context,
  * 		handler_invoker_t & invoker ) noexcept override
  * 	{
  * 		// Delegate payload extraction to the base type.
- * 		base_type::handler_found_hook( invoker );
+ * 		base_type::access_hook( context, invoker );
  *
  * 		// Do our own logic.
  * 		do_some_action();
@@ -130,14 +131,8 @@ class just_envelope_t : public so_5::enveloped_msg::envelope_t
 
 		// Implementation of inherited methods.
 		void
-		handler_found_hook(
-			handler_invoker_t & invoker ) noexcept override
-			{
-				invoker.invoke( whole_payload() );
-			}
-
-		void
-		transformation_hook(
+		access_hook(
+			access_context_t /*context*/,
 			handler_invoker_t & invoker ) noexcept override
 			{
 				invoker.invoke( whole_payload() );

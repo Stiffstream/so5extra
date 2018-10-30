@@ -15,6 +15,9 @@ At the current moment so_5_extra contains the following components:
 * so_5::extra::mboxes::proxy. A proxy-mbox which delegates all calls to the underlying actual mbox. Such proxy simplifies development of custom mboxes.
 * so_5::extra::shutdowner. A tool to simplify prevention of SObjectizer shutdown in cases where some agents require more time for graceful shutdown (like storing caches to disk and stuff like that);
 * so_5::extra::disp::asio_thread_pool. A dispatcher which runs Asio's io_service::run() on a thread pool and schedules execution of event-handler via asio::post() facility.
+* so_5::extra::revocable_msg. A set of tools for sending messages/signals those can be revoked. 
+* so_5::extra::revocable_timer. A set of tools for sending delayed/periodic messages/signals those can be revoked.
+* so_5::extra::enveloped_msg. A set of tools for working with enveloped messages.
 
 More features can be added to so_5_extra in future. Some of so_5_extra's features can become parts of SObjectizer itself if they will be in wide use.
 

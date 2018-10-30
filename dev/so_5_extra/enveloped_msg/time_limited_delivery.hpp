@@ -55,13 +55,6 @@ class time_limited_delivery_t final : public just_envelope_t
 		//! Delivery deadline.
 		const std::chrono::steady_clock::time_point m_deadline;
 
-		void
-		invoke_if_deadline_not_passed( handler_invoker_t & invoker ) const noexcept
-			{
-				if( m_deadline > std::chrono::steady_clock::now() )
-					invoker.invoke( whole_payload() );
-			}
-
 	public :
 		//! Initializing constructor.
 		/*!
@@ -93,17 +86,12 @@ class time_limited_delivery_t final : public just_envelope_t
 
 		// Implementation of inherited methods.
 		void
-		handler_found_hook(
+		access_hook(
+			access_context_t /*context*/,
 			handler_invoker_t & invoker ) noexcept override
 			{
-				invoke_if_deadline_not_passed( invoker );
-			}
-
-		void
-		transformation_hook(
-			handler_invoker_t & invoker ) noexcept override
-			{
-				invoke_if_deadline_not_passed( invoker );
+				if( m_deadline > std::chrono::steady_clock::now() )
+					invoker.invoke( whole_payload() );
 			}
 	};
 

@@ -66,8 +66,7 @@ namespace details {
  *
  * This envelope uses an atomic flag. When this flag is set to \a true
  * the message becomes _revoked_. Value of this flag is checked in
- * handler_found_hook() and transformation_hook(). If the message
- * if revoked these handlers do nothing.
+ * access_hook(). If the message if revoked that handler do nothing.
  *
  * \note
  * This class is intended to be used with invocation_type_t::event 
@@ -155,17 +154,17 @@ class envelope_t final : public so_5::enveloped_msg::envelope_t
 			}
 
 		void
-		handler_found_hook(
+		access_hook(
+			access_context_t /*context*/,
 			handler_invoker_t & invoker ) noexcept override
 			{
-				do_if_not_revoked_yet( invoker );
-			}
-
-		void
-		transformation_hook(
-			handler_invoker_t & invoker ) noexcept override
-			{
-				do_if_not_revoked_yet( invoker );
+				if( !has_been_revoked() )
+					{
+						// Message is not revoked yet.
+						// Message handler can be called.
+						invoker.invoke( payload_info_t{ m_payload } );
+					}
+				// Otherwise message should be ignored.
 			}
 	};
 
