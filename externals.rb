@@ -1,6 +1,6 @@
 MxxRu::arch_externals :so5 do |e|
-  e.url 'https://sourceforge.net/projects/sobjectizer/files/sobjectizer/SObjectizer%20Core%20v.5.5/so-5.5.23-beta2.zip'
-  e.sha512 '56c7f392d07b49b563e1821383d58051c96f14478f3195a413cf063f0753f60c74012b3d21791c3b1b36107b2c96e43fd279eb356e10fb81f1a23dcc1ccf104c'
+  e.url 'https://sourceforge.net/projects/sobjectizer/files/sobjectizer/SObjectizer%20Core%20v.5.5/so-5.5.23.zip'
+  e.sha512 '61c2b9e42d88eafef67b38a1b517af7cbda131835d8ae60c914bd89d21e84801278292064c7ad823c0b31a376b0db68f1ee4a7e87892c2f166c39e8068d86122'
 
   e.map_dir 'dev/so_5' => 'dev'
   e.map_dir 'dev/timertt' => 'dev'
