@@ -46,6 +46,15 @@ Note: `mxxruexternals` is a part of Mxx_ru gem. To use Mxx_ru it is necessary to
 
 so_5_extra is a header-only library. There is no need to compile and link so_5_extra itself. Only INCLUDE path must be set appropriately.
 
+### Using via CMake
+
+Since v.1.2.1 there is the very basic support for CMake: so_5_extra can be used
+in CMake-based projects. There is `dev/so_5_extra/CMakeFiles.txt` for that.
+
+But building so_5_extra's examples and/or tests via CMake is not supported.
+If you want to have CMake support for these things let us known
+via "info at stiffstream dot com".
+
 ## Building Samples And Tests
 
 To build so_5_extra samples and tests it is necessary to use Ruby and Mxx_ru gem. For example:

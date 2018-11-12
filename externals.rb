@@ -8,8 +8,8 @@ MxxRu::arch_externals :so5 do |e|
 end
 
 MxxRu::arch_externals :asio do |e|
-  e.url 'https://github.com/chriskohlhoff/asio/archive/asio-1-12-0.tar.gz'
-  e.sha1 '630580c8393edafa63e7edfad953a03fba9afb80'
+  e.url 'https://github.com/chriskohlhoff/asio/archive/asio-1-12-1.tar.gz'
+  e.sha1 '167b3470f5943e5f8601486023acd2bc6e5ca846'
 
   e.map_dir 'asio/include' => 'dev/asio'
 end

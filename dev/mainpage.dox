@@ -3,6 +3,16 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
+ * \subsection so_5_extra_v1_2_1 v.1.2.1
+ *
+ * Now so_5_extra can be used via CMake. There is a CMakeFiles.txt file
+ * in dev/so_5_extra subdirectory. To use so_5_extra write something
+ * like that in your project's CMakeFiles.txt:
+\verbatim
+find_package(so5extra CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE sobjectizer::so5extra)
+\endverbatim
+ *
  * \subsection so_5_extra_v1_2_0 v.1.2.0
  *
  * Since v.1.2.0 so_5_extra requires SObjectizer v.5.5.23.
