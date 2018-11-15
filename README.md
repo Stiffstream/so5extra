@@ -23,7 +23,9 @@ More features can be added to so_5_extra in future. Some of so_5_extra's feature
 
 # Obtaining And Using
 
-## Obtaining 
+## The Old-School Way
+
+### Obtaining 
 
 so_5_extra can be obtained from source-code repository via Subversion. For example:
 
@@ -42,7 +44,7 @@ If so_5_extra is got from repository or downloaded as archive without dependecie
 
 Note: `mxxruexternals` is a part of Mxx_ru gem. To use Mxx_ru it is necessary to install Ruby and then Mxx_ru gem (by `gem install Mxx_ru`).
 
-## Using
+### Using
 
 so_5_extra is a header-only library. There is no need to compile and link so_5_extra itself. Only INCLUDE path must be set appropriately.
 
@@ -55,7 +57,39 @@ But building so_5_extra's examples and/or tests via CMake is not supported.
 If you want to have CMake support for these things let us known
 via "info at stiffstream dot com".
 
-## Building Samples And Tests
+## Obtaining And Using Via vcpkg
+
+Since v.1.2.1 so_5_extra is available via [vcpkg](https://github.com/Microsoft/vcpkg) library manager.
+
+To install so_5_extra it is necessary to use `vcpkg install` command:
+
+    vcpkg install so5extra
+
+Please note that so_5_extra is identified as `so5extra` in vcpkg repository.
+
+To use so_5_extra it is necessary to add the following lines in your CMakeFiles.txt: 
+
+    find_package(so5extra CONFIG REQUIRED)
+    find_package(sobjectizer CONFIG REQUIRED)
+
+And then it is necessary to link your target against SObjectizer's libraries:
+
+    target_link_libraries(your_target sobjectizer::SharedLib)
+    target_link_libraries(your_target sobjectizer::so5extra)
+
+For example: this is a simple CMakeFiles.txt file for so_5_extra's sample `delivery_receipt`:
+
+    find_package(so5extra CONFIG REQUIRED)
+    find_package(sobjectizer CONFIG REQUIRED)
+
+    set(SAMPLE sample.so_5_extra.delivery_receipt)
+    add_executable(${SAMPLE} main.cpp)
+    target_link_libraries(${SAMPLE} sobjectizer::SharedLib)
+    target_link_libraries(${SAMPLE} sobjectizer::so5extra)
+    install(TARGETS ${SAMPLE} DESTINATION bin)
+
+
+# Building Samples And Tests
 
 To build so_5_extra samples and tests it is necessary to use Ruby and Mxx_ru gem. For example:
 
@@ -73,7 +107,7 @@ All tests and samples will be built. If it is necessary to build only examples i
     cd dev
     ruby sample/so_5_extra/build_samples.rb
 
-## Building API Reference Manual
+# Building API Reference Manual
 
 API Reference Manual can be build via doxygen. Just go into `dev` subdirectory where `Doxygen` file is located and run `doxygen`. The generated documentation in HTML format will be stored into `doc/html` subdir.
 
