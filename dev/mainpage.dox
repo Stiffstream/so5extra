@@ -3,6 +3,10 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
+ * \subsection so_5_extra_v1_2_2 v.1.2.2
+ *
+ * New example `disp/asio_thread_pool/hello_world` added.
+ *
  * \subsection so_5_extra_v1_2_1 v.1.2.1
  *
  * Now so_5_extra can be used via CMake. There is a CMakeFiles.txt file

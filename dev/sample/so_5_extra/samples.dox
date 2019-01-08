@@ -22,6 +22,7 @@
  */
 
 /*!
+ * \example disp/asio_thread_pool/hello_world/main.cpp
  * \example disp/asio_thread_pool/custom_pthread_thread/main.cpp
  */
 
