@@ -1,0 +1,47 @@
+/*!
+ * \example env_infrastructures/asio/resolve_n/main.cpp
+ * \example env_infrastructures/asio/resolve_interactive/main.cpp
+ */
+
+/*!
+ * \example mboxes/round_robin/simple/main.cpp
+ * \example mboxes/round_robin/advanced/main.cpp
+ */
+
+/*!
+ * \example mboxes/collecting_mbox/simple/main.cpp
+ * \example mboxes/collecting_mbox/advanced/main.cpp
+ */
+
+/*!
+ * \example mboxes/retained_msg/simple/main.cpp
+ */
+
+/*!
+ * \example shutdowner/simple/main.cpp
+ */
+
+/*!
+ * \example disp/asio_thread_pool/hello_world/main.cpp
+ * \example disp/asio_thread_pool/custom_pthread_thread/main.cpp
+ */
+
+/*!
+ * \example async_op/time_unlimited/simple/main.cpp
+ */
+
+/*!
+ * \example async_op/time_limited/simple/main.cpp
+ */
+
+/*!
+ * \example revocable_timer/simple/main.cpp
+ */
+
+/*!
+ * \example enveloped_msg/delivery_receipt/main.cpp
+ * \example enveloped_msg/time_limited_delivery/main.cpp
+ */
+
+// vim:ft=cpp
+

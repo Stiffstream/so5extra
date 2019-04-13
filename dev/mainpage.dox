@@ -1,0 +1,87 @@
+/*!
+ * \mainpage
+ *
+ * \section so_5_extra_versions so_5_extra Version Info
+ *
+ * \subsection so_5_extra_v1_2_2 v.1.2.2
+ *
+ * New example `disp/asio_thread_pool/hello_world` added.
+ *
+ * \subsection so_5_extra_v1_2_1 v.1.2.1
+ *
+ * Now so_5_extra can be used via CMake. There is a CMakeFiles.txt file
+ * in dev/so_5_extra subdirectory. To use so_5_extra write something
+ * like that in your project's CMakeFiles.txt:
+\verbatim
+find_package(so5extra CONFIG REQUIRED)
+target_link_libraries(your_target PRIVATE sobjectizer::so5extra)
+\endverbatim
+ *
+ * \subsection so_5_extra_v1_2_0 v.1.2.0
+ *
+ * Since v.1.2.0 so_5_extra requires SObjectizer v.5.5.23.
+ * Older versions of SObjectizer 5.5 are not supported because
+ * of use of new SObjectizer API introduced in v.5.5.23.
+ *
+ * Class so_5::extra::mboxes::proxy::simple_t is added.
+ * This class simplifies development of custom mboxes in cases
+ * when main mbox's work can be delegated to some existing
+ * mbox.
+ *
+ * Namespace so_5::extra::revocable_msg added.
+ * This namespace contains several send() functions for sending
+ * revocable messages.
+ *
+ * Namespace so_5::extra::revocable_timer added.
+ * This namespace contains various send_delayed() and
+ * send_periodic() functions for working with revocable timer
+ * messages.
+ *
+ * Namespace so_5::extra::enveloped_msg added.
+ * This namespace contains various stuff for working with
+ * enveloped messages introduced in SObjectizer v.5.5.23.
+ * For example there is so_5::extra::enveloped_msg::time_limited_delivery_t
+ * envelope for delivery message/signal with a deadline.
+ *
+ * \subsection so_5_extra_v1_1_0 v.1.1.0
+ *
+ * Since v.1.1.0 so_5_extra requires SObjectizer v.5.5.22.
+ * Older versions of SObjectizer 5.5 are not supported because
+ * of changes in SObjectizer v.5.5.22.
+ *
+ * \subsection so_5_extra_v1_0_4 v.1.0.4
+ *
+ * Implementation of "async operation" added in form of
+ * so_5::extra::async_op::time_unlimited::make() and
+ * so_5::extra::async_op::time_limited::make() functions and
+ * related classes.
+ *
+ * Since v.1.0.4 so_5_extra requires SO-5.5.21 as minimal SObjectizer's
+ * version.
+ *
+ * \subsection so_5_extra_v1_0_3 v.1.0.3
+ *
+ * Implementation of retained_msg mbox is added.
+ * Retained message mbox related stuff live in
+ * so_5::extra::mboxes::retained_msg namespace.
+ *
+ * \subsection so_5_extra_v1_0_2 v.1.0.2
+ *
+ * Implementation of single-thread and thread-safe environment infrastructure
+ * on top of Asio. A new namespace
+ * so_5::extra::env_infrastructures::asio::simple_mtsafe is added.
+ * New example resolve_interactive is added.
+ *
+ * \subsection so_5_extra_v1_0_1 v.1.0.1
+ *
+ * Implementation of collecting mbox is added.
+ * Collecting mbox related stuff live in
+ * so_5::extra::mboxes::collecting_mbox namespace.
+ * See the main template class so_5::extra::mboxes::collecting_mbox::mbox_template_t for more details.
+ *
+ * Since v.1.0.1 so_5_extra required SO-5.5.19.3 as minimal SObjectizer's
+ * version.
+ */
+
+// vim:ft=cpp
+
