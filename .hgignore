@@ -6,6 +6,9 @@ syntax: glob
 dev/target
 dev/zbuild
 dev/so_5
+dev/asio
+dev/asio_mxxru
+dev/doctest
 dev/__*.vim
 dev/local-build.rb
 dev/doc
