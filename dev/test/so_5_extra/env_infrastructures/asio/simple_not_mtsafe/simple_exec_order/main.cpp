@@ -5,7 +5,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 using sequence_t = std::vector<int>;
 
@@ -59,7 +59,7 @@ TEST_CASE( "ascending order of received messages" )
 			sequence_t actual_seq;
 
 			so_5::launch( [&](so_5::environment_t & env) {
-						env.register_agent_as_coop( "test",
+						env.register_agent_as_coop(
 								env.make_agent< a_test_case_t >( std::ref(actual_seq) ) );
 					},
 					[&io_svc](so_5::environment_params_t & params) {
