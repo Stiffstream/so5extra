@@ -181,11 +181,30 @@ struct disp_ds_name_parts_t final
  * v.1.3.0
  */
 template< typename Activity_Tracker >
-using default_dispatcher_t =
-	reusable::default_dispatcher_t<
+class default_dispatcher_t final
+	: public reusable::default_dispatcher_t<
 			event_queue_impl_t< Activity_Tracker >,
 			Activity_Tracker,
-			disp_ds_name_parts_t >;
+			disp_ds_name_parts_t >
+	{
+		using base_type = reusable::default_dispatcher_t<
+				event_queue_impl_t< Activity_Tracker >,
+				Activity_Tracker,
+				disp_ds_name_parts_t >;
+
+	public :
+		default_dispatcher_t(
+			outliving_reference_t< environment_t > env,
+			outliving_reference_t< event_queue_impl_t<Activity_Tracker> > event_queue,
+			outliving_reference_t< Activity_Tracker > activity_tracker )
+			:	base_type{ env, event_queue, activity_tracker }
+			{
+				// Event queue should be started manually.
+				// We known that the default dispatcher is created on a thread
+				// that will be used for events dispatching.
+				event_queue.get().start( this->thread_id() );
+			}
+	};
 
 //
 // env_infrastructure_t
