@@ -323,7 +323,12 @@ class env_infrastructure_t
 		 */
 		std::size_t m_final_dereg_coop_count{ 0 };
 
-//FIXME: document this!
+		//! The pointer to an exception that was thrown during init phase.
+		/*!
+		 * This exception is stored inside a callback posted to Asio.
+		 * An then this exception will be rethrown from launch() method
+		 * after the shutdown of SObjectizer.
+		 */
 		std::exception_ptr m_exception_from_init;
 
 		void

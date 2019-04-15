@@ -330,6 +330,14 @@ class env_infrastructure_t
 		 */
 		std::atomic< std::size_t > m_final_dereg_coop_count;
 
+		//! The pointer to an exception that was thrown during init phase.
+		/*!
+		 * This exception is stored inside a callback posted to Asio.
+		 * An then this exception will be rethrown from launch() method
+		 * after the shutdown of SObjectizer.
+		 */
+		std::exception_ptr m_exception_from_init;
+
 		void
 		run_default_dispatcher_and_go_further( env_init_t init_fn );
 
@@ -373,6 +381,11 @@ env_infrastructure_t<Activity_Tracker>::launch( env_init_t init_fn )
 
 		// Launch Asio event loop.
 		m_io_svc.get().run();
+
+		if( m_exception_from_init )
+			// Some exception was thrown during initialization.
+			// It should be rethrown.
+			std::rethrow_exception( m_exception_from_init );
 	}
 
 template< typename Activity_Tracker >
@@ -582,9 +595,21 @@ env_infrastructure_t<Activity_Tracker>::run_default_dispatcher_and_go_further(
 			}
 		catch(...)
 			{
-				m_default_disp.reset();
+				// We can't restore if the following fragment throws and exception.
+				so_5::details::invoke_noexcept_code( [&] {
+						// The current exception should be stored to be
+						// rethrown later.
+						m_exception_from_init = std::current_exception();
 
-				throw;
+						// SObjectizer's shutdown should be initiated.
+						stop();
+
+						// Drop the pointer to the default dispatcher.
+						// If the dispatcher is used by some agent then
+						// the dispatcher will be automatically destroyed after
+						// deregistration of that agent.
+						m_default_disp.reset();
+					} );
 			}
 	}
 
