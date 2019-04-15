@@ -12,6 +12,9 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/simple_exec_order/prj.ut.rb" )
 	required_prj( "#{path}/simple_exec_order/prj_s.ut.rb" )
 
+	required_prj( "#{path}/unknown_exception_init_fn/prj.ut.rb" )
+	required_prj( "#{path}/unknown_exception_init_fn/prj_s.ut.rb" )
+
 	required_prj( "#{path}/agent_without_activity/prj.ut.rb" )
 	required_prj( "#{path}/agent_without_activity/prj_s.ut.rb" )
 
