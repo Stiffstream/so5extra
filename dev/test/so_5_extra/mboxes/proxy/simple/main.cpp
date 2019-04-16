@@ -5,8 +5,8 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
-#include <various_helpers_1/ensure.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/ensure.hpp>
 
 namespace proxy_mbox_ns = so_5::extra::mboxes::proxy;
 
@@ -18,11 +18,6 @@ struct ping final : public so_5::message_t
 	};
 
 struct pong final : public so_5::signal_t {};
-
-struct request final
-	{
-		std::string m_what;
-	};
 
 struct shutdown final : public so_5::signal_t {};
 
@@ -48,13 +43,7 @@ class master_t final : public so_5::agent_t
 		void
 		on_pong( mhood_t<pong> )
 			{
-				const auto resp = so_5::request_value< std::string, request >(
-						m_mbox, so_5::infinite_wait, "Hello!" );
-				ensure_or_die( "<Hello!>" == resp,
-						"Unexpected response: " + resp );
-
 				so_5::send_delayed< shutdown >(
-						so_environment(),
 						m_mbox,
 						std::chrono::milliseconds(50) );
 			}
@@ -70,9 +59,6 @@ class slave_t final : public so_5::agent_t
 					.event( []( mhood_t<ping> cmd ) {
 							so_5::send< pong >( cmd->m_reply_to );
 						} )
-					.event( []( mhood_t<request> cmd ) -> std::string {
-							return "<" + cmd->m_what + ">";
-						} )
 					.event( [this]( mhood_t<shutdown> ) {
 							so_deregister_agent_coop_normally();
 						} );
@@ -84,7 +70,7 @@ TEST_CASE( "simple proxy" )
 	run_with_time_limit( [] {
 			so_5::launch( [&](so_5::environment_t & env) {
 						env.introduce_coop(
-							so_5::disp::active_obj::create_private_disp( env )->binder(),
+							so_5::disp::active_obj::make_dispatcher( env ).binder(),
 							[]( so_5::coop_t & coop ) {
 								auto slave = coop.make_agent< slave_t >();
 								coop.make_agent< master_t >(
