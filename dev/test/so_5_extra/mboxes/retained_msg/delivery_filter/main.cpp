@@ -153,7 +153,7 @@ TEST_CASE( "test case with delivery filter" )
 			std::string scenario;
 
 			so_5::launch( [&](so_5::environment_t & env) {
-						env.register_agent_as_coop( "test",
+						env.register_agent_as_coop(
 								env.make_agent<
 											supervisor_t<with_delivery_filter_case_t>
 										>(
@@ -171,7 +171,7 @@ TEST_CASE( "test case without delivery filter" )
 			std::string scenario;
 
 			so_5::launch( [&](so_5::environment_t & env) {
-						env.register_agent_as_coop( "test",
+						env.register_agent_as_coop(
 								env.make_agent<
 											supervisor_t<without_delivery_filter_case_t>
 										>(

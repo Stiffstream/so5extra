@@ -91,7 +91,7 @@ TEST_CASE( "constexpr case" )
 			std::string scenario;
 
 			so_5::launch( [&](so_5::environment_t & env) {
-						env.register_agent_as_coop( "test",
+						env.register_agent_as_coop(
 								env.make_agent< a_test_case_t< constexpr_case > >(
 										std::ref(scenario) ) );
 					},
@@ -111,7 +111,7 @@ TEST_CASE( "runtime case" )
 			std::string scenario;
 
 			so_5::launch( [&](so_5::environment_t & env) {
-						env.register_agent_as_coop( "test",
+						env.register_agent_as_coop(
 								env.make_agent< a_test_case_t< constexpr_case > >(
 										std::ref(scenario) ) );
 					},

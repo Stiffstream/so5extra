@@ -51,7 +51,7 @@ TEST_CASE( "simplest agent with single retained message" )
 {
 	run_with_time_limit( [] {
 			so_5::launch( [&](so_5::environment_t & env) {
-						env.register_agent_as_coop( "test",
+						env.register_agent_as_coop(
 								env.make_agent< a_test_case_t >() );
 					},
 					[](so_5::environment_params_t & params) {

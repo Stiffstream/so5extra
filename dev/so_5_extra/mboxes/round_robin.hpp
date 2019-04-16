@@ -5,8 +5,8 @@
 
 #pragma once
 
-#include <so_5/rt/impl/h/msg_tracing_helpers.hpp>
-#include <so_5/rt/impl/h/message_limit_internals.hpp>
+#include <so_5/impl/msg_tracing_helpers.hpp>
+#include <so_5/impl/message_limit_internals.hpp>
 
 namespace so_5 {
 
@@ -56,7 +56,7 @@ class subscriber_container_t
 		using storage_t = std::vector< subscriber_info_t >;
 
 		bool
-		empty() const
+		empty() const noexcept
 			{
 				return m_subscribers.empty();
 			}
@@ -70,13 +70,13 @@ class subscriber_container_t
 			}
 
 		storage_t::iterator
-		end()
+		end() noexcept
 			{
 				return m_subscribers.end();
 			}
 
 		storage_t::iterator
-		find( agent_t * subscriber )
+		find( agent_t * subscriber ) noexcept
 			{
 				return std::find_if( std::begin(m_subscribers), std::end(m_subscribers),
 						[&]( const auto & info ) {
@@ -85,20 +85,20 @@ class subscriber_container_t
 			}
 
 		void
-		erase( storage_t::iterator it )
+		erase( storage_t::iterator it ) noexcept
 			{
 				m_subscribers.erase(it);
 				ensure_valid_current_subscriber_index();
 			}
 
 		const subscriber_info_t &
-		current_subscriber() const
+		current_subscriber() const noexcept
 			{
 				return m_subscribers[ m_current_subscriber ];
 			}
 
 		void
-		switch_current_subscriber()
+		switch_current_subscriber() noexcept
 			{
 				++m_current_subscriber;
 				ensure_valid_current_subscriber_index();
@@ -109,7 +109,7 @@ class subscriber_container_t
 		storage_t::size_type m_current_subscriber{ 0 };
 
 		void
-		ensure_valid_current_subscriber_index()
+		ensure_valid_current_subscriber_index() noexcept
 			{
 				if( m_current_subscriber >= m_subscribers.size() )
 					m_current_subscriber = 0;
@@ -131,19 +131,21 @@ template< typename Lock >
 struct data_t
 	{
 		//! Initializing constructor.
-		data_t( mbox_id_t id )
-			:	m_id{ id }
+		data_t(
+			environment_t & env,
+			mbox_id_t id )
+			:	m_env{ env }
+			,	m_id{ id }
 			{}
+
+		//! SObjectizer Environment to work in.
+		environment_t & m_env;
 
 		//! ID of this mbox.
 		const mbox_id_t m_id;
 
 		//! Object lock.
-		/*!
-		 * \note
-		 * Declared as mutable because it will be used in const-methods.
-		 */
-		mutable Lock m_lock;
+		Lock m_lock;
 
 		/*!
 		 * \brief Map from message type to subscribers.
@@ -153,11 +155,7 @@ struct data_t
 						subscriber_container_t >;
 
 		//! Map of subscribers to messages.
-		/*!
-		 * \note
-		 * Declared as mutable because it will be used in const-methods.
-		 */
-		mutable messages_table_t m_subscribers;
+		messages_table_t m_subscribers;
 	};
 
 //
@@ -185,25 +183,27 @@ class mbox_template_t
 		//! Initializing constructor.
 		template< typename... Tracing_Args >
 		mbox_template_t(
+			//! SObjectizer Environment to work in.
+			environment_t & env,
 			//! ID of this mbox.
 			mbox_id_t id,
 			//! Optional parameters for Tracing_Base's constructor.
 			Tracing_Args &&... args )
-			:	data_type{ id }
+			:	data_type{ env, id }
 			,	Tracing_Base{ std::forward< Tracing_Args >(args)... }
 			{}
 
-		virtual mbox_id_t
+		mbox_id_t
 		id() const override
 			{
 				return this->m_id;
 			}
 
-		virtual void
+		void
 		subscribe_event_handler(
 			const std::type_index & type_wrapper,
 			const so_5::message_limit::control_block_t * limit,
-			agent_t * subscriber ) override
+			agent_t & subscriber ) override
 			{
 				std::lock_guard< Lock_Type > lock( this->m_lock );
 
@@ -212,7 +212,7 @@ class mbox_template_t
 				{
 					// There isn't such message type yet.
 					subscriber_container_t container;
-					container.emplace_back( subscriber, limit );
+					container.emplace_back( &subscriber, limit );
 
 					this->m_subscribers.emplace( type_wrapper, std::move( container ) );
 				}
@@ -220,18 +220,18 @@ class mbox_template_t
 				{
 					auto & agents = it->second;
 
-					auto pos = agents.find( subscriber );
+					auto pos = agents.find( &subscriber );
 					if( pos == agents.end() )
 						// There is no subscriber in the container.
 						// It must be added.
-						agents.emplace_back( subscriber, limit );
+						agents.emplace_back( &subscriber, limit );
 				}
 			}
 
-		virtual void
+		void
 		unsubscribe_event_handlers(
 			const std::type_index & type_wrapper,
-			agent_t * subscriber ) override
+			agent_t & subscriber ) override
 			{
 				std::lock_guard< Lock_Type > lock( this->m_lock );
 
@@ -240,7 +240,7 @@ class mbox_template_t
 				{
 					auto & agents = it->second;
 
-					auto pos = agents.find( subscriber );
+					auto pos = agents.find( &subscriber );
 					if( pos != agents.end() )
 					{
 						agents.erase( pos );
@@ -251,7 +251,7 @@ class mbox_template_t
 				}
 			}
 
-		virtual std::string
+		std::string
 		query_name() const override
 			{
 				std::ostringstream s;
@@ -260,17 +260,17 @@ class mbox_template_t
 				return s.str();
 			}
 
-		virtual mbox_type_t
+		mbox_type_t
 		type() const override
 			{
 				return mbox_type_t::multi_producer_single_consumer;
 			}
 
-		virtual void
+		void
 		do_deliver_message(
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const override
+			unsigned int overlimit_reaction_deep ) override
 			{
 				typename Tracing_Base::deliver_op_tracer tracer{
 						*this, // as Tracing_Base
@@ -282,50 +282,10 @@ class mbox_template_t
 						tracer,
 						msg_type,
 						message,
-						invocation_type_t::event,
-						overlimit_reaction_deep );
-			}
-
-		virtual void
-		do_deliver_service_request(
-			const std::type_index & msg_type,
-			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const override
-			{
-				typename Tracing_Base::deliver_op_tracer tracer{
-						*this, // as Tracing_Base
-						*this, // as abstract_message_box_t
-						"deliver_service_request",
-						msg_type, message, overlimit_reaction_deep };
-
-				do_deliver_service_request_impl(
-						tracer,
-						msg_type,
-						message,
 						overlimit_reaction_deep );
 			}
 
 		void
-		do_deliver_enveloped_msg(
-			const std::type_index & msg_type,
-			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) override
-			{
-				typename Tracing_Base::deliver_op_tracer tracer{
-						*this, // as Tracing_Base
-						*this, // as abstract_message_box_t
-						"deliver_enveloped_msg",
-						msg_type, message, overlimit_reaction_deep };
-
-				do_deliver_message_impl(
-						tracer,
-						msg_type,
-						message,
-						invocation_type_t::enveloped_msg,
-						overlimit_reaction_deep );
-			}
-
-		virtual void
 		set_delivery_filter(
 			const std::type_index & /*msg_type*/,
 			const delivery_filter_t & /*filter*/,
@@ -336,12 +296,18 @@ class mbox_template_t
 						"set_delivery_filter is called for MPSC-mbox" );
 			}
 
-		virtual void
+		void
 		drop_delivery_filter(
 			const std::type_index & /*msg_type*/,
 			agent_t & /*subscriber*/ ) noexcept override
 			{
 				// Nothing to do.
+			}
+
+		so_5::environment_t &
+		environment() const noexcept
+			{
+				return this->m_env;
 			}
 
 	private :
@@ -350,8 +316,7 @@ class mbox_template_t
 			typename Tracing_Base::deliver_op_tracer const & tracer,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			invocation_type_t invocation_type,
-			unsigned int overlimit_reaction_deep ) const
+			unsigned int overlimit_reaction_deep )
 			{
 				std::lock_guard< Lock_Type > lock( this->m_lock );
 
@@ -366,7 +331,6 @@ class mbox_template_t
 								tracer,
 								msg_type,
 								message,
-								invocation_type,
 								overlimit_reaction_deep );
 					}
 				else
@@ -379,14 +343,12 @@ class mbox_template_t
 			typename Tracing_Base::deliver_op_tracer const & tracer,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			invocation_type_t invocation_type,
-			unsigned int overlimit_reaction_deep ) const
+			unsigned int overlimit_reaction_deep )
 			{
 				using namespace so_5::message_limit::impl;
 
 				try_to_deliver_to_agent(
 						this->m_id,
-						invocation_type,
 						*(agent_info.m_agent),
 						agent_info.m_limit,
 						msg_type,
@@ -397,72 +359,6 @@ class mbox_template_t
 							tracer.push_to_queue( agent_info.m_agent );
 
 							agent_t::call_push_event(
-									*(agent_info.m_agent),
-									agent_info.m_limit,
-									this->m_id,
-									msg_type,
-									message );
-						} );
-			}
-
-		void
-		do_deliver_service_request_impl(
-			typename Tracing_Base::deliver_op_tracer const & tracer,
-			const std::type_index & msg_type,
-			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const
-			{
-				using namespace so_5::message_limit::impl;
-
-				msg_service_request_base_t::dispatch_wrapper( message,
-					[&] {
-						std::lock_guard< Lock_Type > lock( this->m_lock );
-
-						auto it = this->m_subscribers.find( msg_type );
-						if( it == this->m_subscribers.end() )
-							{
-								tracer.no_subscribers();
-
-								SO_5_THROW_EXCEPTION(
-										so_5::rc_no_svc_handlers,
-										"no service handlers (no subscribers for message)" );
-							}
-
-						const auto & agent_info = it->second.current_subscriber();
-						it->second.switch_current_subscriber();
-
-						do_deliver_service_request_to_subscriber(
-								tracer,
-								agent_info,
-								msg_type,
-								message,
-								overlimit_reaction_deep );
-					} );
-			}
-
-		void
-		do_deliver_service_request_to_subscriber(
-			typename Tracing_Base::deliver_op_tracer const & tracer,
-			const subscriber_info_t & agent_info,
-			const std::type_index & msg_type,
-			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const
-			{
-				using namespace so_5::message_limit::impl;
-
-				try_to_deliver_to_agent(
-						this->m_id,
-						invocation_type_t::service_request,
-						*(agent_info.m_agent),
-						agent_info.m_limit,
-						msg_type,
-						message,
-						overlimit_reaction_deep,
-						tracer.overlimit_tracer(),
-						[&] {
-							tracer.push_to_queue( agent_info.m_agent );
-
-							agent_t::call_push_service_request(
 									*(agent_info.m_agent),
 									agent_info.m_limit,
 									this->m_id,
@@ -504,7 +400,11 @@ make_mbox( environment_t & env )
 									Lock_Type,
 									::so_5::impl::msg_tracing_helpers::tracing_enabled_base >;
 
-							result = mbox_t( new T( data.m_id, data.m_tracer.get() ) );
+							result = mbox_t{ std::make_unique<T>(
+									data.m_env.get(),
+									data.m_id,
+									data.m_tracer.get() )
+							};
 						}
 					else
 						{
@@ -512,7 +412,10 @@ make_mbox( environment_t & env )
 									Lock_Type,
 									::so_5::impl::msg_tracing_helpers::tracing_disabled_base >;
 
-							result = mbox_t( new T( data.m_id ) );
+							result = mbox_t{ std::make_unique<T>(
+									data.m_env.get(),
+									data.m_id )
+							};
 						}
 
 					return result;
