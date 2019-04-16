@@ -11,9 +11,9 @@
 
 #include <so_5_extra/enveloped_msg/errors.hpp>
 
-#include <so_5/rt/h/send_functions.hpp>
+#include <so_5/send_functions.hpp>
 
-#include <so_5/h/optional.hpp>
+#include <so_5/optional.hpp>
 
 namespace so_5 {
 
@@ -108,7 +108,7 @@ class payload_holder_t final
 				// NOTE: there is no need to check mutability of a message.
 				// This check should be performed by the target mbox itself.
 				so_5::send_functions_details::arg_to_mbox( to )->
-						do_deliver_enveloped_msg(
+						do_deliver_message(
 								m_data->m_msg_type,
 								m_data->m_message,
 								1u );
@@ -116,13 +116,12 @@ class payload_holder_t final
 
 		void
 		send_delayed_to(
-			so_5::environment_t & env,
 			const so_5::mbox_t & to,
 			std::chrono::steady_clock::duration pause )
 			{
 				ensure_not_empty_object( "send_delayed_to()" );
 
-				env.single_timer(
+				so_5::low_level_api::single_timer(
 						m_data->m_msg_type,
 						m_data->m_message,
 						to,
@@ -136,7 +135,6 @@ class payload_holder_t final
 			std::chrono::steady_clock::duration pause )
 			{
 				return this->send_delayed_to(
-						so_5::send_functions_details::arg_to_env( to ),
 						so_5::send_functions_details::arg_to_mbox( to ),
 						pause );
 			}
@@ -144,14 +142,13 @@ class payload_holder_t final
 		SO_5_NODISCARD
 		auto
 		send_periodic_to(
-			so_5::environment_t & env,
 			const so_5::mbox_t & to,
 			std::chrono::steady_clock::duration pause,
 			std::chrono::steady_clock::duration period )
 			{
 				ensure_not_empty_object( "send_periodic_to()" );
 
-				return env.schedule_timer(
+				return so_5::low_level_api::schedule_timer(
 						m_data->m_msg_type,
 						m_data->m_message,
 						to,
@@ -168,7 +165,6 @@ class payload_holder_t final
 			std::chrono::steady_clock::duration period )
 			{
 				return this->send_periodic_to(
-						so_5::send_functions_details::arg_to_env( to ),
 						so_5::send_functions_details::arg_to_mbox( to ),
 						pause,
 						period );
@@ -212,12 +208,10 @@ class payload_holder_t final
  *
  * // Create message of type my_message, envelop it into my_envelope
  * // and then send it to the mbox mb1 as delayed message.
- * // Note that the reference to SObjectizer Environment is necessary. 
- * so_5::environment_t & env = ...;
  * so_5::mbox_t mb1 = ...;
  * msg_ns::make<my_message>(...)
  * 		.envelope<my_envelope>(...)
- * 		.send_delayed_to(env, mb1, 10s);
+ * 		.send_delayed_to(mb1, 10s);
  *
  * // Create message of type my_message, envelop it into my_envelope
  * // and then send it to the mchain ch1 as delayed message.
@@ -235,12 +229,10 @@ class payload_holder_t final
  *
  * // Create message of type my_message, envelop it into my_envelope
  * // and then send it to the mbox mb1 as periodic message.
- * // Note that the reference to SObjectizer Environment is necessary. 
- * so_5::environment_t & env = ...;
  * so_5::mbox_t mb1 = ...;
  * auto timer_id = msg_ns::make<my_message>(...)
  * 		.envelope<my_envelope>(...)
- * 		.send_periodic_to(env, mb1, 10s, 30s);
+ * 		.send_periodic_to(mb1, 10s, 30s);
  *
  * // Create message of type my_message, envelop it into my_envelope
  * // and then send it to the mchain ch1 as delayed message.
