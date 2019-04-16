@@ -19,18 +19,6 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/delivery_filter/prj.ut.rb" )
 	required_prj( "#{path}/delivery_filter/prj_s.ut.rb" )
 
-	required_prj( "#{path}/service_request/prj.ut.rb" )
-	required_prj( "#{path}/service_request/prj_s.ut.rb" )
-
-	required_prj( "#{path}/service_request_enabled/prj.ut.rb" )
-	required_prj( "#{path}/service_request_enabled/prj_s.ut.rb" )
-
-	required_prj( "#{path}/service_request_enabled_2/prj.ut.rb" )
-	required_prj( "#{path}/service_request_enabled_2/prj_s.ut.rb" )
-
-	required_prj( "#{path}/service_request_enabled_3/prj.ut.rb" )
-	required_prj( "#{path}/service_request_enabled_3/prj_s.ut.rb" )
-
 	required_prj( "#{path}/mutable_msg/prj.ut.rb" )
 	required_prj( "#{path}/mutable_msg/prj_s.ut.rb" )
 

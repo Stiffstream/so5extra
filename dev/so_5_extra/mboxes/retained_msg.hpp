@@ -10,13 +10,13 @@
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/rt/impl/h/agent_ptr_compare.hpp>
-#include <so_5/rt/impl/h/message_limit_internals.hpp>
-#include <so_5/rt/impl/h/msg_tracing_helpers.hpp>
+#include <so_5/impl/agent_ptr_compare.hpp>
+#include <so_5/impl/message_limit_internals.hpp>
+#include <so_5/impl/msg_tracing_helpers.hpp>
 
-#include <so_5/details/h/sync_helpers.hpp>
+#include <so_5/details/sync_helpers.hpp>
 
-#include <so_5/rt/h/mbox.hpp>
+#include <so_5/mbox.hpp>
 
 #include <memory>
 
@@ -41,24 +41,6 @@ const int rc_service_request_via_retained_msg_mbox =
 
 
 } /* namespace errors */
-
-//
-// service_request_support_t
-//
-/*!
- * \brief Indiction of service requests support for retained message mbox.
- *
- * \since
- * v.1.0.3
- */
-enum class service_request_support_t
-	{
-		//! Service requests are not supported.
-		//! This the default value for retained message mboxes.
-		disabled,
-		//! Service requests are supported.
-		enabled
-	};
 
 namespace details {
 
@@ -113,12 +95,6 @@ using lock_t = typename Config_Type::lock_type;
  * \}
  */
 
-//! Helper function for extraction service requests support flag from
-//! config type.
-template< typename Config_Type >
-constexpr service_request_support_t service_request_support_v =
-		traits_t<Config_Type>::service_request_support;
-
 /*!
  * \brief An information block about one subscriber.
  *
@@ -171,13 +147,13 @@ public :
 	{}
 
 	bool
-	empty() const
+	empty() const noexcept
 	{
 		return state_t::nothing == m_state;
 	}
 
 	const message_limit::control_block_t *
-	limit() const
+	limit() const noexcept
 	{
 		return m_limit;
 	}
@@ -190,7 +166,7 @@ public :
 	 * \note The message limit can be nullptr.
 	 */
 	void
-	set_limit( const message_limit::control_block_t * limit )
+	set_limit( const message_limit::control_block_t * limit ) noexcept
 	{
 		m_limit = limit;
 
@@ -205,7 +181,7 @@ public :
 	 * subscription for the agent.
 	 */
 	void
-	drop_limit()
+	drop_limit() noexcept
 	{
 		m_limit = nullptr;
 
@@ -215,7 +191,7 @@ public :
 
 	//! Set the delivery filter for the subscriber.
 	void
-	set_filter( const delivery_filter_t & filter )
+	set_filter( const delivery_filter_t & filter ) noexcept
 	{
 		m_filter = &filter;
 
@@ -226,7 +202,7 @@ public :
 
 	//! Drop the delivery filter for the subscriber.
 	void
-	drop_filter()
+	drop_filter() noexcept
 	{
 		m_filter = nullptr;
 
@@ -238,7 +214,7 @@ public :
 	delivery_possibility_t
 	must_be_delivered(
 		agent_t & subscriber,
-		message_t & msg ) const
+		message_t & msg ) const noexcept
 	{
 		// For the case when there are actual subscriptions.
 		// We assume that will be in 99.9% cases.
@@ -279,7 +255,7 @@ struct messages_table_item_t
 		//! agent's priority.
 		struct agent_ptr_comparator_t
 			{
-				bool operator()( agent_t * a, agent_t * b ) const
+				bool operator()( agent_t * a, agent_t * b ) const noexcept
 				{
 					return ::so_5::impl::special_agent_ptr_compare( *a, *b );
 				}
@@ -318,6 +294,9 @@ struct messages_table_item_t
  */
 struct template_independent_mbox_data_t
 	{
+		//! SObjectizer Environment to work in.
+		environment_t & m_env;
+
 		//! ID of the mbox.
 		const mbox_id_t m_id;
 
@@ -328,39 +307,13 @@ struct template_independent_mbox_data_t
 		//! Table of current subscriptions and messages.
 		messages_table_t m_messages_table;
 
-		template_independent_mbox_data_t( mbox_id_t id ) : m_id{id} {}
+		template_independent_mbox_data_t(
+			environment_t & env,
+			mbox_id_t id )
+			:	m_env{ env }
+			,	m_id{id}
+		{}
 	};
-
-//
-// detect_invocation_type_for_retained_msg
-//
-/*!
- * \brief Detection of invocation_type for a retained message.
- *
- * \since
- * v.1.2.0
- */
-inline invocation_type_t
-detect_invocation_type_for_retained_msg(
-	const message_ref_t & msg ) noexcept
-	{
-		invocation_type_t result = invocation_type_t::event;
-		switch( message_kind(msg) )
-			{
-			case message_t::kind_t::signal: /* already detected */ break;
-			case message_t::kind_t::classical_message: /* already detected */ break;
-			case message_t::kind_t::user_type_message: /* already detected */ break;
-			case message_t::kind_t::service_request:
-				result = invocation_type_t::service_request;
-			break;
-
-			case message_t::kind_t::enveloped_msg:
-				result = invocation_type_t::enveloped_msg;
-			break;
-			}
-
-		return result;
-	}
 
 //
 // actual_mbox_t
@@ -393,25 +346,27 @@ class actual_mbox_t final
 		 */
 		template< typename... Tracing_Args >
 		actual_mbox_t(
+			//! SObjectizer Environment to work in.
+			environment_t & env,
 			//! ID of this mbox.
 			mbox_id_t id,
 			//! Optional parameters for Tracing_Base's constructor.
 			Tracing_Args &&... args )
 			:	Tracing_Base{ std::forward< Tracing_Args >(args)... }
-			,	m_data{ id }
+			,	m_data{ env, id }
 			{}
 
-		virtual mbox_id_t
+		mbox_id_t
 		id() const override
 			{
 				return this->m_data.m_id;
 			}
 
-		virtual void
+		void
 		subscribe_event_handler(
 			const std::type_index & msg_type,
 			const so_5::message_limit::control_block_t * limit,
-			agent_t * subscriber ) override
+			agent_t & subscriber ) override
 			{
 				insert_or_modify_subscriber(
 						msg_type,
@@ -424,10 +379,10 @@ class actual_mbox_t final
 						} );
 			}
 
-		virtual void
+		void
 		unsubscribe_event_handlers(
 			const std::type_index & msg_type,
-			agent_t * subscriber ) override
+			agent_t & subscriber ) override
 			{
 				modify_and_remove_subscriber_if_needed(
 						msg_type,
@@ -437,7 +392,7 @@ class actual_mbox_t final
 						} );
 			}
 
-		virtual std::string
+		std::string
 		query_name() const override
 			{
 				std::ostringstream s;
@@ -446,17 +401,17 @@ class actual_mbox_t final
 				return s.str();
 			}
 
-		virtual mbox_type_t
+		mbox_type_t
 		type() const override
 			{
 				return mbox_type_t::multi_producer_multi_consumer;
 			}
 
-		virtual void
+		void
 		do_deliver_message(
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const override
+			unsigned int overlimit_reaction_deep ) override
 			{
 				typename Tracing_Base::deliver_op_tracer tracer{
 						*this, // as Tracing_base
@@ -468,68 +423,12 @@ class actual_mbox_t final
 
 				do_deliver_message_impl(
 						tracer,
-						invocation_type_t::event,
 						msg_type,
 						message,
 						overlimit_reaction_deep );
 			}
 
-		virtual void
-		do_deliver_service_request(
-			const std::type_index & msg_type,
-			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const override
-			{
-				if( service_request_support_t::disabled ==
-						service_request_support_v<Config> )
-					{
-						SO_5_THROW_EXCEPTION(
-								errors::rc_service_request_via_retained_msg_mbox,
-								std::string( "service request cannot be performed "
-										"on retained_msg mboxes"
-										", msg_type: " ) + msg_type.name() );
-					}
-				else
-					{
-						typename Tracing_Base::deliver_op_tracer tracer{
-								*this, // as Tracing_Base
-								*this, // as abstract_message_box_t
-								"deliver_service_request",
-								msg_type,
-								message,
-								overlimit_reaction_deep };
-
-						do_deliver_service_request_impl(
-								tracer,
-								msg_type,
-								message,
-								overlimit_reaction_deep );
-					}
-			}
-
-		virtual void
-		do_deliver_enveloped_msg(
-			const std::type_index & msg_type,
-			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) override
-			{
-				typename Tracing_Base::deliver_op_tracer tracer{
-						*this, // as Tracing_base
-						*this, // as abstract_message_box_t
-						"deliver_enveloped_msg",
-						msg_type, message, overlimit_reaction_deep };
-
-				ensure_immutable_message( msg_type, message );
-
-				do_deliver_message_impl(
-						tracer,
-						invocation_type_t::enveloped_msg,
-						msg_type,
-						message,
-						overlimit_reaction_deep );
-			}
-
-		virtual void
+		void
 		set_delivery_filter(
 			const std::type_index & msg_type,
 			const delivery_filter_t & filter,
@@ -537,7 +436,7 @@ class actual_mbox_t final
 			{
 				insert_or_modify_subscriber(
 						msg_type,
-						&subscriber,
+						subscriber,
 						[&] {
 							return subscriber_info_t{ &filter };
 						},
@@ -546,41 +445,37 @@ class actual_mbox_t final
 						} );
 			}
 
-		virtual void
+		void
 		drop_delivery_filter(
 			const std::type_index & msg_type,
 			agent_t & subscriber ) noexcept override
 			{
 				modify_and_remove_subscriber_if_needed(
 						msg_type,
-						&subscriber,
+						subscriber,
 						[]( subscriber_info_t & info ) {
 							info.drop_filter();
 						} );
 			}
 
+		so_5::environment_t &
+		environment() const noexcept
+			{
+				return this->m_data.m_env;
+			}
+
 	private :
 		//! Data of this message mbox.
-		/*!
-		 * \note
-		 * It marked as mutable because it must be modified in
-		 * const-methods like do_deliver_message().
-		 */
-		mutable template_independent_mbox_data_t m_data;
+		template_independent_mbox_data_t m_data;
 
 		//! Object lock.
-		/*!
-		 * \note
-		 * It marked as mutable because it must be modified in
-		 * const-methods like do_deliver_message().
-		 */
-		mutable lock_t<Config> m_lock;
+		lock_t<Config> m_lock;
 
 		template< typename Info_Maker, typename Info_Changer >
 		void
 		insert_or_modify_subscriber(
 			const std::type_index & msg_type,
-			agent_t * subscriber,
+			agent_t & subscriber,
 			Info_Maker maker,
 			Info_Changer changer )
 			{
@@ -590,11 +485,11 @@ class actual_mbox_t final
 				// created automatically.
 				auto & table_item = this->m_data.m_messages_table[ msg_type ];
 
-				auto it_subscriber = table_item.m_subscribers.find( subscriber );
+				auto it_subscriber = table_item.m_subscribers.find( &subscriber );
 				if( it_subscriber == table_item.m_subscribers.end() )
 					// There is no subscriber yet. It must be added.
 					it_subscriber = table_item.m_subscribers.emplace(
-							subscriber, maker() ).first;
+							&subscriber, maker() ).first;
 				else
 					// Subscriber is known. It must be updated.
 					changer( it_subscriber->second );
@@ -606,7 +501,7 @@ class actual_mbox_t final
 					try_deliver_retained_message_to(
 							msg_type,
 							table_item.m_retained_msg,
-							*subscriber,
+							subscriber,
 							it_subscriber->second );
 			}
 
@@ -614,7 +509,7 @@ class actual_mbox_t final
 		void
 		modify_and_remove_subscriber_if_needed(
 			const std::type_index & msg_type,
-			agent_t * subscriber,
+			agent_t & subscriber,
 			Info_Changer changer )
 			{
 				std::lock_guard< lock_t<Config> > lock( m_lock );
@@ -625,7 +520,7 @@ class actual_mbox_t final
 						auto & table_item = it_table_item->second;
 
 						auto it_subscriber = table_item.m_subscribers.find(
-								subscriber );
+								&subscriber );
 						if( it_subscriber != table_item.m_subscribers.end() )
 							{
 								// Subscriber is found and must be modified.
@@ -642,10 +537,9 @@ class actual_mbox_t final
 		void
 		do_deliver_message_impl(
 			typename Tracing_Base::deliver_op_tracer const & tracer,
-			invocation_type_t invocation_type,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const
+			unsigned int overlimit_reaction_deep )
 			{
 				std::lock_guard< lock_t<Config> > lock( m_lock );
 
@@ -663,7 +557,6 @@ class actual_mbox_t final
 								*(kv.first),
 								kv.second,
 								tracer,
-								invocation_type,
 								msg_type,
 								message,
 								overlimit_reaction_deep );
@@ -676,7 +569,6 @@ class actual_mbox_t final
 			agent_t & subscriber,
 			const subscriber_info_t & subscriber_info,
 			typename Tracing_Base::deliver_op_tracer const & tracer,
-			invocation_type_t invocation_type,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
 			unsigned int overlimit_reaction_deep ) const
@@ -692,7 +584,6 @@ class actual_mbox_t final
 
 						try_to_deliver_to_agent(
 								this->m_data.m_id,
-								invocation_type,
 								subscriber,
 								subscriber_info.limit(),
 								msg_type,
@@ -713,121 +604,6 @@ class actual_mbox_t final
 				else
 					tracer.message_rejected(
 							std::addressof(subscriber), delivery_status );
-			}
-
-		void
-		do_deliver_service_request_impl(
-			typename Tracing_Base::deliver_op_tracer const & tracer,
-			const std::type_index & msg_type,
-			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const
-			{
-				using namespace so_5::message_limit::impl;
-
-				msg_service_request_base_t::dispatch_wrapper( message,
-					[&] {
-						std::lock_guard< lock_t<Config> > lock( m_lock );
-
-						auto it_msg = this->m_data.m_messages_table.find( msg_type );
-						if( it_msg == this->m_data.m_messages_table.end() )
-							{
-								tracer.no_subscribers();
-
-								SO_5_THROW_EXCEPTION(
-										so_5::rc_no_svc_handlers,
-										std::string(
-												"no service handlers (no subscribers "
-												"for message), msg_type: " )
-												+ msg_type.name() );
-							}
-
-						auto & subscribers = it_msg->second.m_subscribers;
-						if( 0 == subscribers.size() )
-							{
-								tracer.no_subscribers();
-
-								SO_5_THROW_EXCEPTION(
-										so_5::rc_no_svc_handlers,
-										std::string(
-												"no service handlers (no subscribers "
-												"for message), msg_type: " )
-												+ msg_type.name() );
-							}
-						else if( 1 != subscribers.size() )
-							SO_5_THROW_EXCEPTION(
-									so_5::rc_more_than_one_svc_handler,
-									std::string(
-											"more than one service handler found"
-											", msg_type: " ) + msg_type.name() );
-
-						// Key is subscriber pointer,
-						// value is a subscriber_info_t.
-						auto & kv = *(subscribers.begin());
-						do_deliver_service_request_to_subscriber(
-								*(kv.first),
-								kv.second,
-								tracer,
-								msg_type,
-								message,
-								overlimit_reaction_deep );
-					} );
-			}
-
-		void
-		do_deliver_service_request_to_subscriber(
-			agent_t & subscriber,
-			const subscriber_info_t & subscriber_info,
-			typename Tracing_Base::deliver_op_tracer const & tracer,
-			const std::type_index & msg_type,
-			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const
-			{
-				auto & svc_request_param =
-					dynamic_cast< msg_service_request_base_t & >( *message )
-							.query_param();
-
-				const auto delivery_status =
-						subscriber_info.must_be_delivered(
-								subscriber,
-								svc_request_param );
-
-				if( delivery_possibility_t::must_be_delivered == delivery_status )
-					{
-						using namespace so_5::message_limit::impl;
-
-						try_to_deliver_to_agent(
-								this->m_data.m_id,
-								invocation_type_t::service_request,
-								subscriber,
-								subscriber_info.limit(),
-								msg_type,
-								message,
-								overlimit_reaction_deep,
-								tracer.overlimit_tracer(),
-								[&] {
-									tracer.push_to_queue( std::addressof(subscriber) );
-
-									agent_t::call_push_event(
-											subscriber,
-											subscriber_info.limit(),
-											this->m_data.m_id,
-											msg_type,
-											message );
-								} );
-					}
-				else
-					{
-						tracer.message_rejected(
-								std::addressof(subscriber),
-								delivery_status );
-
-						SO_5_THROW_EXCEPTION(
-								so_5::rc_no_svc_handlers,
-								std::string( "no service handlers (no subscribers "
-									"for message or subscriber is blocked by "
-									"delivery filter), msg_type: " )
-								+ msg_type.name() );
-					}
 			}
 
 		/*!
@@ -858,7 +634,6 @@ class actual_mbox_t final
 								subscriber,
 								subscriber_info,
 								tracer,
-								detect_invocation_type_for_retained_msg( retained_msg ),
 								msg_type,
 								retained_msg,
 								overlimit_reaction_deep );
@@ -888,50 +663,13 @@ class actual_mbox_t final
 } /* namespace details */
 
 //
-// no_service_request_traits_t
-//
-/*!
- * \brief Traits for the case when service requests are not supported.
- *
- * \since
- * v.1.0.3
- */
-struct no_service_request_traits_t
-	{
-		static constexpr service_request_support_t service_request_support =
-				service_request_support_t::disabled;
-	};
-
-//
-// with_service_request_traits_t
-//
-/*!
- * \brief Traits for the case when service requests are supported.
- *
- * Service requests are now supported on retained message mboxes by
- * default. This traits class can be use to enable them:
- * \code
- * const so_5::mbox_t retained_mbox =
- * 		so_5::extra::mboxes::retained_msg::make_mbox<
- * 				so_5::extra::mboxes::retained_msg::with_service_request_traits_t>(env);
- * \endcode
- *
- * \since
- * v.1.0.3
- */
-struct with_service_request_traits_t
-	{
-		static constexpr service_request_support_t service_request_support =
-				service_request_support_t::enabled;
-	};
-
 //
 // default_traits_t
 //
 /*!
  * \brief Default traits for retained message mbox.
  */
-using default_traits_t = no_service_request_traits_t;
+struct default_traits_t {};
 
 //
 // make_mbox
@@ -972,32 +710,6 @@ using default_traits_t = no_service_request_traits_t;
  * so_5::send<Some_Message>(retained_mbox, ...);
  * \endcode
  *
- * By default service requests are not supported on retained message mboxes.
- * It means that attempt to call `so_5::request_future` or
- * `so_5::request_value` on retained message mbox will fail. To enable
- * service requests it is necessary to specify appropriate traits type.
- * This traits type must contains constexpr static member of
- * type service_request_support_t with name service_request_support.
- * For example:
- * \code
- * struct my_retained_msg_traits {
- * 	static constexpr so_5::extra::mboxes::retained_msg::service_request_support_t
- * 		service_request_support =
- * 			so_5::extra::mboxes::retained_msg::service_request_support_t::enabled;
- * 	...
- * };
- * ...
- * const so_5::mbox_t retained_mbox =
- * 		so_5::extra::mboxes::retained_msg::make_mbox<
- * 				my_retained_msg_traits>(env);
- * \endcode
- * NOTE. Class with_service_request_traits_t can be used for that purpose:
- * \code
- * const so_5::mbox_t retained_mbox =
- * 		so_5::extra::mboxes::retained_msg::make_mbox<
- * 				so_5::extra::mboxes::retained_msg::with_service_request_traits_t>(env);
- * \endcode
- *
  * \tparam Traits type with traits of mbox implementation.
  *
  * \tparam Lock_Type a type of mutex to be used for protection of
@@ -1026,14 +738,17 @@ make_mbox( environment_t & env )
 									config_type,
 									::so_5::impl::msg_tracing_helpers::tracing_enabled_base >;
 
-							result = mbox_t{ new T{ data.m_id, data.m_tracer.get() } };
+							result = mbox_t{ new T{
+									data.m_env.get(), data.m_id, data.m_tracer.get()
+								}
+							};
 						}
 					else
 						{
 							using T = details::actual_mbox_t<
 									config_type,
 									::so_5::impl::msg_tracing_helpers::tracing_disabled_base >;
-							result = mbox_t{ new T{ data.m_id } };
+							result = mbox_t{ new T{ data.m_env.get(), data.m_id } };
 						}
 
 					return result;
