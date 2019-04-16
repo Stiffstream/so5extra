@@ -592,14 +592,12 @@ class actual_mbox_t final
 			typename Tracing_Base_Type_Tuple,
 			std::size_t... Tracing_Base_Type_Indexes >
 		actual_mbox_t(
-			environment_t & env,				
 			mbox_id_t mbox_id,
 			Specific_Base_Type_Tuple && specific_base_type_args,
 			std::index_sequence<Specific_Base_Type_Indexes...> /*unused*/,
 			Tracing_Base_Type_Tuple && tracing_base_type_args,
 			std::index_sequence<Tracing_Base_Type_Indexes...> /*unused*/ )
 			:	size_specific_base_type{
-					env,
 					mbox_id,
 					std::get<Specific_Base_Type_Indexes>(
 							std::forward<Specific_Base_Type_Tuple>(
@@ -630,8 +628,6 @@ class actual_mbox_t final
 			typename... Size_Specific_Base_Args,
 			typename... Tracing_Base_Args >
 		actual_mbox_t(
-			//! SObjectizer Environment to work in.
-			environment_t & env,
 			//! Unique ID for that mbox.
 			mbox_id_t mbox_id,
 			//! Parameters related to constexpr or runtime size.
@@ -640,7 +636,6 @@ class actual_mbox_t final
 			//! Note: this can be an empty tuple.
 			std::tuple<Tracing_Base_Args...> && tracing_base_args )
 			:	actual_mbox_t{
-					env,
 					mbox_id,
 					std::move(size_specific_base_args),
 					std::make_index_sequence<sizeof...(Size_Specific_Base_Args)>{},
@@ -726,7 +721,7 @@ class actual_mbox_t final
 		so_5::environment_t &
 		environment() const noexcept override
 			{
-				return this->m_env;
+				return this->m_target->environment();
 			}
 
 	private :
@@ -771,12 +766,10 @@ class actual_mbox_t final
 									text_separator{ "->" },
 									mbox_as_msg_destination{ *(this->m_target) } );
 
-							this->m_target->deliver_message(
+							this->m_target->do_deliver_message(
 									typeid(messages_collected_subscription_type),
 									std::move(msg_to_send),
-									message_payload_type<
-											collecting_msg_t<Config_Type>
-										>::mutability() );
+									1u );
 						}
 				} );
 			}
@@ -850,8 +843,6 @@ struct constexpr_size_traits_t
 		 */
 		struct size_specific_base_type
 			{
-				//! SObjectizer Environment to work in.
-				environment_t & m_env;
 				//! Unique ID of mbox.
 				const mbox_id_t m_id;
 				//! A target for messages_collected.
@@ -859,11 +850,9 @@ struct constexpr_size_traits_t
 
 				//! Constructor.
 				size_specific_base_type(
-					environment_t & env,
 					mbox_id_t mbox_id,
 					mbox_t target )
-					:	m_env{ env }
-					,	m_id{ mbox_id }
+					:	m_id{ mbox_id }
 					,	m_target{ std::move(target) }
 					{}
 
@@ -936,8 +925,6 @@ struct runtime_size_traits_t
 		 */
 		struct size_specific_base_type
 			{
-				//! SObjectizer Environment to work in.
-				environment_t & m_env;
 				//! Unique ID of mbox.
 				const mbox_id_t m_id;
 				//! A target for messages_collected.
@@ -947,12 +934,10 @@ struct runtime_size_traits_t
 
 				//! Constructor.
 				size_specific_base_type(
-					environment_t & env,
 					mbox_id_t mbox_id,
 					mbox_t target,
 					std::size_t size )
-					:	m_env{ env }
-					,	m_id{ mbox_id }
+					:	m_id{ mbox_id }
 					,	m_target{ std::move(target) }
 					,	m_size{ size }
 					{}
@@ -977,8 +962,6 @@ struct runtime_size_traits_t
  * using my_mbox_type = so_5::extra::mboxes::collecting_mbox::mbox_template_t<
  * 		my_msg >;
  * auto my_mbox = my_mbox_type::make(
- * 		// SObjectizer Environment to work in.
- * 		so_environment(),
  * 		// A target mbox for messages_collected_t.
  * 		target_mbox,
  * 		// Count of messages to be collected.
@@ -998,8 +981,6 @@ struct runtime_size_traits_t
  * 		so_5::extra::mboxes::collecting_mbox::constexpr_size_traits_t<10> >;
  * // Note: there is no need to specify message count because it is already known.
  * auto my_mbox = my_mbox_type::make(
- * 		// SObjectizer Environment to work in.
- * 		so_environment(),
  * 		// A target mbox for messages_collected_t.
  * 		target_mbox );
  *
@@ -1016,8 +997,6 @@ struct runtime_size_traits_t
  * using my_mbox_type = so_5::extra::mboxes::collecting_mbox::mbox_template_t<
  * 		so_5::mutable_msg<my_msg> >;
  * auto my_mbox = my_mbox_type::make(
- * 		// SObjectizer Environment to work in.
- * 		so_environment(),
  * 		// A target mbox for messages_collected_t.
  * 		target_mbox,
  * 		// Count of messages to be collected.
@@ -1038,8 +1017,6 @@ struct runtime_size_traits_t
  * 		so_5::extra::mboxes::collecting_mbox::constexpr_size_traits_t<10> >;
  * // Note: there is no need to specify message count because it is already known.
  * auto my_mbox = my_mbox_type::make(
- * 		// SObjectizer Environment to work in.
- * 		so_environment(),
  * 		// A target mbox for messages_collected_t.
  * 		target_mbox );
  *
@@ -1169,21 +1146,21 @@ class mbox_template_t final
 		 * If \a Traits is constexpr_size_traits_t then `make` will have the
 		 * following format:
 		 * \code
-		 * mbox_t make(environment_t & env, const mbox_t & target);
+		 * mbox_t make(const mbox_t & target);
 		 * \endcode
 		 * If \a Traits is runtime_size_traits_t then `make` will have the
 		 * following format:
 		 * \code
-		 * mbox_t make(environment_t & env, const mbox_t & target, size_t messages_to_collect);
+		 * mbox_t make(const mbox_t & target, size_t messages_to_collect);
 		 * \endcode
 		 */
 		template< typename... Args >
 		static mbox_t
-		make( environment_t & env, Args &&... args )
+		make( const mbox_t & target, Args &&... args )
 			{
 				ensure_not_mutable_signal< Collecting_Msg >();
 
-				return env.make_custom_mbox(
+				return target->environment().make_custom_mbox(
 						[&]( const mbox_creation_data_t & data ) {
 							mbox_t result;
 
@@ -1195,7 +1172,7 @@ class mbox_template_t final
 
 									result = mbox_t{ new T{
 											data.m_id,
-											std::make_tuple( std::forward<Args>(args)... ),
+											std::make_tuple( target, std::forward<Args>(args)... ),
 											std::make_tuple( std::ref(data.m_tracer.get()) )
 									} };
 								}
@@ -1206,7 +1183,7 @@ class mbox_template_t final
 											::so_5::impl::msg_tracing_helpers::tracing_disabled_base >;
 									result = mbox_t{ new T{
 											data.m_id,
-											std::make_tuple( std::forward<Args>(args)... ),
+											std::make_tuple( target, std::forward<Args>(args)... ),
 											std::make_tuple()
 									} };
 								}
