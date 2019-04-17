@@ -6,8 +6,8 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
-#include <various_helpers_1/ensure.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/ensure.hpp>
 
 #include <sstream>
 
@@ -64,7 +64,7 @@ TEST_CASE( "send_to(mchain)" )
 			};
 
 			auto prepared_receive = prepare_receive(
-					from(mchain).no_wait_on_empty(),
+					from(mchain).no_wait_on_empty().handle_all(),
 					[&trace]( so_5::mhood_t<classical_message_t> cmd ) {
 						std::ostringstream s;
 						s << "classical{" << cmd->m_a << ", " << cmd->m_b << "};";
@@ -126,7 +126,7 @@ TEST_CASE( "send_delayed_to(mchain)" )
 
 			sleep_until( deadline );
 
-			receive( from(mchain).no_wait_on_empty(),
+			receive( from(mchain).no_wait_on_empty().handle_all(),
 					[&trace]( so_5::mhood_t<classical_message_t> cmd ) {
 						std::ostringstream s;
 						s << "classical{" << cmd->m_a << ", " << cmd->m_b << "};";
@@ -174,7 +174,7 @@ TEST_CASE( "send_periodic_to(mchain)" )
 
 			sleep_until( deadline );
 
-			receive( from(mchain).no_wait_on_empty(),
+			receive( from(mchain).no_wait_on_empty().handle_all(),
 					[&trace]( so_5::mhood_t<classical_message_t> cmd ) {
 						std::ostringstream s;
 						s << "classical{" << cmd->m_a << ", " << cmd->m_b << "};";
