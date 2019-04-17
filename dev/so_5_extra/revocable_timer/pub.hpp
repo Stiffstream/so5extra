@@ -8,19 +8,15 @@
 
 #pragma once
 
-#include <so_5/h/version.hpp>
-
-#if (SO_5_VERSION < SO_5_VERSION_MAKE(5, 23, 0))
-	#error "SObjectizer v.5.5.23 or above is required"
-#endif
+#include <so_5/version.hpp>
 
 #include <so_5_extra/revocable_msg/pub.hpp>
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/h/timers.hpp>
-#include <so_5/rt/h/enveloped_msg.hpp>
-#include <so_5/rt/h/send_functions.hpp>
+#include <so_5/timers.hpp>
+#include <so_5/enveloped_msg.hpp>
+#include <so_5/send_functions.hpp>
 
 #include <atomic>
 
@@ -233,7 +229,6 @@ struct timer_id_maker_t
 SO_5_NODISCARD
 inline so_5::extra::revocable_timer::timer_id_t
 make_envelope_and_initiate_timer(
-	so_5::environment_t & env,
 	const so_5::mbox_t & to,
 	const std::type_index & msg_type,
 	message_ref_t payload,
@@ -245,7 +240,7 @@ make_envelope_and_initiate_timer(
 		::so_5::intrusive_ptr_t< envelope_t > envelope{
 				std::make_unique< envelope_t >( std::move(payload) ) };
 
-		auto actual_id = env.schedule_timer( 
+		auto actual_id = ::so_5::low_level_api::schedule_timer( 
 				msg_type,
 				envelope,
 				to,
@@ -266,7 +261,6 @@ struct instantiator_and_sender_base
 		template< typename... Args >
 		SO_5_NODISCARD static ::so_5::extra::revocable_timer::timer_id_t
 		send_periodic(
-			::so_5::environment_t & env,
 			const ::so_5::mbox_t & to,
 			std::chrono::steady_clock::duration pause,
 			std::chrono::steady_clock::duration period,
@@ -280,7 +274,6 @@ struct instantiator_and_sender_base
 				so_5::details::mark_as_mutable_if_necessary< Message >( *payload );
 
 				return make_envelope_and_initiate_timer(
-						env,
 						to,
 						message_payload_type< Message >::subscription_type_index(),
 						std::move(payload),
@@ -297,13 +290,11 @@ struct instantiator_and_sender_base< Message, true >
 
 		SO_5_NODISCARD static so_5::extra::revocable_timer::timer_id_t
 		send_periodic(
-			so_5::environment_t & env,
 			const so_5::mbox_t & to,
 			std::chrono::steady_clock::duration pause,
 			std::chrono::steady_clock::duration period )
 			{
 				return make_envelope_and_initiate_timer(
-						env,
 						to,
 						message_payload_type< Message >::subscription_type_index(),
 						message_ref_t{},
@@ -321,6 +312,7 @@ struct instantiator_and_sender
 
 } /* namespace impl */
 
+//FIXME: make changes to the comment!
 /*!
  * \brief A utility function for creating and delivering a periodic message.
  *
@@ -359,11 +351,10 @@ struct instantiator_and_sender
  * v.1.2.0
  *
  */
+#if 0
 template< typename Message, typename... Args >
 SO_5_NODISCARD timer_id_t
 send_periodic(
-	//! An environment to be used for timer.
-	so_5::environment_t & env,
 	//! Mbox for the message to be sent to.
 	const so_5::mbox_t & to,
 	//! Pause for message delaying.
@@ -374,9 +365,11 @@ send_periodic(
 	Args&&... args )
 	{
 		return impl::instantiator_and_sender< Message >::send_periodic(
-				env, to, pause, period, std::forward< Args >( args )... );
+				to, pause, period, std::forward< Args >( args )... );
 	}
+#endif
 
+//FIXME: make changes to the comment!
 /*!
  * \brief A utility function for creating and delivering a periodic message
  * to the specified destination.
@@ -434,14 +427,14 @@ send_periodic(
 	//! Message constructor parameters.
 	Args&&... args )
 	{
-		return ::so_5::extra::revocable_timer::send_periodic< Message >(
-				::so_5::send_functions_details::arg_to_env( target ),
+		return impl::instantiator_and_sender< Message >::send_periodic(
 				::so_5::send_functions_details::arg_to_mbox( target ),
 				pause,
 				period,
-				std::forward< Args >(args)... );
+				std::forward< Args >( args )... );
 	}
 
+//FIXME: make changes to the comment!
 /*!
  * \brief A utility function for delivering a periodic
  * from an existing message hood.
@@ -493,8 +486,6 @@ typename std::enable_if<
 		!::so_5::is_signal< Message >::value,
 		timer_id_t >::type
 send_periodic(
-	//! An environment to be used for timer.
-	::so_5::environment_t & env,
 	//! Mbox for the message to be sent to.
 	const ::so_5::mbox_t & to,
 	//! Pause for message delaying.
@@ -505,7 +496,6 @@ send_periodic(
 	::so_5::mhood_t< Message > mhood )
 	{
 		return impl::make_envelope_and_initiate_timer(
-				env,
 				to,
 				message_payload_type< Message >::subscription_type_index(),
 				mhood.make_reference(),
@@ -513,6 +503,7 @@ send_periodic(
 				period );
 	}
 
+//FIXME: make changes to the comment!
 /*!
  * \brief A utility function for periodic redirection of a signal
  * from existing message hood.
@@ -553,8 +544,6 @@ typename std::enable_if<
 		::so_5::is_signal< Message >::value,
 		timer_id_t >::type
 send_periodic(
-	//! An environment to be used for timer.
-	::so_5::environment_t & env,
 	//! Mbox for the message to be sent to.
 	const ::so_5::mbox_t & to,
 	//! Pause for message delaying.
@@ -565,7 +554,6 @@ send_periodic(
 	::so_5::mhood_t< Message > /*mhood*/ )
 	{
 		return impl::make_envelope_and_initiate_timer(
-				env,
 				to,
 				message_payload_type< Message >::subscription_type_index(),
 				message_ref_t{},
@@ -573,6 +561,7 @@ send_periodic(
 				period );
 	}
 
+//FIXME: make changes to the comment!
 /*!
  * \brief A helper function for redirection of a message/signal as a periodic
  * message/signal.
@@ -636,13 +625,13 @@ send_periodic(
 	::so_5::mhood_t< Message > mhood )
 	{
 		return ::so_5::extra::revocable_timer::send_periodic< Message >(
-				::so_5::send_functions_details::arg_to_env( target ),
 				::so_5::send_functions_details::arg_to_mbox( target ),
 				pause,
 				period,
 				std::move(mhood) );
 	}
 
+//FIXME: make changes to the comment!
 /*!
  * \brief A utility function for creating and delivering a delayed message.
  *
@@ -680,11 +669,10 @@ send_periodic(
  * \since
  * v.1.2.0
  */
+#if 0
 template< typename Message, typename... Args >
 SO_5_NODISCARD timer_id_t
 send_delayed(
-	//! An environment to be used for timer.
-	so_5::environment_t & env,
 	//! Mbox for the message to be sent to.
 	const so_5::mbox_t & to,
 	//! Pause for message delaying.
@@ -693,13 +681,14 @@ send_delayed(
 	Args&&... args )
 	{
 		return ::so_5::extra::revocable_timer::send_periodic< Message >(
-				env,
 				to,
 				pause,
 				std::chrono::steady_clock::duration::zero(),
 				std::forward<Args>(args)... );
 	}
+#endif
 
+//FIXME: make changes to the comment!
 /*!
  * \brief A utility function for creating and delivering a delayed message
  * to the specified destination.
@@ -755,13 +744,14 @@ send_delayed(
 	//! Message constructor parameters.
 	Args&&... args )
 	{
-		return ::so_5::extra::revocable_timer::send_delayed< Message >(
-				::so_5::send_functions_details::arg_to_env( target ),
+		return ::so_5::extra::revocable_timer::send_periodic< Message >(
 				::so_5::send_functions_details::arg_to_mbox( target ),
 				pause,
-				std::forward< Args >(args)... );
+				std::chrono::steady_clock::duration::zero(),
+				std::forward<Args>(args)... );
 	}
 
+//FIXME: make changes to the comment!
 /*!
  * \brief A helper function for redirection of existing message/signal
  * as delayed message.
@@ -800,8 +790,6 @@ send_delayed(
 template< typename Message >
 SO_5_NODISCARD timer_id_t
 send_delayed(
-	//! An environment to be used for timer.
-	so_5::environment_t & env,
 	//! Mbox for the message to be sent to.
 	const so_5::mbox_t & to,
 	//! Pause for message delaying.
@@ -810,13 +798,13 @@ send_delayed(
 	::so_5::mhood_t< Message > cmd )
 	{
 		return ::so_5::extra::revocable_timer::send_periodic< Message >(
-				env,
 				to,
 				pause,
 				std::chrono::steady_clock::duration::zero(),
 				std::move(cmd) );
 	}
 
+//FIXME: make changes to the comment!
 /*!
  * \brief A helper function for redirection of existing message/signal
  * as delayed message.

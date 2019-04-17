@@ -5,8 +5,8 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
-#include <various_helpers_1/ensure.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/ensure.hpp>
 
 namespace timer_ns = so_5::extra::revocable_timer;
 
@@ -92,7 +92,6 @@ class test_case_env_mbox_t final : public test_case_basic_t< Message >
 			{
 				this->try_send_periodic( [&]() {
 					timer_ns::send_periodic(
-							this->so_environment(),
 							this->so_direct_mbox(),
 							std::chrono::seconds(1),
 							std::chrono::seconds(2),
@@ -132,7 +131,6 @@ perform_test()
 		run_with_time_limit( [&] {
 				so_5::launch( [&](so_5::environment_t & env) {
 						env.register_agent_as_coop(
-								"test",
 								env.make_agent< Test_Case< Message > >(
 										so_5::outliving_mutable(exceptions_thrown) ) );
 				} );
