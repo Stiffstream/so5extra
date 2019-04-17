@@ -5,7 +5,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 class a_test_case_t final : public so_5::agent_t
 {
@@ -63,13 +63,13 @@ TEST_CASE( "simplest agent must handle so_evt_start and so_evt_finish" )
 						asio_tp::disp_params_t params;
 						params.use_external_io_context( io_svc );
 
-						auto disp = asio_tp::create_private_disp(
+						auto disp = asio_tp::make_dispatcher(
 								env,
 								"asio_tp",
 								std::move(params) );
 
 						env.introduce_coop(
-								disp->binder( actor_strand ),
+								disp.binder( actor_strand ),
 								[&]( so_5::coop_t & coop )
 								{
 									coop.make_agent< a_test_case_t >(

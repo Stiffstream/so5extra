@@ -10,23 +10,22 @@
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/rt/h/disp_binder.hpp>
-#include <so_5/rt/h/send_functions.hpp>
+#include <so_5/disp_binder.hpp>
+#include <so_5/send_functions.hpp>
 
-#include <so_5/disp/reuse/h/work_thread_activity_tracking.hpp>
-#include <so_5/disp/reuse/h/disp_binder_helpers.hpp>
-#include <so_5/disp/reuse/h/data_source_prefix_helpers.hpp>
+#include <so_5/disp/reuse/work_thread_activity_tracking.hpp>
+#include <so_5/disp/reuse/data_source_prefix_helpers.hpp>
 
-#include <so_5/rt/stats/h/repository.hpp>
-#include <so_5/rt/stats/h/messages.hpp>
-#include <so_5/rt/stats/h/std_names.hpp>
-#include <so_5/rt/stats/impl/h/activity_tracking.hpp>
+#include <so_5/stats/repository.hpp>
+#include <so_5/stats/messages.hpp>
+#include <so_5/stats/std_names.hpp>
+#include <so_5/stats/impl/activity_tracking.hpp>
 
-#include <so_5/details/h/invoke_noexcept_code.hpp>
-#include <so_5/details/h/rollback_on_exception.hpp>
-#include <so_5/details/h/abort_on_fatal_error.hpp>
+#include <so_5/details/invoke_noexcept_code.hpp>
+#include <so_5/details/rollback_on_exception.hpp>
+#include <so_5/details/abort_on_fatal_error.hpp>
 
-#include <so_5/h/outliving.hpp>
+#include <so_5/outliving.hpp>
 
 #include <asio/io_context.hpp>
 #include <asio/io_context_strand.hpp>
@@ -66,46 +65,19 @@ class disp_params_t
 	public :
 		//! Default constructor.
 		disp_params_t() = default;
-		//! Copy constructor.
-		disp_params_t( const disp_params_t & o )
-			:	activity_tracking_mixin_t( o )
-			,	m_thread_count{ o.m_thread_count }
-			,	m_io_context{ o.m_io_context }
-			{}
-		//! Move constructor.
-		disp_params_t( disp_params_t && o )
-			:	activity_tracking_mixin_t( std::move(o) )
-			,	m_thread_count{ std::move(o.m_thread_count) }
-			,	m_io_context{ std::move(o.m_io_context) }
-			{}
 
 		friend inline void
 		swap(
 			disp_params_t & a, disp_params_t & b ) noexcept
 			{
+				using std::swap;
+
 				swap(
 						static_cast< activity_tracking_mixin_t & >(a),
 						static_cast< activity_tracking_mixin_t & >(b) );
 
-				std::swap( a.m_thread_count, b.m_thread_count );
-				std::swap( a.m_io_context, b.m_io_context );
-			}
-
-		//! Copy operator.
-		disp_params_t &
-		operator=( const disp_params_t & o )
-			{
-				disp_params_t tmp{ o };
-				swap( *this, tmp );
-				return *this;
-			}
-		//! Move operator.
-		disp_params_t &
-		operator=( disp_params_t && o )
-			{
-				disp_params_t tmp{ std::move(o) };
-				swap( *this, tmp );
-				return *this;
+				swap( a.m_thread_count, b.m_thread_count );
+				swap( a.m_io_context, b.m_io_context );
 			}
 
 		//! Setter for thread count.
@@ -197,38 +169,133 @@ class disp_params_t
 		std::shared_ptr< ::asio::io_context > m_io_context;
 	};
 
-//
-// private_dispatcher_t
-//
+namespace impl {
 
+class actual_dispatcher_iface_t;
+
+//
+// basic_dispatcher_iface_t
+//
 /*!
- * \brief An interface for %asio_thread_pool private dispatcher.
+ * \brief The very basic interface of %asio_thread_pool dispatcher.
+ *
+ * This class contains a minimum that is necessary for implementation
+ * of dispatcher_handle class.
  *
  * \since
- * v.1.0.2
+ * v.1.3.0
  */
-class private_dispatcher_t : public ::so_5::atomic_refcounted_t
+class basic_dispatcher_iface_t
+	:	public std::enable_shared_from_this<actual_dispatcher_iface_t>
 	{
 	public :
-		virtual ~private_dispatcher_t() = default;
+		virtual ~basic_dispatcher_iface_t() noexcept = default;
 
-		//! Create a binder for that private dispatcher.
-		virtual disp_binder_unique_ptr_t
+		//! Create a binder for that dispatcher.
+		SO_5_NODISCARD
+		virtual disp_binder_shptr_t
 		binder( ::asio::io_context::strand & ) = 0;
 
 		//! Get reference to io_context from that dispatcher.
 		virtual ::asio::io_context &
-		io_context() noexcept = 0;
+		io_context() const noexcept = 0;
 	};
 
+using basic_dispatcher_iface_shptr_t =
+		std::shared_ptr< basic_dispatcher_iface_t >;
+
+class dispatcher_handle_maker_t;
+
+} /* namespace impl */
+
+//
+// dispatcher_handle_t
+//
+
 /*!
- * \brief A handle for the %asio_thread_pool private dispatcher.
+ * \brief A handle for %asio_thread_pool dispatcher.
  *
  * \since
- * v.1.0.2
+ * v.1.3.0
  */
-using private_dispatcher_handle_t =
-	::so_5::intrusive_ptr_t< private_dispatcher_t >;
+class SO_5_NODISCARD dispatcher_handle_t
+	{
+		friend class impl::dispatcher_handle_maker_t;
+
+		//! A reference to actual implementation of a dispatcher.
+		impl::basic_dispatcher_iface_shptr_t m_dispatcher;
+
+		dispatcher_handle_t(
+			impl::basic_dispatcher_iface_shptr_t dispatcher ) noexcept
+			:	m_dispatcher{ std::move(dispatcher) }
+			{}
+
+		//! Is this handle empty?
+		bool
+		empty() const noexcept { return !m_dispatcher; }
+
+	public :
+		dispatcher_handle_t() noexcept = default;
+
+//FIXME: update the comment!
+		//! Get a binder for that dispatcher.
+		/*!
+		 * Usage example:
+		 * \code
+		 * using namespace so_5::disp::adv_thread_pool;
+		 *
+		 * so_5::environment_t & env = ...;
+		 * auto disp = make_dispatcher( env );
+		 * bind_params_t params;
+		 * params.fifo( fifo_t::individual );
+		 *
+		 * env.introduce_coop( [&]( so_5::coop_t & coop ) {
+		 * 	coop.make_agent_with_binder< some_agent_type >(
+		 * 		disp.binder( params ),
+		 * 		... );
+		 *
+		 * 	coop.make_agent_with_binder< another_agent_type >(
+		 * 		disp.binder( params ),
+		 * 		... );
+		 *
+		 * 	...
+		 * } );
+		 * \endcode
+		 *
+		 * \attention
+		 * An attempt to call this method on empty handle is UB.
+		 */
+		SO_5_NODISCARD
+		disp_binder_shptr_t
+		binder(
+			::asio::io_context::strand & strand ) const
+			{
+				return m_dispatcher->binder( strand );
+			}
+
+		//! Get reference to io_context from that dispatcher.
+		/*!
+		 * \attention
+		 * An attempt to call this method on empty handle is UB.
+		 */
+		SO_5_NODISCARD
+		::asio::io_context &
+		io_context() noexcept 
+			{
+				return m_dispatcher->io_context();
+			}
+
+		//! Is this handle empty?
+		operator bool() const noexcept { return empty(); }
+
+		//! Does this handle contain a reference to dispatcher?
+		bool
+		operator!() const noexcept { return !empty(); }
+
+		//! Drop the content of handle.
+		void
+		reset() noexcept { m_dispatcher.reset(); }
+	};
 
 namespace impl {
 
@@ -244,15 +311,15 @@ namespace impl {
 using demands_counter_t = std::atomic< std::size_t >;
 
 //
-// actual_disp_iface_t
+// actual_dispatcher_iface_t
 //
 /*!
  * \brief An actual interface of thread pool dispatcher.
  *
  * \since
- * v.1.0.2
+ * v.1.3.0
  */
-class actual_disp_iface_t : public dispatcher_t
+class actual_dispatcher_iface_t : public basic_dispatcher_iface_t
 	{
 	public :
 		//! Notification about binding of yet another agent.
@@ -265,8 +332,14 @@ class actual_disp_iface_t : public dispatcher_t
 
 		//! Get a reference for counter of pending demands.
 		virtual demands_counter_t &
-		demands_counter_reference() noexcept = 0;
+		demands_counter() noexcept = 0;
 	};
+
+//
+// actual_dispatcher_shptr_t
+//
+using actual_dispatcher_shptr_t =
+		std::shared_ptr< actual_dispatcher_iface_t >;
 
 //
 // thread_local_ptr_holder_t
@@ -574,6 +647,97 @@ class work_thread_with_activity_tracking_t final : public work_thread_t
 	};
 
 //
+// binder_t
+//
+/*!
+ * \brief An implementation of a binder for %asio_thread_pool dispatcher.
+ *
+ * This binder is also an event_queue for the agents bound via that binder.
+ *
+ * There is no such thing as event_queue for %asio_thread_pool dispacher.
+ * All execution demands will be stored inside Asio IoServce and dispatched
+ * for execution via asio::post mechanism. But SObjectizer requires
+ * an implementation of event_queue which must be used for agents bound
+ * to %asio_thread_pool dispatcher. This class implements this event_queue
+ * concepts.
+ *
+ * \since
+ * v.1.3.0
+ */
+class binder_t final
+	:	public disp_binder_t
+	,	public event_queue_t
+	{
+	public :
+		//! Initializing constructor.
+		binder_t(
+			//! The actual dispatcher to be used with that binder.
+			actual_dispatcher_shptr_t dispatcher,
+			//! Strand to be used with this event_queue.
+			outliving_reference_t< ::asio::io_context::strand > strand )
+			:	m_dispatcher{ std::move(dispatcher) }
+			,	m_strand{ strand }
+			{}
+
+		void
+		preallocate_resources(
+			agent_t & /*agent*/ ) override
+			{
+				// There is no need to do something.
+			}
+
+		void
+		undo_preallocation(
+			agent_t & /*agent*/ ) noexcept override
+			{
+				// There is no need to do something.
+			}
+
+		void
+		bind(
+			agent_t & agent ) noexcept override
+			{
+				// Dispatcher should know about yet another agent bound.
+				m_dispatcher->agent_bound();
+				// Agent should receive its event_queue.
+				agent.so_bind_to_dispatcher( *this );
+			}
+
+		void
+		unbind(
+			agent_t & /*agent*/ ) noexcept override
+			{
+				// Dispatcher should know about yet another agent unbound.
+				m_dispatcher->agent_bound();
+			}
+
+		void
+		push( execution_demand_t demand ) override
+			{
+				demands_counter_t & counter = m_dispatcher->demands_counter();
+
+				// Another demand will wait for processing.
+				++counter;
+
+				asio::post( m_strand.get(),
+					[d = std::move(demand), &counter]() mutable {
+						// Another demand will be processed.
+						--counter;
+
+						// Delegate processing of the demand to actual
+						// work thread.
+						work_thread_t::handle_demand( std::move(d) );
+					} );
+			}
+
+	private :
+		//! The actual dispatcher.
+		actual_dispatcher_shptr_t m_dispatcher;
+		//! Strand to be used with this event_queue.
+		outliving_reference_t< ::asio::io_context::strand > m_strand;
+	};
+
+//
 // basic_dispatcher_skeleton_t
 //
 /*!
@@ -587,7 +751,7 @@ class work_thread_with_activity_tracking_t final : public work_thread_t
  * \since
  * v.1.0.2
  */
-class basic_dispatcher_skeleton_t : public actual_disp_iface_t
+class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 	{
 	protected :
 		class disp_data_source_t;
@@ -601,9 +765,44 @@ class basic_dispatcher_skeleton_t : public actual_disp_iface_t
 			{
 			}
 
-		virtual void
-		start( environment_t & env ) override
+		SO_5_NODISCARD
+		disp_binder_shptr_t
+		binder( ::asio::io_context::strand & strand ) override
 			{
+				return { std::make_shared< binder_t >(
+						shared_from_this(),
+						outliving_mutable(strand) )
+				};
+			}
+
+		::asio::io_context &
+		io_context() const noexcept override { return *m_io_context; }
+
+		void
+		agent_bound() noexcept override
+			{
+				++m_agents_bound;
+			}
+
+		void
+		agent_unbound() noexcept override
+			{
+				--m_agents_bound;
+			}
+
+		demands_counter_t &
+		demands_counter() noexcept override
+			{
+				return m_demands_counter;
+			}
+
+	protected :
+		void
+		start(
+			environment_t & env,
+			std::string_view data_sources_name_base )
+			{
+				data_source().set_data_sources_name_base( data_sources_name_base );
 				data_source().start( outliving_mutable(env.stats_repository()) );
 
 				::so_5::details::do_with_rollback_on_exception(
@@ -611,8 +810,8 @@ class basic_dispatcher_skeleton_t : public actual_disp_iface_t
 						[this] { data_source().stop(); } );
 			}
 
-		virtual void
-		shutdown() override
+		void
+		shutdown()
 			{
 				::so_5::details::invoke_noexcept_code( [this] {
 						// Stopping Asio IO service.
@@ -620,8 +819,8 @@ class basic_dispatcher_skeleton_t : public actual_disp_iface_t
 					} );
 			}
 
-		virtual void
-		wait() override
+		void
+		wait()
 			{
 				::so_5::details::invoke_noexcept_code( [this] {
 						// Waiting for complete stop of all work threads.
@@ -630,34 +829,6 @@ class basic_dispatcher_skeleton_t : public actual_disp_iface_t
 						data_source().stop();
 					} );
 			}
-
-		virtual void
-		set_data_sources_name_base(
-			const std::string & name_base ) override
-			{
-				data_source().set_data_sources_name_base( name_base );
-			}
-
-		virtual void
-		agent_bound() noexcept override
-			{
-				++m_agents_bound;
-			}
-
-		virtual void
-		agent_unbound() noexcept override
-			{
-				--m_agents_bound;
-			}
-
-		virtual demands_counter_t &
-		demands_counter_reference() noexcept override
-			{
-				return m_demands_counter;
-			}
-
-		::asio::io_context &
-		io_context() const noexcept { return *m_io_context; }
 
 	protected :
 		/*!
@@ -731,7 +902,7 @@ class basic_dispatcher_skeleton_t : public actual_disp_iface_t
 
 				void
 				set_data_sources_name_base(
-					const std::string & name_base )
+					std::string_view name_base )
 					{
 						using namespace ::so_5::disp::reuse;
 
@@ -797,7 +968,6 @@ class dispatcher_skeleton_without_thread_activity_tracking_t
 		dispatcher_skeleton_without_thread_activity_tracking_t(
 			disp_params_t params )
 			:	basic_dispatcher_skeleton_t( std::move(params) )
-			,	m_data_source( *this )
 			{}
 
 	protected :
@@ -973,7 +1143,24 @@ template<
 class dispatcher_template_t final : public Basic_Skeleton
 	{
 	public:
-		using Basic_Skeleton::Basic_Skeleton;
+		dispatcher_template_t(
+			//! SObjectizer Environment to work in.
+			outliving_reference_t< environment_t > env,
+			//! Value for creating names of data sources for
+			//! run-time monitoring.
+			std::string_view data_sources_name_base,
+			//! Parameters for the dispatcher.
+			disp_params_t params )
+			:	Basic_Skeleton{ std::move(params) }
+			{
+				this->start( env.get(), data_sources_name_base );
+			}
+
+		~dispatcher_template_t() noexcept override
+			{
+				this->shutdown();
+				this->wait();
+			}
 
 	private:
 		//! An alias for actual thread type.
@@ -1041,208 +1228,17 @@ class dispatcher_template_t final : public Basic_Skeleton
 	};
 
 //
-// pseudo_event_queue_t
+// dispatcher_handle_maker_t
 //
-/*!
- * \brief An implementation of event_queue concept for the case of
- * %asio_thread_pool dispatcher.
- *
- * There is no such thing as event_queue for %asio_thread_pool dispacher.
- * All execution demands will be stored inside Asio IoServce and dispatched
- * for execution via asio::post mechanism. But SObjectizer requires
- * an implementation of event_queue which must be used for agents bound
- * to %asio_thread_pool dispatcher. This class implements this event_queue
- * concepts.
- *
- * Instances of that class will be created for every dispatcher binder.
- *
- * \since
- * v.1.0.2
- */
-class pseudo_event_queue_t final : public event_queue_t
+class dispatcher_handle_maker_t
 	{
 	public :
-		//! Initializing constructor.
-		pseudo_event_queue_t(
-			//! Demands counter of the dispatcher. This counter will be
-			//! incremented when demand is posted via asio::post() and will
-			//! be decremented when demand is handled on the context of
-			//! some work thread.
-			outliving_reference_t< demands_counter_t > demands_counter,
-			//! Strand to be used with this event_queue.
-			outliving_reference_t< ::asio::io_context::strand > strand )
-			:	m_demands_counter{ demands_counter }
-			,	m_strand{ strand }
-			{}
-
-		virtual void
-		push( execution_demand_t demand ) override
+		SO_5_NODISCARD
+		static dispatcher_handle_t
+		make( actual_dispatcher_shptr_t disp ) noexcept
 			{
-				demands_counter_t * counter = &(m_demands_counter.get());
-				// Another demand will wait for processing.
-				++(*counter);
-
-				asio::post( m_strand.get(),
-					[d = std::move(demand), counter]() mutable {
-						// Another demand will be processed.
-						--(*counter);
-
-						// Delegate processing of the demand to actual
-						// work thread.
-						work_thread_t::handle_demand( std::move(d) );
-					} );
+				return { std::move( disp ) };
 			}
-
-	private :
-		//! Demands counter for the dispatcher.
-		outliving_reference_t< demands_counter_t > m_demands_counter;
-		//! Strand to be used with this event_queue.
-		outliving_reference_t< ::asio::io_context::strand > m_strand;
-	};
-
-//
-// binding_actions_mixin_t
-//
-/*!
- * \brief Implementation of binding actions to be reused
- * in various binder implementation.
- *
- * \note
- * Holds an instance of pseudo_event_queue_t. It means that all
- * agents which will be bound via that binder will have the same
- * strand (cannot work in parallel).
- *
- * \since
- * v.1.0.2
- */
-class binding_actions_mixin_t
-	{
-	protected :
-		binding_actions_mixin_t(
-			outliving_reference_t< demands_counter_t > demands_counter,
-			outliving_reference_t< ::asio::io_context::strand > strand )
-			:	m_event_queue{ demands_counter, strand }
-			{}
-
-		disp_binding_activator_t
-		do_bind(
-			actual_disp_iface_t & disp,
-			agent_ref_t agent )
-			{
-				auto result = [agent, &disp, this]() {
-					disp.agent_bound();
-
-					::so_5::details::invoke_noexcept_code( [&] {
-						agent->so_bind_to_dispatcher( m_event_queue );
-					} );
-				};
-
-				return result;
-			}
-
-		void
-		do_unbind(
-			actual_disp_iface_t & disp,
-			agent_ref_t /*agent*/ )
-			{
-				disp.agent_unbound();
-			}
-
-	private :
-		pseudo_event_queue_t m_event_queue;
-	};
-
-//
-// private_dispatcher_binder_t
-//
-
-/*!
- * \brief A binder for the private %asio_thread_pool dispatcher.
- *
- * \since
- * v.1.0.2
- */
-using private_dispatcher_binder_t =
-	::so_5::disp::reuse::binder_for_private_disp_template_t<
-		private_dispatcher_handle_t,
-		actual_disp_iface_t,
-		binding_actions_mixin_t >;
-
-//
-// real_private_dispatcher_t
-//
-/*!
- * \brief A real implementation of private_dispatcher interface.
- *
- * Holds an actual dispatcher instance as a member.
- *
- * Starts the actual dispatcher in the constructor and stops in the destructor.
- *
- * \tparam Traits A type with traits for the dispatcher.
- * \tparam Basic_Skeleton A specific skeleton to be used for actual
- * dispatcher implementation.
- * It expected to be dispatcher_skeleton_with_thread_activity_tracking_t or
- * dispatcher_skeleton_without_thread_activity_tracking_t.
- *
- * \since
- * v.1.0.2
- */
-template<
-	typename Traits,
-	typename Basic_Skeleton >
-class real_private_dispatcher_t final : public private_dispatcher_t
-	{
-		//! An alias for actual dispatcher type.
-		using actual_dispatcher_t =
-				dispatcher_template_t< Traits, Basic_Skeleton >;
-
-	public :
-		/*!
-		 * Constructor creates a dispatcher instance and launches it.
-		 */
-		real_private_dispatcher_t(
-			//! SObjectizer Environment to work in.
-			environment_t & env,
-			//! Value for creating names of data sources for
-			//! run-time monitoring.
-			const std::string & data_sources_name_base,
-			//! Parameters for the dispatcher.
-			disp_params_t params )
-			:	m_disp( std::move(params) )
-			{
-				m_disp.set_data_sources_name_base( data_sources_name_base );
-				m_disp.start( env );
-			}
-
-		/*!
-		 * Destructors shuts an instance down and waits for it.
-		 */
-		~real_private_dispatcher_t() override
-			{
-				m_disp.shutdown();
-				m_disp.wait();
-			}
-
-		virtual disp_binder_unique_ptr_t
-		binder( ::asio::io_context::strand & strand ) override
-			{
-				return disp_binder_unique_ptr_t(
-						new private_dispatcher_binder_t(
-								private_dispatcher_handle_t( this ),
-								m_disp,
-								outliving_mutable(m_disp.demands_counter_reference()),
-								outliving_mutable(strand) ) );
-			}
-
-		virtual ::asio::io_context &
-		io_context() noexcept override
-			{
-				return m_disp.io_context();
-			}
-
-	private :
-		//! An instance of the actual dispatcher.
-		actual_dispatcher_t m_disp;
 	};
 
 } /* namespace impl */
@@ -1283,10 +1279,10 @@ struct default_traits_t
 	};
 
 //
-// create_private_disp
+// make_dispatcher
 //
 /*!
- * \brief A function for creation an instance of private dispatcher.
+ * \brief A function for creation an instance of %asio_thread_pool dispatcher.
  *
  * Usage examples:
  * \code
@@ -1296,7 +1292,7 @@ struct default_traits_t
  * params.use_own_io_context(); // Asio IoService object will be created here.
  * 		// This object will be accessible later via
  * 		// private_dispatcher_t::io_context() method.
- * auto disp = asio_tp::create_private_disp(
+ * auto disp = asio_tp::make_dispatcher(
  * 	env,
  * 	"my_asio_tp",
  * 	std::move(disp_params) );
@@ -1307,7 +1303,7 @@ struct default_traits_t
  * namespace asio_tp = so_5::extra::disp::asio_thread_pool;
  * asio_tp::disp_params_t params;
  * params.use_external_io_context( io_svc );
- * auto disp = asio_tp::create_private_disp(
+ * auto disp = asio_tp::make_dispatcher(
  * 	env,
  * 	"my_asio_tp",
  * 	std::move(disp_params) );
@@ -1321,7 +1317,7 @@ struct default_traits_t
  * namespace asio_tp = so_5::extra::disp::asio_thread_pool;
  * asio_tp::disp_params_t params;
  * params.use_own_io_context();
- * auto disp = asio_tp::create_private_disp< my_traits >(
+ * auto disp = asio_tp::make_dispatcher< my_traits >(
  * 	env,
  * 	"my_asio_tp",
  * 	std::move(disp_params) );
@@ -1367,13 +1363,14 @@ struct default_traits_t
  * v.1.0.2
  */
 template< typename Traits = default_traits_t >
-inline private_dispatcher_handle_t
-create_private_disp(
+SO_5_NODISCARD
+inline dispatcher_handle_t
+make_dispatcher(
 	//! SObjectizer Environment to work in.
 	environment_t & env,
 	//! Value for creating names of data sources for
 	//! run-time monitoring.
-	const std::string & data_sources_name_base,
+	const std::string_view data_sources_name_base,
 	//! Parameters for the dispatcher.
 	disp_params_t disp_params )
 	{
@@ -1389,24 +1386,20 @@ create_private_disp(
 		using so_5::stats::activity_tracking_stuff::create_appropriate_disp;
 		auto disp = create_appropriate_disp<
 				// Type of result pointer.
-				private_dispatcher_t,
+				impl::actual_dispatcher_iface_t,
 				// Actual type of dispatcher without thread activity tracking.
-				impl::real_private_dispatcher_t<
+				impl::dispatcher_template_t<
 						Traits,
 						impl::dispatcher_skeleton_without_thread_activity_tracking_t >,
 				// Actual type of dispatcher with thread activity tracking.
-				impl::real_private_dispatcher_t<
+				impl::dispatcher_template_t<
 						Traits,
 						impl::dispatcher_skeleton_with_thread_activity_tracking_t > >(
-			// Args for create_appropriate_disp.
-			env,
-			disp_params,
-			// Args for real_private_dispatcher_t constructors.
-			env,
+			outliving_mutable(env),
 			data_sources_name_base,
-			disp_params );
+			std::move(disp_params) );
 
-		return { disp.release() };
+		return impl::dispatcher_handle_maker_t::make( std::move(disp) );
 	}
 
 } /* namespace asio_thread_pool */

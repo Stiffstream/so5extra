@@ -5,7 +5,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers_1/time_limited_execution.hpp>
 
 using tid_set_t = std::set< so_5::current_thread_id_t >;
 
