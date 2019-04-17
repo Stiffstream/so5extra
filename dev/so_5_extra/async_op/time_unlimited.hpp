@@ -11,19 +11,11 @@
 #include <so_5_extra/async_op/details.hpp>
 #include <so_5_extra/async_op/errors.hpp>
 
-#include <so_5/details/h/invoke_noexcept_code.hpp>
+#include <so_5/details/invoke_noexcept_code.hpp>
 
-#include <so_5/rt/h/agent.hpp>
+#include <so_5/agent.hpp>
 
-#include <so_5/h/outliving.hpp>
-
-#if defined(SO_5_VERSION)
-	#if (SO_5_VERSION < SO_5_VERSION_MAKE(5, 21, 0))
-		#error "SObjectizer v.5.5.21 or above is required"
-	#endif
-#else
-		#error "SObjectizer v.5.5.21 or above is required"
-#endif
+#include <so_5/outliving.hpp>
 
 #include <vector>
 
@@ -213,11 +205,10 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 				::so_5::event_handler_method_t actual_handler =
 					[self = std::move(actual_data),
 					user_handler = std::move(evt_handler_info.m_handler)](
-						::so_5::invocation_type_t invoke_type,
 						::so_5::message_ref_t & msg )
 					{
 						self->completed();
-						user_handler( invoke_type, msg );
+						user_handler( msg );
 					};
 
 				m_subscriptions.emplace_back(
