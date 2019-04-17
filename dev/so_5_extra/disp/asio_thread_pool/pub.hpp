@@ -192,9 +192,21 @@ class basic_dispatcher_iface_t
 		virtual ~basic_dispatcher_iface_t() noexcept = default;
 
 		//! Create a binder for that dispatcher.
+		/*!
+		 * The binder will use an external strand object.
+		 */
 		SO_5_NODISCARD
 		virtual disp_binder_shptr_t
-		binder( ::asio::io_context::strand & ) = 0;
+		binder_with_external_strand( ::asio::io_context::strand & ) = 0;
+
+		//! Create a binder for that dispatcher.
+		/*!
+		 * The binder will use an internal (automatically created)
+		 * strand object.
+		 */
+		SO_5_NODISCARD
+		virtual disp_binder_shptr_t
+		binder_with_own_strand() = 0;
 
 		//! Get reference to io_context from that dispatcher.
 		virtual ::asio::io_context &
@@ -237,25 +249,30 @@ class SO_5_NODISCARD dispatcher_handle_t
 	public :
 		dispatcher_handle_t() noexcept = default;
 
-//FIXME: update the comment!
 		//! Get a binder for that dispatcher.
 		/*!
+		 * This method requires a reference to manually created strand
+		 * object for protection of agents bound via binder returned.
+		 * A user should create this strand object and ensure the right
+		 * lifetime of it.
+		 *
 		 * Usage example:
 		 * \code
-		 * using namespace so_5::disp::adv_thread_pool;
+		 * using namespace so_5::extra::disp::asio_thread_pool;
+		 *
+		 * asio::io_context io_ctx;
+		 * asio::io_context::strand agents_strand{ io_ctx };
 		 *
 		 * so_5::environment_t & env = ...;
-		 * auto disp = make_dispatcher( env );
-		 * bind_params_t params;
-		 * params.fifo( fifo_t::individual );
+		 * auto disp = make_dispatcher( env, "my_disp", io_ctx );
 		 *
 		 * env.introduce_coop( [&]( so_5::coop_t & coop ) {
 		 * 	coop.make_agent_with_binder< some_agent_type >(
-		 * 		disp.binder( params ),
+		 * 		disp.binder( agents_strand ),
 		 * 		... );
 		 *
 		 * 	coop.make_agent_with_binder< another_agent_type >(
-		 * 		disp.binder( params ),
+		 * 		disp.binder( agents_strand ),
 		 * 		... );
 		 *
 		 * 	...
@@ -270,7 +287,44 @@ class SO_5_NODISCARD dispatcher_handle_t
 		binder(
 			::asio::io_context::strand & strand ) const
 			{
-				return m_dispatcher->binder( strand );
+				return m_dispatcher->binder_with_external_strand( strand );
+			}
+
+		//! Get a binder for that dispatcher.
+		/*!
+		 * This method requires creates an internal strand object by itself.
+		 *
+		 * Usage example:
+		 * \code
+		 * using namespace so_5::extra::disp::asio_thread_pool;
+		 *
+		 * asio::io_context io_ctx;
+		 *
+		 * so_5::environment_t & env = ...;
+		 * auto disp = make_dispatcher( env, "my_disp", io_ctx );
+		 *
+		 * env.introduce_coop( [&]( so_5::coop_t & coop ) {
+		 * 	// This agent will use its own strand object.
+		 * 	coop.make_agent_with_binder< some_agent_type >(
+		 * 		disp.binder(),
+		 * 		... );
+		 *
+		 * 	// This agent will use its own strand object.
+		 * 	coop.make_agent_with_binder< another_agent_type >(
+		 * 		disp.binder(),
+		 * 		... );
+		 * 	...
+		 * } );
+		 * \endcode
+		 *
+		 * \attention
+		 * An attempt to call this method on empty handle is UB.
+		 */
+		SO_5_NODISCARD
+		disp_binder_shptr_t
+		binder() const
+			{
+				return m_dispatcher->binder_with_own_strand();
 			}
 
 		//! Get reference to io_context from that dispatcher.
@@ -647,36 +701,25 @@ class work_thread_with_activity_tracking_t final : public work_thread_t
 	};
 
 //
-// binder_t
+// class basic_binder_impl_t
 //
 /*!
- * \brief An implementation of a binder for %asio_thread_pool dispatcher.
- *
- * This binder is also an event_queue for the agents bound via that binder.
- *
- * There is no such thing as event_queue for %asio_thread_pool dispacher.
- * All execution demands will be stored inside Asio IoServce and dispatched
- * for execution via asio::post mechanism. But SObjectizer requires
- * an implementation of event_queue which must be used for agents bound
- * to %asio_thread_pool dispatcher. This class implements this event_queue
- * concepts.
+ * \brief Basic part of implementation of a binder for %asio_thread_pool
+ * dispatcher.
  *
  * \since
  * v.1.3.0
  */
-class binder_t final
+class basic_binder_impl_t
 	:	public disp_binder_t
 	,	public event_queue_t
 	{
 	public :
 		//! Initializing constructor.
-		binder_t(
+		basic_binder_impl_t(
 			//! The actual dispatcher to be used with that binder.
-			actual_dispatcher_shptr_t dispatcher,
-			//! Strand to be used with this event_queue.
-			outliving_reference_t< ::asio::io_context::strand > strand )
+			actual_dispatcher_shptr_t dispatcher )
 			:	m_dispatcher{ std::move(dispatcher) }
-			,	m_strand{ strand }
 			{}
 
 		void
@@ -711,6 +754,48 @@ class binder_t final
 				m_dispatcher->agent_bound();
 			}
 
+	protected :
+		//! The actual dispatcher.
+		actual_dispatcher_shptr_t m_dispatcher;
+	};
+
+//
+// binder_template_t
+//
+/*!
+ * \brief An implementation of a binder for %asio_thread_pool dispatcher.
+ *
+ * This binder is also an event_queue for the agents bound via that binder.
+ *
+ * There is no such thing as event_queue for %asio_thread_pool dispacher.
+ * All execution demands will be stored inside Asio IoServce and dispatched
+ * for execution via asio::post mechanism. But SObjectizer requires
+ * an implementation of event_queue which must be used for agents bound
+ * to %asio_thread_pool dispatcher. This class implements this event_queue
+ * concepts.
+ *
+ * This templates implements CRTP and should be parametrized by
+ * derived type. The derived type should provide method:
+ * \code
+ * ::asio::io_context::strand & strand() noexcept;
+ * \endcode
+ *
+ * \since
+ * v.1.3.0
+ */
+template< typename Derived >
+class binder_template_t
+	:	public basic_binder_impl_t
+	{
+		auto &
+		self_reference() noexcept
+			{
+				return static_cast< Derived & >( *this );
+			}
+
+	public :
+		using basic_binder_impl_t::basic_binder_impl_t;
+
 		void
 		push( execution_demand_t demand ) override
 			{
@@ -719,7 +804,7 @@ class binder_t final
 				// Another demand will wait for processing.
 				++counter;
 
-				asio::post( m_strand.get(),
+				asio::post( self_reference().strand(),
 					[d = std::move(demand), &counter]() mutable {
 						// Another demand will be processed.
 						--counter;
@@ -729,12 +814,67 @@ class binder_t final
 						work_thread_t::handle_demand( std::move(d) );
 					} );
 			}
+	};
+
+//
+// binder_with_external_strand_t
+//
+/*!
+ * \brief An implementation of binder that uses an external strand object.
+ *
+ * \since
+ * v.1.3.0
+ */
+class binder_with_external_strand_t final
+	: public binder_template_t< binder_with_external_strand_t >
+	{
+		using base_type = binder_template_t< binder_with_external_strand_t >;
+
+	public :
+		binder_with_external_strand_t(
+			actual_dispatcher_shptr_t dispatcher,
+			outliving_reference_t< ::asio::io_context::strand > strand )
+			:	base_type{ std::move(dispatcher) }
+			,	m_strand{ strand }
+			{}
+
+		::asio::io_context::strand &
+		strand() noexcept { return m_strand.get(); }
 
 	private :
-		//! The actual dispatcher.
-		actual_dispatcher_shptr_t m_dispatcher;
 		//! Strand to be used with this event_queue.
 		outliving_reference_t< ::asio::io_context::strand > m_strand;
+	};
+
+//
+// binder_with_own_strand_t
+//
+/*!
+ * \brief An implementation of binder that uses an own strand object.
+ *
+ * This own strand object will be a part of the binder object.
+ *
+ * \since
+ * v.1.3.0
+ */
+class binder_with_own_strand_t final
+	: public binder_template_t< binder_with_own_strand_t >
+	{
+		using base_type = binder_template_t< binder_with_own_strand_t >;
+
+	public :
+		binder_with_own_strand_t(
+			actual_dispatcher_shptr_t dispatcher )
+			:	base_type{ std::move(dispatcher) }
+			,	m_strand{ m_dispatcher->io_context() }
+			{}
+
+		::asio::io_context::strand &
+		strand() noexcept { return m_strand; }
+
+	private :
+		//! Strand to be used with this event_queue.
+		::asio::io_context::strand m_strand;
 	};
 
 //
@@ -767,12 +907,22 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 
 		SO_5_NODISCARD
 		disp_binder_shptr_t
-		binder( ::asio::io_context::strand & strand ) override
+		binder_with_external_strand(
+			::asio::io_context::strand & strand ) override
 			{
-				return { std::make_shared< binder_t >(
+				return { std::make_shared< binder_with_external_strand_t >(
 						shared_from_this(),
 						outliving_mutable(strand) )
 				};
+			}
+
+		SO_5_NODISCARD
+		disp_binder_shptr_t
+		binder_with_own_strand() override
+			{
+				return { std::make_shared< binder_with_own_strand_t >(
+						shared_from_this() )
+					};
 			}
 
 		::asio::io_context &
