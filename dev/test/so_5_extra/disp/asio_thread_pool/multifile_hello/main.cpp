@@ -2,7 +2,7 @@
 
 #include <so_5/all.hpp>
 
-#include <test/3rd_party/various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 #include "a.hpp"
 #include "b.hpp"
@@ -16,7 +16,7 @@ int main()
 					asio_tp::disp_params_t params;
 					params.use_own_io_context();
 
-					auto disp = asio_tp::create_private_disp(
+					auto disp = asio_tp::make_dispatcher(
 							env,
 							"asio_tp",
 							std::move(params) );

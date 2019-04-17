@@ -5,7 +5,7 @@
 
 #include <so_5/all.hpp>
 
-#include <test/3rd_party/various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 using tid_set_t = std::set< so_5::current_thread_id_t >;
 
@@ -103,22 +103,22 @@ so_5::mbox_t
 make_ring_coop(
 	tid_set_t & result_set,
 	so_5::coop_t & coop,
-	so_5::extra::disp::asio_thread_pool::private_dispatcher_handle_t disp )
+	so_5::extra::disp::asio_thread_pool::dispatcher_handle_t disp )
 {
 	constexpr std::size_t ring_size = 25;
 
-	auto arbiter_strand = make_strand( disp->io_context(), coop );
+	auto arbiter_strand = make_strand( disp.io_context(), coop );
 	coop.make_agent_with_binder< arbiter_t >(
-			disp->binder( *arbiter_strand ),
+			disp.binder( *arbiter_strand ),
 			so_5::outliving_mutable(result_set),
 			ring_size );
 
 	std::array< ring_member_t *, ring_size > ring_agents;
 	for( std::size_t i = 0u; i != ring_size; ++i )
 	{
-		auto member_strand = make_strand( disp->io_context(), coop );
+		auto member_strand = make_strand( disp.io_context(), coop );
 		ring_agents[ i ] = coop.make_agent_with_binder< ring_member_t >(
-				disp->binder( *member_strand ) );
+				disp.binder( *member_strand ) );
 	}
 
 	for( std::size_t i = 0u; i != ring_size; ++i )
@@ -142,7 +142,7 @@ TEST_CASE( "agent ring on asio_thread_pool disp" )
 						asio_tp::disp_params_t params;
 						params.use_external_io_context( io_svc );
 
-						auto disp = asio_tp::create_private_disp(
+						auto disp = asio_tp::make_dispatcher(
 								env,
 								"asio_tp",
 								std::move(params) );

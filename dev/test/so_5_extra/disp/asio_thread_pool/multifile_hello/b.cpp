@@ -31,15 +31,15 @@ class test_agent final : public so_5::agent_t
 
 void make_coop_b(
 	so_5::environment_t & env,
-	so_5::extra::disp::asio_thread_pool::private_dispatcher_handle_t disp )
+	so_5::extra::disp::asio_thread_pool::dispatcher_handle_t disp )
 	{
 		env.introduce_coop( [&]( so_5::coop_t & coop )
 			{
 				for( int i = 0; i != 3; ++i )
 				{
 					auto agent = std::make_unique< test_coop_b::test_agent >(
-							env, disp->io_context(), i );
-					auto binder = disp->binder( agent->strand() );
+							env, disp.io_context(), i );
+					auto binder = disp.binder( agent->strand() );
 
 					coop.add_agent( std::move(agent), std::move(binder) );
 				}
