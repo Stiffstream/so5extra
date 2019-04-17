@@ -5,8 +5,8 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
-#include <various_helpers_1/ensure.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/ensure.hpp>
 
 namespace delivery_ns = so_5::extra::revocable_msg;
 
@@ -98,7 +98,6 @@ perform_test()
 		run_with_time_limit( [&] {
 				so_5::launch( [&](so_5::environment_t & env) {
 						env.register_agent_as_coop(
-								"test",
 								env.make_agent< test_case_t< Message, Sender<Message> > >(
 										so_5::outliving_mutable(instances_received) ) );
 				} );

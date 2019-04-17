@@ -8,16 +8,12 @@
 
 #pragma once
 
-#include <so_5/h/version.hpp>
-
-#if (SO_5_VERSION < SO_5_VERSION_MAKE(5, 23, 0))
-	#error "SObjectizer v.5.5.23 or above is required"
-#endif
+#include <so_5/version.hpp>
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/rt/h/enveloped_msg.hpp>
-#include <so_5/rt/h/send_functions.hpp>
+#include <so_5/enveloped_msg.hpp>
+#include <so_5/send_functions.hpp>
 
 #include <atomic>
 
@@ -97,29 +93,10 @@ class envelope_t final : public so_5::enveloped_msg::envelope_t
 				// Otherwise message should be ignored.
 			}
 
-		// Special check for kind of the payload.
-		static auto
-		ensure_right_payload_kind( so_5::message_ref_t payload )
-			{
-				switch( message_kind( payload ) )
-					{
-					case message_kind_t::signal: break;
-					case message_kind_t::classical_message: break;
-					case message_kind_t::user_type_message: break;
-					case message_kind_t::service_request:
-						SO_5_THROW_EXCEPTION(
-								errors::rc_invalid_payload_kind,
-								"service requests can't be enveloped in "
-								"revocable_msg::details::envelope_t" );
-					case message_kind_t::enveloped_msg: break;
-					}
-				return payload;
-			}
-
 		// Mutability of payload will be returned as mutability
 		// of the whole envelope.
 		message_mutability_t
-		so5_message_mutability() const override
+		so5_message_mutability() const noexcept override
 			{
 				return message_mutability( m_payload );
 			}
@@ -138,7 +115,7 @@ class envelope_t final : public so_5::enveloped_msg::envelope_t
 
 	public :
 		envelope_t( so_5::message_ref_t payload )
-			:	m_payload{ ensure_right_payload_kind(std::move(payload)) }
+			:	m_payload{ std::move(payload) }
 			{}
 
 		void
@@ -333,7 +310,7 @@ make_envelope_and_deliver(
 		so_5::intrusive_ptr_t< envelope_t > envelope{
 				std::make_unique< envelope_t >( std::move(payload) ) };
 
-		to->do_deliver_enveloped_msg( msg_type, envelope, 1u );
+		to->do_deliver_message( msg_type, envelope, 1u );
 
 		return delivery_id_maker_t::make( std::move(envelope) );
 	}
