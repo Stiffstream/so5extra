@@ -35,6 +35,10 @@ MxxRu::Cpp::composite_target do
     global_compiler_option '-Wno-missing-variable-declarations'
     global_compiler_option '-Wno-exit-time-destructors'
     global_compiler_option '-Wno-global-constructors'
+
+    global_compiler_option '-Wno-zero-as-null-pointer-constant'
+    global_compiler_option '-Wno-sign-conversion'
+    global_compiler_option '-Wno-shorten-64-to-32'
   end
 
 end
