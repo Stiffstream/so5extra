@@ -319,6 +319,9 @@ class SO_5_NODISCARD dispatcher_handle_t
 		 *
 		 * \attention
 		 * An attempt to call this method on empty handle is UB.
+		 *
+		 * \since
+		 * v.1.3.0
 		 */
 		SO_5_NODISCARD
 		disp_binder_shptr_t
@@ -1436,10 +1439,10 @@ struct default_traits_t
  *
  * Usage examples:
  * \code
- * // Dispatcher which uses own Asio IoService and default traits.
+ * // Dispatcher which uses own Asio IoContext and default traits.
  * namespace asio_tp = so_5::extra::disp::asio_thread_pool;
  * asio_tp::disp_params_t params;
- * params.use_own_io_context(); // Asio IoService object will be created here.
+ * params.use_own_io_context(); // Asio IoContext object will be created here.
  * 		// This object will be accessible later via
  * 		// private_dispatcher_t::io_context() method.
  * auto disp = asio_tp::make_dispatcher(
@@ -1448,7 +1451,7 @@ struct default_traits_t
  * 	std::move(disp_params) );
  *
  *
- * // Dispatcher which uses external Asio IoService and default traits.
+ * // Dispatcher which uses external Asio IoContext and default traits.
  * asio::io_context & io_svc = ...;
  * namespace asio_tp = so_5::extra::disp::asio_thread_pool;
  * asio_tp::disp_params_t params;
@@ -1459,7 +1462,7 @@ struct default_traits_t
  * 	std::move(disp_params) );
  *
  *
- * // Dispatcher which uses own Asio IoService and custom traits.
+ * // Dispatcher which uses own Asio IoContext and custom traits.
  * struct my_traits
  * {
  * 	using thread_type = my_custom_thread_type;
