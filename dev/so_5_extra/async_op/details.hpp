@@ -8,8 +8,7 @@
 
 #pragma once
 
-#include <so_5/rt/h/agent.hpp>
-#include <so_5/rt/h/adhoc_agent_wrapper.hpp>
+#include <so_5/agent.hpp>
 
 namespace so_5 {
 
@@ -31,11 +30,6 @@ target_to_mbox( const ::so_5::mbox_t & mbox )
 inline const ::so_5::mbox_t &
 target_to_mbox( const ::so_5::agent_t & agent )
 	{ return agent.so_direct_mbox(); }
-
-inline const ::so_5::mbox_t &
-target_to_mbox( const ::so_5::adhoc_agent_definition_proxy_t & agent )
-	{ return agent.direct_mbox(); }
-
 /*!
  * \}
  */

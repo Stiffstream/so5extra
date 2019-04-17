@@ -11,24 +11,16 @@
 #include <so_5_extra/async_op/details.hpp>
 #include <so_5_extra/async_op/errors.hpp>
 
-#include <so_5/details/h/invoke_noexcept_code.hpp>
+#include <so_5/details/invoke_noexcept_code.hpp>
 
-#include <so_5/rt/impl/h/internal_env_iface.hpp>
+#include <so_5/impl/internal_env_iface.hpp>
 
-#include <so_5/rt/h/agent.hpp>
-#include <so_5/rt/h/send_functions.hpp>
+#include <so_5/agent.hpp>
+#include <so_5/send_functions.hpp>
 
-#include <so_5/h/timers.hpp>
+#include <so_5/timers.hpp>
 
-#include <so_5/h/outliving.hpp>
-
-#if defined(SO_5_VERSION)
-	#if (SO_5_VERSION < SO_5_VERSION_MAKE(5, 21, 0))
-		#error "SObjectizer v.5.5.21 or above is required"
-	#endif
-#else
-		#error "SObjectizer v.5.5.21 or above is required"
-#endif
+#include <so_5/outliving.hpp>
 
 #include <chrono>
 #include <vector>
@@ -361,7 +353,6 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 					{
 						m_default_timeout_handler =
 							[op = ::so_5::intrusive_ptr_t<op_data_t>(this)](
-								::so_5::invocation_type_t /*invoke_type*/,
 								::so_5::message_ref_t & /*msg*/ )
 							{
 								op->timedout();
@@ -866,11 +857,10 @@ class msg_independent_part_of_definition_point_t
 				::so_5::event_handler_method_t actual_handler =
 					[op = m_op,
 					user_handler = std::move(evt_handler_info.m_handler)](
-						::so_5::invocation_type_t invoke_type,
 						::so_5::message_ref_t & msg )
 					{
 						op->completed();
-						user_handler( invoke_type, msg );
+						user_handler( msg );
 					};
 
 				m_op->add_completion_handler(
@@ -946,11 +936,10 @@ class msg_independent_part_of_definition_point_t
 				return
 					[op = m_op,
 					user_handler = std::move(evt_handler_info.m_handler)](
-						::so_5::invocation_type_t invoke_type,
 						::so_5::message_ref_t & msg )
 					{
 						op->timedout();
-						user_handler( invoke_type, msg );
+						user_handler( msg );
 					};
 			}
 	};
@@ -1456,7 +1445,6 @@ class definition_point_t
 						op->do_activation_actions();
 						op->setup_timer_id(
 								::so_5::send_periodic<Message>(
-										op->environment(),
 										op->timeout_mbox(),
 										timeout,
 										std::chrono::steady_clock::duration::zero(),

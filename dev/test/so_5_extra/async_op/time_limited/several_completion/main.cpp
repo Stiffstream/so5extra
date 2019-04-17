@@ -2,8 +2,8 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
-#include <various_helpers_1/ensure.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/ensure.hpp>
 
 using namespace ::so_5::extra::async_op::time_limited;
 
@@ -106,7 +106,7 @@ int main()
 {
 	run_with_time_limit( [&] {
 			so_5::launch( [&](so_5::environment_t & env) {
-						env.register_agent_as_coop( "test",
+						env.register_agent_as_coop(
 								env.make_agent< a_test_t >() );
 					});
 		},
