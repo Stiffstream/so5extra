@@ -91,7 +91,7 @@ class test_case_env_mbox_t final : public test_case_basic_t< Message >
 		on_message( ::so_5::mhood_t< Message > cmd ) override
 			{
 				this->try_send_periodic( [&]() {
-					timer_ns::send_periodic(
+					(void)timer_ns::send_periodic(
 							this->so_direct_mbox(),
 							std::chrono::seconds(1),
 							std::chrono::seconds(2),
@@ -113,7 +113,7 @@ class test_case_agent_t final : public test_case_basic_t< Message >
 		on_message( ::so_5::mhood_t< Message > cmd ) override
 			{
 				this->try_send_periodic( [&]() {
-					timer_ns::send_periodic(
+					(void)timer_ns::send_periodic(
 							*this,
 							std::chrono::seconds(1),
 							std::chrono::seconds(2),

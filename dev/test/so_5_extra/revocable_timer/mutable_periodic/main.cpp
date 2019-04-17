@@ -69,7 +69,7 @@ class test_case_t final : public so_5::agent_t
 		try_env_mbox_form()
 			{
 				try_send_periodic( [this]() {
-					timer_ns::send_periodic< Message >(
+					(void)timer_ns::send_periodic< Message >(
 							so_direct_mbox(),
 							std::chrono::seconds(1),
 							std::chrono::seconds(2),
@@ -82,7 +82,7 @@ class test_case_t final : public so_5::agent_t
 		try_agent_form()
 			{
 				try_send_periodic( [this]() {
-					timer_ns::send_periodic< Message >(
+					(void)timer_ns::send_periodic< Message >(
 							*this,
 							std::chrono::seconds(1),
 							std::chrono::seconds(2),

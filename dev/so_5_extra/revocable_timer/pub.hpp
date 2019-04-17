@@ -312,25 +312,44 @@ struct instantiator_and_sender
 
 } /* namespace impl */
 
-//FIXME: make changes to the comment!
 /*!
- * \brief A utility function for creating and delivering a periodic message.
+ * \brief A utility function for creating and delivering a periodic message
+ * to the specified destination.
  *
- * This function requires passing a reference to SObjectizer Environment and
- * target mbox. Because of that it usually used outside SObjectizer's agent
- * (where it is possible to use another variant of send_periodic). For
- * example:
+ * Agent, mbox or mchain can be used as \a target.
+ *
+ * \note
+ * Message chains with overload control must be used for periodic messages
+ * with additional care because exceptions can't be thrown during
+ * dispatching messages from timer.
+ *
+ * Usage example 1:
+ * \code
+ * namespace timer_ns = so_5::extra::revocable_timer;
+ * class my_agent : public so_5::agent_t {
+ * 	timer_ns::timer_id_t timer_;
+ * 	...
+ * 	void so_evt_start() override {
+ * 		...
+ * 		// Initiate a periodic message to self.
+ * 		timer_ = timer_ns::send_periodic<do_some_task>(*this,	1s, 1s, ...);
+ * 		...
+ * 	}
+ * 	...
+ * };
+ * \endcode
+ *
+ * Usage example 2:
  * \code
  * so_5::wrapped_env_t sobj; // SObjectizer is started here.
- * so_5::mbox_t worker_mbox; // Will get a value later.
  * // Create a worker and get its mbox.
- * sobj.environment().introduce_coop( [&](so_5::coop_t & coop) {
- * 	auto worker = coop.make_agent<worker_agent>(...);
- * 	worker_mbox = worker->so_direct_mbox();
- * });
+ * so_5::mbox_t worker_mbox = sobj.environment().introduce_coop(
+ * 	[&](so_5::coop_t & coop) {
+ * 		auto worker = coop.make_agent<worker_agent>(...);
+ * 		return worker->so_direct_mbox();
+ * 	});
  * // Send revocable periodic message to the worker.
  * auto timer_id = so_5::extra::revocable_timer::send_periodic<tell_status>(
- * 		sobj.environment(),
  * 		worker_mbox(),
  * 		1s, 1s,
  * 		... );
@@ -347,69 +366,8 @@ struct instantiator_and_sender
  * \attention
  * Values of \a pause and \a period should be non-negative.
  *
- * \since
- * v.1.2.0
- *
- */
-#if 0
-template< typename Message, typename... Args >
-SO_5_NODISCARD timer_id_t
-send_periodic(
-	//! Mbox for the message to be sent to.
-	const so_5::mbox_t & to,
-	//! Pause for message delaying.
-	std::chrono::steady_clock::duration pause,
-	//! Period of message repetitions.
-	std::chrono::steady_clock::duration period,
-	//! Message constructor parameters.
-	Args&&... args )
-	{
-		return impl::instantiator_and_sender< Message >::send_periodic(
-				to, pause, period, std::forward< Args >( args )... );
-	}
-#endif
-
-//FIXME: make changes to the comment!
-/*!
- * \brief A utility function for creating and delivering a periodic message
- * to the specified destination.
- *
- * Agent, ad-hoc agent or mchain can be used as \a target.
- *
- * \note
- * Message chains with overload control must be used for periodic messages
- * with additional care because exceptions can't be thrown during
- * dispatching messages from timer.
- *
- * This function is intended to be used inside SObjectizer's agents where
- * we have `this` pointer and can extract reference to SObjectizer
- * Environment and the direct mbox of agent from that pointer:
- * \code
- * namespace timer_ns = so_5::extra::revocable_timer;
- * class my_agent : public so_5::agent_t {
- * 	timer_ns::timer_id_t timer_;
- * 	...
- * 	void so_evt_start() override {
- * 		...
- * 		// Initiate a periodic message to self.
- * 		timer_ = timer_ns::send_periodic<do_some_task>(*this,	1s, 1s, ...);
- * 		...
- * 	}
- * 	...
- * };
- * \endcode
- *
- * \note
- * The return value of that function must be stored somewhere. Otherwise
- * the periodic timer will be cancelled automatically just right after
- * send_periodic returns.
- *
- * \attention
- * Values of \a pause and \a period should be non-negative.
- *
  * \tparam Message type of message or signal to be sent.
- * \tparam Target can be so_5::agent_t, so_5::adhoc_agent_definition_proxy_t or
- * so_5::mchain_t.
+ * \tparam Target can be so_5::agent_t, so_5::mbox_t or so_5::mchain_t.
  * \tparam Args list of arguments for Message's constructor.
  *
  * \since
@@ -434,7 +392,6 @@ send_periodic(
 				std::forward< Args >( args )... );
 	}
 
-//FIXME: make changes to the comment!
 /*!
  * \brief A utility function for delivering a periodic
  * from an existing message hood.
@@ -451,7 +408,8 @@ send_periodic(
 	class redirector : public so_5::agent_t {
 		...
 		void on_some_immutable_message(mhood_t<first_msg> cmd) {
-			timer_id = timer_ns::send_periodic(so_environment(), another_mbox,
+			timer_id = timer_ns::send_periodic(
+					another_mbox,
 					std::chrono::seconds(1),
 					std::chrono::seconds(15),
 					cmd);
@@ -459,7 +417,8 @@ send_periodic(
 		}
 
 		void on_some_mutable_message(mhood_t<mutable_msg<second_msg>> cmd) {
-			timer_id = timer_ns::send_periodic(so_environment(), another_mbox,
+			timer_id = timer_ns::send_periodic(
+					another_mbox,
 					std::chrono::seconds(1),
 					std::chrono::seconds(20),
 					std::move(cmd));
@@ -503,7 +462,6 @@ send_periodic(
 				period );
 	}
 
-//FIXME: make changes to the comment!
 /*!
  * \brief A utility function for periodic redirection of a signal
  * from existing message hood.
@@ -517,7 +475,6 @@ send_periodic(
 		...
 		void on_some_immutable_signal(mhood_t<some_signal> cmd) {
 			timer_id = so_5::extra::revocable_timer::send_periodic(
-					so_environment(),
 					another_mbox,
 					std::chrono::seconds(1),
 					std::chrono::seconds(10),
@@ -561,30 +518,13 @@ send_periodic(
 				period );
 	}
 
-//FIXME: make changes to the comment!
 /*!
  * \brief A helper function for redirection of a message/signal as a periodic
  * message/signal.
  *
  * This function can be used if \a target is a reference to agent or if
- * \a target is a mchain. In such cases instead of writing:
- * \code
- * periodic_id = so_5::extra::revocable_timer::send_periodic(
- * 		target_agent.so_environment(),
- * 		target_agent.so_direct_mbox(),
- * 		pause,
- * 		period,
- * 		std::move(msg));
- * \endcode
- * it is possible to write:
- * \code
- * periodic_id = so_5::extra::revocable_timer::send_periodic(
- * 		target_agent,
- * 		pause,
- * 		period,
- * 		std::move(msg));
- * \endcode
- * 
+ * \a target is a mchain
+ *
  * Example usage:
  * \code
  * namespace timer_ns = so_5::extra::revocable_timer;
@@ -631,25 +571,44 @@ send_periodic(
 				std::move(mhood) );
 	}
 
-//FIXME: make changes to the comment!
 /*!
- * \brief A utility function for creating and delivering a delayed message.
+ * \brief A utility function for creating and delivering a delayed message
+ * to the specified destination.
  *
- * This function requires passing a reference to SObjectizer Environment and
- * target mbox. Because of that it usually used outside SObjectizer's agent
- * (where it is possible to use another variant of send_delayed). For
- * example:
+ * Agent, mbox or mchain can be used as \a target.
+ *
+ * \note
+ * Message chains with overload control must be used for periodic messages
+ * with additional care because exceptions can't be thrown during
+ * dispatching messages from timer.
+ *
+ * Usage example 1:
+ * \code
+ * namespace timer_ns = so_5::extra::revocable_timer;
+ * class my_agent : public so_5::agent_t {
+ * 	timer_ns::timer_id_t timer_;
+ * 	...
+ * 	void so_evt_start() override {
+ * 		...
+ * 		// Initiate a delayed message to self.
+ * 		timer_ = timer_ns::send_periodic<kill_youself>(*this,	60s, ...);
+ * 		...
+ * 	}
+ * 	...
+ * };
+ * \endcode
+ *
+ * Usage example 2:
  * \code
  * so_5::wrapped_env_t sobj; // SObjectizer is started here.
- * so_5::mbox_t worker_mbox; // Will get a value later.
  * // Create a worker and get its mbox.
- * sobj.environment().introduce_coop( [&](so_5::coop_t & coop) {
- * 	auto worker = coop.make_agent<worker_agent>(...);
- * 	worker_mbox = worker->so_direct_mbox();
- * });
+ * so_5::mbox_t worker_mbox = sobj.environment().introduce_coop(
+ * 	[&](so_5::coop_t & coop) {
+ * 		auto worker = coop.make_agent<worker_agent>(...);
+ * 		worker_mbox = worker->so_direct_mbox();
+ * 	});
  * // Send revocable delayed message to the worker.
  * auto timer_id = so_5::extra::revocable_timer::send_periodic<kill_yourself>(
- * 		sobj.environment(),
  * 		worker_mbox(),
  * 		60s,
  * 		... );
@@ -666,69 +625,8 @@ send_periodic(
  * \attention
  * Value of \a pause should be non-negative.
  *
- * \since
- * v.1.2.0
- */
-#if 0
-template< typename Message, typename... Args >
-SO_5_NODISCARD timer_id_t
-send_delayed(
-	//! Mbox for the message to be sent to.
-	const so_5::mbox_t & to,
-	//! Pause for message delaying.
-	std::chrono::steady_clock::duration pause,
-	//! Message constructor parameters.
-	Args&&... args )
-	{
-		return ::so_5::extra::revocable_timer::send_periodic< Message >(
-				to,
-				pause,
-				std::chrono::steady_clock::duration::zero(),
-				std::forward<Args>(args)... );
-	}
-#endif
-
-//FIXME: make changes to the comment!
-/*!
- * \brief A utility function for creating and delivering a delayed message
- * to the specified destination.
- *
- * Agent, ad-hoc agent or mchain can be used as \a target.
- *
- * \note
- * Message chains with overload control must be used for periodic messages
- * with additional care because exceptions can't be thrown during
- * dispatching messages from timer.
- *
- * This function is intended to be used inside SObjectizer's agents where
- * we have `this` pointer and can extract reference to SObjectizer
- * Environment and the direct mbox of agent from that pointer:
- * \code
- * namespace timer_ns = so_5::extra::revocable_timer;
- * class my_agent : public so_5::agent_t {
- * 	timer_ns::timer_id_t timer_;
- * 	...
- * 	void so_evt_start() override {
- * 		...
- * 		// Initiate a delayed message to self.
- * 		timer_ = timer_ns::send_periodic<kill_youself>(*this,	60s, ...);
- * 		...
- * 	}
- * 	...
- * };
- * \endcode
- *
- * \note
- * The return value of that function must be stored somewhere. Otherwise
- * the delayed timer will be cancelled automatically just right after
- * send_delayed returns.
- *
- * \attention
- * Value of \a pause should be non-negative.
- *
  * \tparam Message type of message or signal to be sent.
- * \tparam Target can be so_5::agent_t, so_5::adhoc_agent_definition_proxy_t or
- * so_5::mchain_t.
+ * \tparam Target can be so_5::agent_t, so_5::mbox_t or so_5::mchain_t.
  * \tparam Args list of arguments for Message's constructor.
  *
  * \since
@@ -751,7 +649,6 @@ send_delayed(
 				std::forward<Args>(args)... );
 	}
 
-//FIXME: make changes to the comment!
 /*!
  * \brief A helper function for redirection of existing message/signal
  * as delayed message.
@@ -765,7 +662,7 @@ send_delayed(
  * 	...
  * 	void on_some_msg(mhood_t<some_message> cmd) {
  * 		// Redirect this message to another worker with delay in 250ms.
- * 		timer_ = timer_ns::send_delayed(so_environment(),
+ * 		timer_ = timer_ns::send_delayed(
  * 				another_worker_,
  * 				std::chrono::milliseconds(250),
  * 				std::move(cmd));
@@ -804,12 +701,11 @@ send_delayed(
 				std::move(cmd) );
 	}
 
-//FIXME: make changes to the comment!
 /*!
  * \brief A helper function for redirection of existing message/signal
  * as delayed message.
  *
- * Agent, ad-hoc agent or mchain can be used as \a target.
+ * Agent or mchain can be used as \a target.
  *
  * Usage example:
  * \code
