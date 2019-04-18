@@ -45,7 +45,7 @@ public :
 			.event( [index](mhood_t<request> cmd) {
 				so_5::send< reply >( cmd->m_reply_to, index );
 			} )
-			.event( [index](mhood_t<final_request> cmd) {
+			.event( [](mhood_t<final_request> cmd) {
 				so_5::send< final_reply >( cmd->m_reply_to );
 			} );
 	}

@@ -204,7 +204,7 @@ class actual_timer_t : public timer_t
 			holder_smart_ptr_t holder )
 			:	m_holder( std::move(holder) )
 			{}
-		virtual ~actual_timer_t()
+		virtual ~actual_timer_t() override
 			{
 				release();
 			}
