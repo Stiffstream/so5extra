@@ -376,6 +376,11 @@ env_infrastructure_t<Activity_Tracker>::launch( env_init_t init_fn )
 			run_default_dispatcher_and_go_further( std::move(init) );
 		} );
 
+		// Default dispatcher should be destroyed on exit from this function.
+		auto default_disp_destroyer = so_5::details::at_scope_exit( [this] {
+				m_default_disp.reset();
+			} );
+
 		// Tell that there is a work to do.
 		auto work = ::asio::make_work_guard( m_io_svc.get() );
 
@@ -604,11 +609,8 @@ env_infrastructure_t<Activity_Tracker>::run_default_dispatcher_and_go_further(
 						// SObjectizer's shutdown should be initiated.
 						stop();
 
-						// Drop the pointer to the default dispatcher.
-						// If the dispatcher is used by some agent then
-						// the dispatcher will be automatically destroyed after
-						// deregistration of that agent.
-						m_default_disp.reset();
+						// NOTE: pointer to the default dispatcher will be dropped
+						// in launch() method.
 					} );
 			}
 	}
