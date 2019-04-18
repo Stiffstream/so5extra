@@ -35,10 +35,11 @@ int main()
 
 	// Try to process messages from mchain.
 	// Just one message should be processed.
-	const auto receive_result = receive(from(ch).no_wait_on_empty(),
-			[](so_5::mhood_t<std::string> cmd) {
-				std::cout << "Msg: " << *cmd << std::endl;
-			});
+	const auto receive_result =
+			receive(from(ch).no_wait_on_empty().handle_all(),
+					[](so_5::mhood_t<std::string> cmd) {
+						std::cout << "Msg: " << *cmd << std::endl;
+					});
 
 	std::cout << "messages extracted: " << receive_result.extracted()
 			<< ", handled: " << receive_result.handled() << std::endl;

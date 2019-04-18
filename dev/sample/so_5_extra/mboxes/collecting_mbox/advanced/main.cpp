@@ -186,7 +186,7 @@ public:
 					// Create new collecting mbox for every book.
 					// This prevents from collection of acks for different books
 					// in one messages_collected instance.
-					store_ack_mbox_t::make(so_environment(), so_direct_mbox()));
+					store_ack_mbox_t::make(so_direct_mbox()));
 
 			++key;
 		}
@@ -220,7 +220,7 @@ private:
 		so_5::send<request_data_t>(m_command_mbox,
 				key,
 				// Create a new collecting mbox for this request.
-				data_mbox_t::make(so_environment(), so_direct_mbox()));
+				data_mbox_t::make(so_direct_mbox()));
 	}
 
 	void on_data(mhood_t<data_mbox_t::messages_collected_t> cmd)
@@ -256,18 +256,18 @@ void init(so_5::environment_t & env)
 	// All example's agents will work in one coop.
 	env.introduce_coop([&](so_5::coop_t & coop) {
 		// Shard-agents will live on separate work threads.
-		auto disp = so_5::disp::active_obj::create_private_disp(env);
+		auto disp = so_5::disp::active_obj::make_dispatcher(env);
 
 		auto command_mbox = env.create_mbox();
 
 		coop.make_agent_with_binder<shard_t<field_id_t::author>>(
-				disp->binder(),
+				disp.binder(),
 				command_mbox);
 		coop.make_agent_with_binder<shard_t<field_id_t::title>>(
-				disp->binder(),
+				disp.binder(),
 				command_mbox);
 		coop.make_agent_with_binder<shard_t<field_id_t::summary>>(
-				disp->binder(),
+				disp.binder(),
 				command_mbox);
 
 		// Example performer will work on the default dispatcher.

@@ -116,7 +116,7 @@ public :
 	virtual void so_define_agent() override
 	{
 		so_default_state()
-			.event< msg_next_turn >( &a_generator_t::evt_next_turn )
+			.event( &a_generator_t::evt_next_turn )
 			.event( &a_generator_t::evt_reply );
 	}
 
@@ -144,7 +144,7 @@ private :
 	// Random number generator.
 	std::default_random_engine m_random_engine;
 
-	void evt_next_turn()
+	void evt_next_turn( mhood_t< msg_next_turn > )
 	{
 		// Create and send new requests.
 		generate_new_requests( random( 5, 8 ) );
@@ -240,7 +240,7 @@ void init( so_5::environment_t & env )
 
 		// Performer agents.
 		// Must work on dedicated thread_pool dispatcher.
-		auto performer_disp = so_5::disp::thread_pool::create_private_disp( env, 3 );
+		auto performer_disp = so_5::disp::thread_pool::make_dispatcher( env, 3 );
 		auto performer_binding_params = so_5::disp::thread_pool::bind_params_t{}
 				.fifo( so_5::disp::thread_pool::fifo_t::individual );
 
@@ -248,7 +248,7 @@ void init( so_5::environment_t & env )
 		for( int worker_id = 0; worker_id < 3; ++worker_id )
 		{
 			coop.make_agent_with_binder< a_performer_t >(
-					performer_disp->binder( performer_binding_params ),
+					performer_disp.binder( performer_binding_params ),
 					std::cref(rrmbox),
 					worker_id,
 					logger->so_direct_mbox() );
@@ -256,7 +256,7 @@ void init( so_5::environment_t & env )
 
 		// Generator will work on dedicated one_thread dispatcher.
 		coop.make_agent_with_binder< a_generator_t >(
-				so_5::disp::one_thread::create_private_disp( env )->binder(),
+				so_5::disp::one_thread::make_dispatcher( env ).binder(),
 				rrmbox,
 				logger->so_direct_mbox() );
 	});

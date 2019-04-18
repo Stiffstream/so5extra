@@ -50,7 +50,7 @@ int main()
 
 		// Create dispatcher instance.
 		// That instance will use external io_context object.
-		auto disp = asio_tp::create_private_disp(
+		auto disp = asio_tp::make_dispatcher(
 				env,
 				"asio_tp",
 				asio_tp::disp_params_t{}.use_external_io_context( io_svc ) );
@@ -58,7 +58,7 @@ int main()
 		// Create hello-agent that will be bound to thread pool dispatcher.
 		env.introduce_coop(
 				// Agent will be protected by strand-object.
-				disp->binder( actor_strand ),
+				disp.binder( actor_strand ),
 				[&]( so_5::coop_t & coop )
 				{
 					coop.make_agent<a_hello_t>();
