@@ -108,19 +108,11 @@ class ring_member_t final : public so_5::agent_t
 public :
 	ring_member_t(
 		context_t ctx,
-		asio::io_context & io_svc,
 		std::size_t turns_count )
 		:	so_5::agent_t( std::move(ctx) )
-		,	m_strand( io_svc )
 		,	m_turns_left( turns_count )
 	{
 		so_subscribe_self().event( &ring_member_t::on_your_turn );
-	}
-
-	asio::io_context::strand &
-	strand() noexcept
-	{
-		return m_strand;
 	}
 
 	void set_next( so_5::mbox_t next ) noexcept
@@ -134,7 +126,6 @@ public :
 	}
 
 private :
-	asio::io_context::strand m_strand;
 	std::size_t m_turns_left;
 	so_5::mbox_t m_next;
 
@@ -174,30 +165,24 @@ void fill_coop( so_5::coop_t & coop )
 	disp_params.use_own_io_context();
 
 	// Create dispatcher for ring of agents.
-	auto disp = asio_tp::create_private_disp<my_disp_traits>(
+	auto disp = asio_tp::make_dispatcher<my_disp_traits>(
 			coop.environment(),
 			"asio_tp",
 			std::move(disp_params) );
 
 	// Creation of every agent requires three steps:
 	// 1. Creation of agent's instance with strand inside...
-	std::array< std::unique_ptr<ring_member_t>, ring_size > members;
+	std::array< ring_member_t *, ring_size > members;
 	for( auto & ptr : members )
-		ptr = std::make_unique< ring_member_t >(
-				coop.make_agent_context(),
-				disp->io_context(),
+	{
+		ptr = coop.make_agent_with_binder< ring_member_t >(
+				disp.binder(),
 				turns_count );
+	}
 
 	// 2. Setting the 'next' mbox for every member.
 	for( std::size_t i = 0; i != ring_size; ++i )
 		members[ i ]->set_next( members[ (i+1) % ring_size ]->so_direct_mbox() );
-
-	// 3. Addition of the agent to the coop by using special binder.
-	for( auto & ptr : members )
-	{
-		auto & strand = ptr->strand();
-		coop.add_agent( std::move(ptr), disp->binder(strand) );
-	}
 }
 
 int main()

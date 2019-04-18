@@ -265,7 +265,7 @@ class simple_t : public ::so_5::abstract_message_box_t
 			}
 
 		so_5::environment_t &
-		environment() const noexcept
+		environment() const noexcept override
 			{
 				return underlying_mbox().environment();
 			}

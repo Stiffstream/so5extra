@@ -459,7 +459,7 @@ class actual_mbox_t final
 			}
 
 		so_5::environment_t &
-		environment() const noexcept
+		environment() const noexcept override
 			{
 				return this->m_data.m_env;
 			}

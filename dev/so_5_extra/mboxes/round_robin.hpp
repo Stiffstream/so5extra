@@ -305,7 +305,7 @@ class mbox_template_t
 			}
 
 		so_5::environment_t &
-		environment() const noexcept
+		environment() const noexcept override
 			{
 				return this->m_env;
 			}
