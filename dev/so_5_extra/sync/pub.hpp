@@ -42,6 +42,48 @@ const int rc_no_reply =
 namespace details
 {
 
+/*!
+ * \brief A helper template type to trigger static_assert.
+ */
+template<typename T>
+struct always_false
+{
+	static constexpr const bool value = false;
+};
+
+//
+// ensure_no_mutability_modificators
+//
+template< typename T >
+struct ensure_no_mutability_modificators
+	{
+		using type = T;
+	};
+
+template< typename T >
+struct ensure_no_mutability_modificators< immutable_msg<T> >
+	{
+		static_assert( always_false<T>::value,
+				"so_5::immutable_msg<T> modificator can't be used with "
+				"so_5::extra::sync::request_reply_t" );
+
+		using type = T;
+	};
+
+template< typename T >
+struct ensure_no_mutability_modificators< mutable_msg<T> >
+	{
+		static_assert( always_false<T>::value,
+				"so_5::mutable_msg<T> modificator can't be used with "
+				"so_5::extra::sync::request_reply_t" );
+
+		using type = T;
+	};
+
+template< typename T >
+using ensure_no_mutability_modificators_t =
+	typename ensure_no_mutability_modificators<T>::type;
+
 //
 // basic_request_reply_part_t
 //
@@ -49,8 +91,15 @@ template< typename Request, typename Reply >
 class basic_request_reply_part_t : public so_5::message_t
 	{
 	public :
-		using request_type = Request;
-		using reply_type = Reply;
+		using request_type = ensure_no_mutability_modificators_t<Request>;
+		using reply_type = ensure_no_mutability_modificators_t<Reply>;
+
+		static_assert(
+				(std::is_move_assignable_v<reply_type> &&
+						std::is_move_constructible_v<reply_type>) ||
+				(std::is_copy_assignable_v<reply_type> &&
+						std::is_copy_constructible_v<reply_type>),
+				"Reply type should be MoveAssignable or CopyAssignable" );
 
 	protected :
 		so_5::mchain_t m_reply_ch;
@@ -161,7 +210,7 @@ class request_reply_t final
 									"request_reply type: " } +
 							typeid(request_reply_t).name() );
 
-				so_5::send< reply_type >(
+				so_5::send< so_5::mutable_msg<reply_type> >(
 						this->m_reply_ch, std::forward<Args>(args)... );
 
 				this->m_reply_sent = true;
@@ -180,28 +229,32 @@ request_value(
 	Duration duration,
 	Args && ...args )
 	{
-		using request_type = request_reply_t<Request, Reply>;
+		using requester_type = request_reply_t<Request, Reply>;
 
-		auto reply_ch = request_type::initiate(
+		using reply_type = typename requester_type::reply_type;
+
+		auto reply_ch = requester_type::initiate(
 				std::forward<Target>(target),
 				std::forward<Args>(args)... );
 
-		optional<typename request_type::reply_type> result;
+		optional<reply_type> result;
 		receive(
 				from(reply_ch).handle_n(1).empty_timeout(duration),
-				[&result]( mhood_t<Reply> cmd ) {
-					// For the simplicity.
-					result = *cmd;
+				[&result]( so_5::mutable_mhood_t<reply_type> cmd ) {
+					if constexpr( std::is_move_assignable_v<reply_type> &&
+							std::is_move_constructible_v<reply_type> )
+						result = std::move(*cmd);
+					else
+						result = *cmd;
 				} );
 
 		if( !result )
 			SO_5_THROW_EXCEPTION( errors::rc_no_reply,
 					std::string{ "no reply received, request_reply type: " } +
-					typeid(request_type).name() );
+					typeid(requester_type).name() );
 
 		return *result;
 	}
-
 
 } /* namespace sync */
 
