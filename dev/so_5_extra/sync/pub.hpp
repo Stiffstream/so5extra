@@ -39,47 +39,96 @@ const int rc_no_reply =
 
 } /* namespace errors */
 
+namespace details
+{
+
 //
-// request_reply_t
+// basic_request_reply_part_t
 //
-//FIXME: document this!
-template<typename Request, typename Reply>
-class request_reply_t final : public so_5::message_t
+template< typename Request, typename Reply >
+class basic_request_reply_part_t : public so_5::message_t
 	{
 	public :
 		using request_type = Request;
 		using reply_type = Reply;
 
-	private :
+	protected :
 		so_5::mchain_t m_reply_ch;
-
-		request_type m_request;
-
 		bool m_reply_sent{ false };
 
-		template< typename... Args >
-		request_reply_t(
-			so_5::mchain_t reply_ch,
-			Args && ...args )
+		basic_request_reply_part_t( so_5::mchain_t reply_ch )
 			:	m_reply_ch{ std::move(reply_ch) }
-			,	m_request( std::forward<Args>(args)... )
 			{}
 
 	public :
-		~request_reply_t() override
+		~basic_request_reply_part_t() override
 			{
 				close_retain_content( m_reply_ch );
 			}
 
-		const request_type &
+		const so_5::mchain_t &
+		reply_ch() const noexcept { return m_reply_ch; }
+	};
+
+//
+// request_holder_part_t
+//
+template< typename Base, bool is_signal >
+class request_holder_part_t;
+
+template< typename Base >
+class request_holder_part_t<Base, false> : public Base
+	{
+	protected :
+		typename Base::request_type m_request;
+
+		template< typename... Args >
+		request_holder_part_t(
+			so_5::mchain_t reply_ch,
+			Args && ...args )
+			:	Base{ std::move(reply_ch) }
+			,	m_request{ std::forward<Args>(args)... }
+			{}
+
+	public :
+		const auto &
 		request() const noexcept { return m_request; }
 
-		request_type &
+		auto &
 		request() noexcept { return m_request; }
+	};
 
-		so_5::mchain_t
-		reply_ch() const noexcept { return m_reply_ch; }
+template< typename Base >
+class request_holder_part_t<Base, true> : public Base
+	{
+	protected :
+		using Base::Base;
+	};
 
+} /* namespace details */
+
+//
+// request_reply_t
+//
+//FIXME: document this!
+template<typename Request, typename Reply>
+class request_reply_t final
+	:	public details::request_holder_part_t<
+				details::basic_request_reply_part_t<Request, Reply>,
+				is_signal<Request>::value >
+	{
+		using base_type = details::request_holder_part_t<
+				details::basic_request_reply_part_t<Request, Reply>,
+				is_signal<Request>::value >;
+
+	public :
+		using request_type = typename base_type::request_type;
+		using reply_type = typename base_type::reply_type;
+
+	private :
+		using base_type::base_type;
+
+	public :
 		template< typename Target, typename... Args >
 		SO_5_NODISCARD
 		static so_5::mchain_t
@@ -106,14 +155,16 @@ class request_reply_t final : public so_5::message_t
 		void
 		make_reply( Args && ...args )
 			{
-				if( m_reply_sent )
+				if( this->m_reply_sent )
 					SO_5_THROW_EXCEPTION( errors::rc_reply_was_sent,
 							std::string{ "reply has already been sent, "
 									"request_reply type: " } +
 							typeid(request_reply_t).name() );
 
-				so_5::send< reply_type >( m_reply_ch, std::forward<Args>(args)... );
-				m_reply_sent = true;
+				so_5::send< reply_type >(
+						this->m_reply_ch, std::forward<Args>(args)... );
+
+				this->m_reply_sent = true;
 			}
 	};
 

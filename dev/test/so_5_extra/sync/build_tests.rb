@@ -7,6 +7,9 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/simple/prj.ut.rb" )
 	required_prj( "#{path}/simple/prj_s.ut.rb" )
 
+	required_prj( "#{path}/simple_signal/prj.ut.rb" )
+	required_prj( "#{path}/simple_signal/prj_s.ut.rb" )
+
 	required_prj( "#{path}/no_subscriber/prj.ut.rb" )
 	required_prj( "#{path}/no_subscriber/prj_s.ut.rb" )
 
