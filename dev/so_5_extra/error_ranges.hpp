@@ -63,6 +63,13 @@ const int enveloped_msg_errors = 20700;
  */
 const int revocable_msg_errors = 20800;
 
+//! Starting point for errors of sync submodule.
+/*!
+ * \since
+ * v.1.3.0
+ */
+const int sync_errors = 20900;
+
 } /* namespace errors */
 
 } /* namespace extra */
