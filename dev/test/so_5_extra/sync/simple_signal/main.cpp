@@ -23,7 +23,7 @@ class service_t final : public so_5::agent_t
 
 	private :
 		void
-		on_request( mutable_mhood_t< sync_ns::request_reply_t<get_answer, int> > cmd )
+		on_request( sync_ns::request_mhood_t<get_answer, int> cmd )
 			{
 				cmd->make_reply( 42 );
 			}

@@ -36,7 +36,7 @@ class service_t final : public so_5::agent_t
 
 	private :
 		void
-		on_request( mutable_mhood_t< sync_ns::request_reply_t<int, int> > cmd )
+		on_request( sync_ns::request_mhood_t<int, int> cmd )
 			{
 				so_5::send_delayed< so_5::mutable_msg< delayed_request > >(
 						*this,

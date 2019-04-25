@@ -219,7 +219,7 @@ namespace sync_ns = so_5::extra::sync;
 class service final : public so_5::agent_t {
 	...
 	void on_request(
-			sync_ns::request_reply_t<my_request, my_reply>::request_mhood_t cmd) {
+			sync_ns::request_mhood_t<my_request, my_reply> cmd) {
 		...; // Some processing.
 		// Now the reply can be sent. Instance of my_reply will be created
 		// automatically.
@@ -255,6 +255,74 @@ optional<my_reply> opt_reply = sync_ns::request_opt_value<my_request, my_reply>(
 	4242,
 	"Request #2");
 \endcode
+
+When a user calls request_value() or request_opt_value() helper function an
+instance of request_reply_t class is created and sent to the destination.
+This instance is sent as a mutable message, because of that it should be
+received via mutable_mhood_t. Usage of so_5::extra::sync::request_mhood_t
+template is the most convenient way to receive instances of request_reply_t
+class.
+
+If Request is not a type of a signal then request_reply_t holds an instance
+of that type inside. This instance is accessible via request_reply_t::request()
+getter:
+
+\code
+struct my_request {
+	int a_;
+	std::string b_;
+};
+
+struct my_reply {...};
+
+namespace sync_ns = so_5::extra::sync;
+
+// The agent that processes requests.
+class service final : public so_5::agent_t {
+	...
+	void on_request(
+			sync_ns::request_mhood_t<my_request, my_reply> cmd) {
+		std::cout << "request received: " << cmd->request().a_
+				<< ", " << cmd->request().b_ << std::endl;
+		...
+	}
+};
+\endcode
+
+If Request is a type of a signal then there is no request_reply_t::request()
+getter.
+
+To make a reply it is necessary to call request_reply_t::make_reply() method:
+
+\code
+void some_agent::on_request(so_5::extra::sync::request_mhood_t<Request, Reply> cmd) {
+	...;
+	cmd->make_reply(
+		// This arguments will be passed to Reply's constructor.
+		... );
+}
+\endcode
+
+\note
+The make_reply() method can be called only once. An attempt to do the second
+call to make_reply() will lead to raising exception of type
+so_5::exception_t.
+
+\attention Message mutability indicators like so_5::mutable_msg and
+so_5::immutable_msg can't be used for Request and Reply parameters. It means
+that the following code will lead to compilation errors:
+\code
+// NOTE: so_5::immutable_msg can't be used here!
+auto v1 = so_5::extra::sync::request_value<so_5::immutable_msg<Q>, A>(...);
+
+// NOTE: so_5::mutable_msg can't be used here!
+auto v2 = so_5::extra::sync::request_value<Q, so_5::mutable_msg<A>>(...);
+\endcode
+
+\tparam Request a type of a request. It can be type of a signal.
+
+\tparam Reply a type of a reply. This type should be DefaultConstructible
+and (MoveAssignable+MoveConstructible or CopyAssignable+CopyConstructible).
 
  */
 template<typename Request, typename Reply>
@@ -316,6 +384,36 @@ class request_reply_t final
 				this->m_reply_sent = true;
 			}
 	};
+
+//
+// request_mhood_t
+//
+/*!
+ * \brief A short form of request_reply_t<Q,A>::request_mhood_t.
+ *
+ * Usage example:
+ * \code
+ * namespace sync_ns = so_5::extra::sync;
+ * class service final : public so_5::agent_t {
+ * 	...
+ * 	void on_request(sync_ns::request_mhood_t<my_request, my_reply> cmd) {
+ * 		...
+ * 		cmd->make_reply(...);
+ * 	}
+ * };
+ * \endcode
+ */
+template< typename Request, typename Reply >
+using request_mhood_t = typename request_reply_t<Request, Reply>::request_mhood_t;
+
+//
+// reply_mhood_t
+//
+/*!
+ * \brief A short form of request_reply_t<Q,A>::reply_mhood_t.
+ */
+template< typename Request, typename Reply >
+using reply_mhood_t = typename request_reply_t<Request, Reply>::reply_mhood_t;
 
 //
 // request_opt_value
