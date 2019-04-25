@@ -12,6 +12,8 @@
 
 #include <so_5/send_functions.hpp>
 
+#include <so_5/details/always_false.hpp>
+
 namespace so_5 {
 
 namespace extra {
@@ -42,15 +44,6 @@ const int rc_no_reply =
 namespace details
 {
 
-/*!
- * \brief A helper template type to trigger static_assert.
- */
-template<typename T>
-struct always_false
-{
-	static constexpr const bool value = false;
-};
-
 //
 // ensure_no_mutability_modificators
 //
@@ -63,7 +56,7 @@ struct ensure_no_mutability_modificators
 template< typename T >
 struct ensure_no_mutability_modificators< immutable_msg<T> >
 	{
-		static_assert( always_false<T>::value,
+		static_assert( so_5::details::always_false<T>::value,
 				"so_5::immutable_msg<T> modificator can't be used with "
 				"so_5::extra::sync::request_reply_t" );
 
@@ -73,7 +66,7 @@ struct ensure_no_mutability_modificators< immutable_msg<T> >
 template< typename T >
 struct ensure_no_mutability_modificators< mutable_msg<T> >
 	{
-		static_assert( always_false<T>::value,
+		static_assert( so_5::details::always_false<T>::value,
 				"so_5::mutable_msg<T> modificator can't be used with "
 				"so_5::extra::sync::request_reply_t" );
 

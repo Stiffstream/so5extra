@@ -1,6 +1,6 @@
 MxxRu::hg_externals :so5 do |e|
   e.url 'https://bitbucket.org/sobjectizerteam/sobjectizer'
-  e.tag 'c640254bba3e'
+  e.tag '8ca41fea05d4'
 
   e.map_dir 'dev/so_5' => 'dev'
 end
