@@ -10,6 +10,9 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/not_default_constructible/prj.ut.rb" )
 	required_prj( "#{path}/not_default_constructible/prj_s.ut.rb" )
 
+	required_prj( "#{path}/moveable_only/prj.ut.rb" )
+	required_prj( "#{path}/moveable_only/prj_s.ut.rb" )
+
 	required_prj( "#{path}/simple_signal/prj.ut.rb" )
 	required_prj( "#{path}/simple_signal/prj_s.ut.rb" )
 
