@@ -210,14 +210,18 @@ class request_reply_t final
 			}
 	};
 
+//
+// request_opt_value
+//
 template<
 	typename Request,
 	typename Reply,
 	typename Target,
 	typename Duration,
 	typename... Args >
+SO_5_NODISCARD
 auto
-request_value(
+request_opt_value(
 	Target && target,
 	Duration duration,
 	Args && ...args )
@@ -241,10 +245,37 @@ request_value(
 						result = *cmd;
 				} );
 
+		return result;
+	}
+
+//
+// request_value
+//
+template<
+	typename Request,
+	typename Reply,
+	typename Target,
+	typename Duration,
+	typename... Args >
+SO_5_NODISCARD
+auto
+request_value(
+	Target && target,
+	Duration duration,
+	Args && ...args )
+	{
+		auto result = request_opt_value<Request, Reply>(
+				std::forward<Target>(target),
+				duration,
+				std::forward<Args>(args)... );
+
 		if( !result )
-			SO_5_THROW_EXCEPTION( errors::rc_no_reply,
-					std::string{ "no reply received, request_reply type: " } +
-					typeid(requester_type).name() );
+			{
+				using requester_type = request_reply_t<Request, Reply>;
+				SO_5_THROW_EXCEPTION( errors::rc_no_reply,
+						std::string{ "no reply received, request_reply type: " } +
+						typeid(requester_type).name() );
+			}
 
 		return *result;
 	}
