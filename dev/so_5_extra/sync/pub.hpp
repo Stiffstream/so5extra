@@ -463,12 +463,67 @@ template<
 	typename Duration,
 	typename... Args >
 SO_5_NODISCARD
-auto
+std::enable_if_t<
+	std::is_default_constructible_v< typename request_reply_t<Request, Reply>::reply_t >,
+	typename request_reply_t<Request, Reply>::reply_t >
 request_value(
 	Target && target,
 	Duration duration,
 	Args && ...args )
 	{
+		using requester_type = request_reply_t<Request, Reply>;
+
+		using reply_t = typename requester_type::reply_t;
+
+		reply_t result;
+
+		auto reply_ch = requester_type::initiate(
+				std::forward<Target>(target),
+				std::forward<Args>(args)... );
+
+		bool result_received{false};
+		receive(
+				from(reply_ch).handle_n(1).empty_timeout(duration),
+				[&result, &result_received]( typename requester_type::reply_mhood_t cmd ) {
+					result_received = true;
+					if constexpr( std::is_move_assignable_v<reply_t> &&
+							std::is_move_constructible_v<reply_t> )
+						result = std::move(*cmd);
+					else
+						result = *cmd;
+				} );
+
+		if( !result_received )
+			{
+				using requester_type = request_reply_t<Request, Reply>;
+				SO_5_THROW_EXCEPTION( errors::rc_no_reply,
+						std::string{ "no reply received, request_reply type: " } +
+						typeid(requester_type).name() );
+			}
+
+		return result;
+	}
+
+//
+// request_value
+//
+template<
+	typename Request,
+	typename Reply,
+	typename Target,
+	typename Duration,
+	typename... Args >
+SO_5_NODISCARD
+std::enable_if_t<
+	!std::is_default_constructible_v< typename request_reply_t<Request, Reply>::reply_t >,
+	typename request_reply_t<Request, Reply>::reply_t >
+request_value(
+	Target && target,
+	Duration duration,
+	Args && ...args )
+	{
+		// For the case when Reply is not default constructible we
+		// will use request_opt_value that can handle then case.
 		auto result = request_opt_value<Request, Reply>(
 				std::forward<Target>(target),
 				duration,
