@@ -90,14 +90,18 @@ template< typename Request, typename Reply >
 class basic_request_reply_part_t : public so_5::message_t
 	{
 	public :
+		//! An actual type of request.
 		using request_t = ensure_no_mutability_modificators_t<Request>;
+		//! An actual type of reply.
 		using reply_t = ensure_no_mutability_modificators_t<Reply>;
 
 	protected :
+		//! Is reply moveable type?
 		static constexpr const bool is_reply_moveable =
 				std::is_move_assignable_v<reply_t> &&
 						std::is_move_constructible_v<reply_t>;
 
+		//! Is reply copyable type?
 		static constexpr const bool is_reply_copyable =
 				std::is_copy_assignable_v<reply_t> &&
 						std::is_copy_constructible_v<reply_t>;
@@ -154,6 +158,7 @@ template< typename Base >
 class request_holder_part_t<Base, false> : public Base
 	{
 	protected :
+		//! An actual request object.
 		typename Base::request_t m_request;
 
 		//! Initializing constructor.
@@ -241,7 +246,7 @@ const so_5::mbox_t svc_mbox = ...;
 // Issue the request and wait reply for at most 15s.
 // An exception of type so_5::exception_t will be sent if reply
 // is not received in 15 seconds.
-my_reply reply = sync_ns::request_value<my_request, my_reply>(
+my_reply reply = sync_ns::request_reply<my_request, my_reply>(
 	// Destination of the request.
 	svc_mbox,
 	// Max waiting time.
@@ -253,14 +258,14 @@ my_reply reply = sync_ns::request_value<my_request, my_reply>(
 	"Request");
 
 // Or, if we don't want to get an exception.
-optional<my_reply> opt_reply = sync_ns::request_opt_value<my_request, my_reply>(
+optional<my_reply> opt_reply = sync_ns::request_opt_reply<my_request, my_reply>(
 	svc_mbox,
 	15s,
 	4242,
 	"Request #2");
 \endcode
 
-When a user calls request_value() or request_opt_value() helper function an
+When a user calls request_reply() or request_opt_reply() helper function an
 instance of request_reply_t class is created and sent to the destination.
 This instance is sent as a mutable message, because of that it should be
 received via mutable_mhood_t. Usage of so_5::extra::sync::request_mhood_t
@@ -312,6 +317,45 @@ The make_reply() method can be called only once. An attempt to do the second
 call to make_reply() will lead to raising exception of type
 so_5::exception_t.
 
+Please note that repeating of Request and Reply types, again and again, is not
+a good idea. For example, the following code can be hard to maintain:
+\code
+void some_agent::on_some_request(
+		sync_ns::request_mhood_t<some_request, some_reply> cmd)
+{...}
+
+void some_agent::on_another_request(
+		sync_ns::request_mhood_t<another_request, another_reply> cmd)
+{...}
+
+...
+auto some_result = sync_ns::request_reply<some_request, some_reply>(...);
+...
+auto another_result = sync_ns::request_reply<another_request, another_reply>(...);
+\endcode
+
+It is better to define a separate name for Request and Reply pair and
+use this name:
+\code
+using some_request_reply = sync_ns::request_reply_t<some_request, some_reply>;
+using another_request_reply = sync_ns::request_reply_t<another_request, another_reply>;
+
+void some_agent::on_some_request(
+		typename some_request_reply::request_mhood_t cmd)
+{...}
+
+void some_agent::on_another_request(
+		typename another_request_reply::request_mhood_t cmd)
+{...}
+
+...
+auto some_result = some_request_reply::request_value(...);
+...
+auto another_result = another_request_reply::request_value(...);
+\endcode
+
+\attention The request_reply_t is not thread safe class.
+
 \attention Message mutability indicators like so_5::mutable_msg and
 so_5::immutable_msg can't be used for Request and Reply parameters. It means
 that the following code will lead to compilation errors:
@@ -325,8 +369,8 @@ auto v2 = so_5::extra::sync::request_value<Q, so_5::mutable_msg<A>>(...);
 
 \tparam Request a type of a request. It can be type of a signal.
 
-\tparam Reply a type of a reply. This type should be DefaultConstructible
-and (MoveAssignable+MoveConstructible or CopyAssignable+CopyConstructible).
+\tparam Reply a type of a reply. This type should be
+MoveAssignable+MoveConstructible or CopyAssignable+CopyConstructible.
 
  */
 template<typename Request, typename Reply>
@@ -340,10 +384,63 @@ class request_reply_t final
 				is_signal<Request>::value >;
 
 	public :
+		//! An actual type of request.
 		using request_t = typename base_type::request_t;
+		//! An actual type of reply.
 		using reply_t = typename base_type::reply_t;
 
+		//! A shorthand for mhood for receiving request object.
+		/*!
+		 * An instance of requst is sent as mutabile message of
+		 * type request_reply_t<Q,A>. It means that this message
+		 * can be received if a request handler has the following
+		 * prototype:
+		 * \code
+		 * void handler(so_5::mhood_t<so_5::mutable_msg<so_5::extra::sync::request_reply_t<Q,A>>>);
+		 * \endcode
+		 * or:
+		 * \code
+		 * void handler(so_5::mutable_mhood_t<so_5::extra::sync::request_reply_t<Q,A>>);
+		 * \endcode
+		 * But it is better to use request_mhood_t typedef:
+		 * \code
+		 * void handler(typename so_5::extra::sync::request_reply_t<Q,A>::request_mhood_t);
+		 * \endcode
+		 * And yet better to use request_mhood_t typedef that way:
+		 * \code
+		 * using my_request_reply = so_5::extra::sync::request_reply_t<Q,A>;
+		 * void handler(typename my_request_reply::request_mhood_t);
+		 * \endcode
+		 */
 		using request_mhood_t = mutable_mhood_t< request_reply_t >;
+
+		//! A shorthand for mhood for receiving reply object.
+		/*!
+		 * An instance of requst is sent as mutabile message of
+		 * type reply_t. It means that this message
+		 * can be received if a message handler has the following
+		 * prototype:
+		 * \code
+		 * void handler(so_5::mhood_t<so_5::mutable_msg<typename so_5::extra::sync::request_reply_t<Q,A>::reply_t>>);
+		 * \endcode
+		 * or:
+		 * \code
+		 * void handler(so_5::mutable_mhood_t<typename so_5::extra::sync::request_reply_t<Q,A>::reply_t>);
+		 * \endcode
+		 * But it is better to use reply_mhood_t typedef:
+		 * \code
+		 * void handler(typename so_5::extra::sync::request_reply_t<Q,A>::reply_mhood_t);
+		 * \endcode
+		 * And yet better to use reply_mhood_t typedef that way:
+		 * \code
+		 * using my_request_reply = so_5::extra::sync::request_reply_t<Q,A>;
+		 * void handler(typename my_request_reply::reply_mhood_t);
+		 * \endcode
+		 *
+		 * \note
+		 * Usage of that typedef can be necessary only if you implement
+		 * you own handling of reply-message from the reply chain.
+		 */
 		using reply_mhood_t = mutable_mhood_t< reply_t >;
 
 	private :
@@ -352,6 +449,8 @@ class request_reply_t final
 		using base_type::is_reply_moveable;
 		using base_type::is_reply_copyable;
 
+		//! Helper method for getting the result value from reply_mhood
+		//! with respect to moveability of reply object.
 		template< typename Reply_Receiver >
 		static void
 		borrow_from_reply_mhood(
@@ -364,6 +463,8 @@ class request_reply_t final
 					result = *cmd;
 			}
 
+		//! An actual implementation of request_value for the case when
+		//! reply object is DefaultConstructible.
 		template<typename Target, typename Duration, typename... Args>
 		SO_5_NODISCARD
 		static auto
@@ -372,6 +473,8 @@ class request_reply_t final
 			Duration duration,
 			Args && ...args )
 			{
+				// Because reply object is default constructible we can create it
+				// on the stack. And this can be the subject of NRVO.
 				reply_t result;
 
 				auto reply_ch = initiate(
@@ -396,6 +499,8 @@ class request_reply_t final
 				return result;
 			}
 
+		//! An actual implementation of request_value for the case when
+		//! reply object is not DefaultConstructible.
 		template<typename Target, typename Duration, typename... Args>
 		SO_5_NODISCARD
 		static auto
