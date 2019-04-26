@@ -93,14 +93,18 @@ class basic_request_reply_part_t : public so_5::message_t
 		using request_t = ensure_no_mutability_modificators_t<Request>;
 		using reply_t = ensure_no_mutability_modificators_t<Reply>;
 
-		static_assert(
-				(std::is_move_assignable_v<reply_t> &&
-						std::is_move_constructible_v<reply_t>) ||
-				(std::is_copy_assignable_v<reply_t> &&
-						std::is_copy_constructible_v<reply_t>),
+	protected :
+		static constexpr const bool is_reply_moveable =
+				std::is_move_assignable_v<reply_t> &&
+						std::is_move_constructible_v<reply_t>;
+
+		static constexpr const bool is_reply_copyable =
+				std::is_copy_assignable_v<reply_t> &&
+						std::is_copy_constructible_v<reply_t>;
+
+		static_assert( is_reply_moveable || is_reply_copyable,
 				"Reply type should be MoveAssignable or CopyAssignable" );
 
-	protected :
 		//! The chain to be used for reply message.
 		so_5::mchain_t m_reply_ch;
 		//! The flag for detection of repeated replies.
@@ -345,6 +349,78 @@ class request_reply_t final
 	private :
 		using base_type::base_type;
 
+		using base_type::is_reply_moveable;
+		using base_type::is_reply_copyable;
+
+		template< typename Reply_Receiver >
+		static void
+		borrow_from_reply_mhood(
+			reply_mhood_t & cmd,
+			Reply_Receiver & result )
+			{
+				if constexpr( is_reply_moveable )
+					result = std::move(*cmd);
+				else
+					result = *cmd;
+			}
+
+		template<typename Target, typename Duration, typename... Args>
+		SO_5_NODISCARD
+		static auto
+		request_default_constructible_value(
+			Target && target,
+			Duration duration,
+			Args && ...args )
+			{
+				reply_t result;
+
+				auto reply_ch = initiate(
+						std::forward<Target>(target),
+						std::forward<Args>(args)... );
+
+				bool result_received{false};
+				receive(
+						from(reply_ch).handle_n(1).empty_timeout(duration),
+						[&result, &result_received]( reply_mhood_t cmd ) {
+							result_received = true;
+							borrow_from_reply_mhood( cmd, result );
+						} );
+
+				if( !result_received )
+					{
+						SO_5_THROW_EXCEPTION( errors::rc_no_reply,
+								std::string{ "no reply received, request_reply type: " } +
+								typeid(request_reply_t).name() );
+					}
+
+				return result;
+			}
+
+		template<typename Target, typename Duration, typename... Args>
+		SO_5_NODISCARD
+		static auto
+		request_not_default_constructible_value(
+			Target && target,
+			Duration duration,
+			Args && ...args )
+			{
+				// For the case when Reply is not default constructible we
+				// will use request_opt_value that can handle then case.
+				auto result = request_opt_value(
+						std::forward<Target>(target),
+						duration,
+						std::forward<Args>(args)... );
+
+				if( !result )
+					{
+						SO_5_THROW_EXCEPTION( errors::rc_no_reply,
+								std::string{ "no reply received, request_reply type: " } +
+								typeid(request_reply_t).name() );
+					}
+
+				return *result;
+			}
+
 	public :
 		template< typename Target, typename... Args >
 		SO_5_NODISCARD
@@ -383,6 +459,48 @@ class request_reply_t final
 
 				this->m_reply_sent = true;
 			}
+
+		template<typename Target, typename Duration, typename... Args>
+		SO_5_NODISCARD
+		static auto
+		request_opt_value(
+			Target && target,
+			Duration duration,
+			Args && ...args )
+			{
+				auto reply_ch = initiate(
+						std::forward<Target>(target),
+						std::forward<Args>(args)... );
+
+				optional<reply_t> result;
+				receive(
+						from(reply_ch).handle_n(1).empty_timeout(duration),
+						[&result]( reply_mhood_t cmd ) {
+							borrow_from_reply_mhood( cmd, result );
+						} );
+
+				return result;
+			}
+
+		template<typename Target, typename Duration, typename... Args>
+		SO_5_NODISCARD
+		static auto
+		request_value(
+			Target && target,
+			Duration duration,
+			Args && ...args )
+			{
+				if constexpr( std::is_default_constructible_v<reply_t> )
+					return request_default_constructible_value(
+							std::forward<Target>(target),
+							duration,
+							std::forward<Args>(args)... );
+				else
+					return request_not_default_constructible_value(
+							std::forward<Target>(target),
+							duration,
+							std::forward<Args>(args)... );
+			}
 	};
 
 //
@@ -414,131 +532,6 @@ using request_mhood_t = typename request_reply_t<Request, Reply>::request_mhood_
  */
 template< typename Request, typename Reply >
 using reply_mhood_t = typename request_reply_t<Request, Reply>::reply_mhood_t;
-
-//
-// request_opt_value
-//
-template<
-	typename Request,
-	typename Reply,
-	typename Target,
-	typename Duration,
-	typename... Args >
-SO_5_NODISCARD
-auto
-request_opt_value(
-	Target && target,
-	Duration duration,
-	Args && ...args )
-	{
-		using requester_type = request_reply_t<Request, Reply>;
-
-		using reply_t = typename requester_type::reply_t;
-
-		auto reply_ch = requester_type::initiate(
-				std::forward<Target>(target),
-				std::forward<Args>(args)... );
-
-		optional<reply_t> result;
-		receive(
-				from(reply_ch).handle_n(1).empty_timeout(duration),
-				[&result]( typename requester_type::reply_mhood_t cmd ) {
-					if constexpr( std::is_move_assignable_v<reply_t> &&
-							std::is_move_constructible_v<reply_t> )
-						result = std::move(*cmd);
-					else
-						result = *cmd;
-				} );
-
-		return result;
-	}
-
-//
-// request_value
-//
-template<
-	typename Request,
-	typename Reply,
-	typename Target,
-	typename Duration,
-	typename... Args >
-SO_5_NODISCARD
-std::enable_if_t<
-	std::is_default_constructible_v< typename request_reply_t<Request, Reply>::reply_t >,
-	typename request_reply_t<Request, Reply>::reply_t >
-request_value(
-	Target && target,
-	Duration duration,
-	Args && ...args )
-	{
-		using requester_type = request_reply_t<Request, Reply>;
-
-		using reply_t = typename requester_type::reply_t;
-
-		reply_t result;
-
-		auto reply_ch = requester_type::initiate(
-				std::forward<Target>(target),
-				std::forward<Args>(args)... );
-
-		bool result_received{false};
-		receive(
-				from(reply_ch).handle_n(1).empty_timeout(duration),
-				[&result, &result_received]( typename requester_type::reply_mhood_t cmd ) {
-					result_received = true;
-					if constexpr( std::is_move_assignable_v<reply_t> &&
-							std::is_move_constructible_v<reply_t> )
-						result = std::move(*cmd);
-					else
-						result = *cmd;
-				} );
-
-		if( !result_received )
-			{
-				using requester_type = request_reply_t<Request, Reply>;
-				SO_5_THROW_EXCEPTION( errors::rc_no_reply,
-						std::string{ "no reply received, request_reply type: " } +
-						typeid(requester_type).name() );
-			}
-
-		return result;
-	}
-
-//
-// request_value
-//
-template<
-	typename Request,
-	typename Reply,
-	typename Target,
-	typename Duration,
-	typename... Args >
-SO_5_NODISCARD
-std::enable_if_t<
-	!std::is_default_constructible_v< typename request_reply_t<Request, Reply>::reply_t >,
-	typename request_reply_t<Request, Reply>::reply_t >
-request_value(
-	Target && target,
-	Duration duration,
-	Args && ...args )
-	{
-		// For the case when Reply is not default constructible we
-		// will use request_opt_value that can handle then case.
-		auto result = request_opt_value<Request, Reply>(
-				std::forward<Target>(target),
-				duration,
-				std::forward<Args>(args)... );
-
-		if( !result )
-			{
-				using requester_type = request_reply_t<Request, Reply>;
-				SO_5_THROW_EXCEPTION( errors::rc_no_reply,
-						std::string{ "no reply received, request_reply type: " } +
-						typeid(requester_type).name() );
-			}
-
-		return *result;
-	}
 
 } /* namespace sync */
 

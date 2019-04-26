@@ -69,7 +69,8 @@ TEST_CASE( "simple shutdown on empty environment" )
 						try
 						{
 							sent_at = std::chrono::steady_clock::now();
-							(void)sync_ns::request_value<int, int>( svc, 250ms, 2 );
+							(void)sync_ns::request_reply_t<int, int>::
+									request_value( svc, 250ms, 2 );
 							result = reply_received;
 						}
 						catch( const so_5::exception_t & x )
