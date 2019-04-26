@@ -45,6 +45,7 @@
 
 /*!
  * \example sync/simple/main.cpp
+ * \example sync/mchains/main.cpp
  */
 
 // vim:ft=cpp

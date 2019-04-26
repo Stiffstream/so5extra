@@ -6,4 +6,7 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/simple/prj.rb" )
 	required_prj( "#{path}/simple/prj_s.rb" )
+
+	required_prj( "#{path}/mchains/prj.rb" )
+	required_prj( "#{path}/mchains/prj_s.rb" )
 }
