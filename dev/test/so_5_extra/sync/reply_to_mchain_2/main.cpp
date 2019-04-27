@@ -23,13 +23,13 @@ class service_t final : public so_5::agent_t
 
 	private :
 		void
-		on_request( typename ask_reply_t::request_mhood_t cmd )
+		on_request( typename ask_reply_t::request_mhood_t /*cmd*/ )
 			{
-				cmd->make_reply( cmd->request() * 2 );
+				// We don't send the reply!
 			}
 	};
 
-TEST_CASE( "do not close of reply_ch" )
+TEST_CASE( "close of reply_ch" )
 {
 	int result{};
 
@@ -44,15 +44,10 @@ TEST_CASE( "do not close of reply_ch" )
 						ask_reply_t::initiate_with_custom_reply_to(
 								svc,
 								ch,
-								sync_ns::do_not_close_reply_chain,
+								sync_ns::close_reply_chain,
 								2 );
-						ask_reply_t::initiate_with_custom_reply_to(
-								svc,
-								ch,
-								sync_ns::do_not_close_reply_chain,
-								8 );
 
-						so_5::receive( so_5::from(ch).handle_n(2),
+						so_5::receive( so_5::from(ch).handle_n(100),
 								[&result]( typename ask_reply_t::reply_mhood_t cmd )
 								{
 									result += *cmd;
@@ -63,6 +58,6 @@ TEST_CASE( "do not close of reply_ch" )
 		},
 		5 );
 
-	REQUIRE( result == 20 );
+	REQUIRE( result == 0 );
 }
 
