@@ -14,6 +14,8 @@
 
 #include <so_5/details/always_false.hpp>
 
+#include <variant>
+
 namespace so_5 {
 
 namespace extra {
@@ -81,6 +83,68 @@ using ensure_no_mutability_modificators_t =
 	typename ensure_no_mutability_modificators<T>::type;
 
 //
+// reply_target_t
+//
+//FIXME: document this!
+using reply_target_t = std::variant< mchain_t, mbox_t >;
+
+//
+// reply_target_holder_t
+//
+//FIXME: document this!
+class reply_target_holder_t final
+	{
+		reply_target_t m_target;
+
+	public :
+		reply_target_holder_t( reply_target_t target ) noexcept
+			:	m_target{ std::move(target) }
+			{}
+
+		~reply_target_holder_t() noexcept
+			{
+				struct closer_t final {
+					void operator()( const mchain_t & ch ) const noexcept {
+						// Close the reply chain.
+						// If there is no reply but someone is waiting
+						// on that chain it will be awakened.
+						close_retain_content( ch );
+					}
+					void operator()( const mbox_t & ) const noexcept {
+						// Nothing to do.
+					}
+				};
+
+				std::visit( closer_t{}, m_target );
+			}
+
+		reply_target_holder_t( const reply_target_holder_t & ) = delete;
+		reply_target_holder_t( reply_target_holder_t && ) = delete;
+
+		const auto &
+		target() const noexcept { return m_target; }
+	};
+
+//
+// query_actual_reply_target
+//
+//FIXME: document this!
+inline mbox_t
+query_actual_reply_target( const reply_target_t & rt ) noexcept
+	{
+		struct extractor_t {
+			so_5::mbox_t operator()( const mchain_t & ch ) const noexcept {
+				return ch->as_mbox();
+			}
+			so_5::mbox_t operator()( const mbox_t & mbox ) const noexcept {
+				return mbox;
+			}
+		};
+
+		return std::visit( extractor_t{}, rt );
+	}
+
+//
 // basic_request_reply_part_t
 //
 /*!
@@ -109,8 +173,8 @@ class basic_request_reply_part_t : public so_5::message_t
 		static_assert( is_reply_moveable || is_reply_copyable,
 				"Reply type should be MoveAssignable or CopyAssignable" );
 
-		//! The chain to be used for reply message.
-		so_5::mchain_t m_reply_ch;
+		//! The target for the reply.
+		reply_target_holder_t m_reply_target;
 		//! The flag for detection of repeated replies.
 		/*!
 		 * Recives `true` when the first reply is sent.
@@ -118,22 +182,12 @@ class basic_request_reply_part_t : public so_5::message_t
 		bool m_reply_sent{ false };
 
 		//! Initializing constructor.
-		basic_request_reply_part_t( so_5::mchain_t reply_ch )
-			:	m_reply_ch{ std::move(reply_ch) }
+		basic_request_reply_part_t( reply_target_t reply_target ) noexcept
+			:	m_reply_target{ std::move(reply_target) }
 			{}
 
-		//! Get access to the reply chain.
-		const so_5::mchain_t &
-		reply_ch() const noexcept { return m_reply_ch; }
-
 	public :
-		~basic_request_reply_part_t() override
-			{
-				// Close the reply chain.
-				// If there is no reply but someone is waiting
-				// on that chain it will be awakened.
-				close_retain_content( m_reply_ch );
-			}
+		~basic_request_reply_part_t() override = default;
 	};
 
 //
@@ -164,9 +218,9 @@ class request_holder_part_t<Base, false> : public Base
 		//! Initializing constructor.
 		template< typename... Args >
 		request_holder_part_t(
-			so_5::mchain_t reply_ch,
+			reply_target_t reply_target,
 			Args && ...args )
-			:	Base{ std::move(reply_ch) }
+			:	Base{ std::move(reply_target) }
 			,	m_request{ std::forward<Args>(args)... }
 			{}
 
@@ -575,6 +629,23 @@ class request_reply_t final
 				return mchain;
 			}
 
+		//FIXME: document this!
+		template< typename Target, typename... Args >
+		static void
+		initiate_with_custom_reply_to(
+			const Target & target,
+			const so_5::mbox_t & reply_to,
+			Args && ...args )
+			{
+				message_holder_t< mutable_msg< request_reply_t > > msg{
+					// Calling 'new' directly because request_reply_t has
+					// private constructor.
+					new request_reply_t{ reply_to, std::forward<Args>(args)... }
+				};
+
+				send( target, std::move(msg) );
+			}
+
 		/*!
 		 * \brief Make the reply and send it back.
 		 *
@@ -608,7 +679,9 @@ class request_reply_t final
 							typeid(request_reply_t).name() );
 
 				so_5::send< so_5::mutable_msg<reply_t> >(
-						this->m_reply_ch, std::forward<Args>(args)... );
+						details::query_actual_reply_target(
+								this->m_reply_target.target() ),
+						std::forward<Args>(args)... );
 
 				this->m_reply_sent = true;
 			}

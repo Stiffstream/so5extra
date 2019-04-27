@@ -21,4 +21,7 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/reply_timeout/prj.ut.rb" )
 	required_prj( "#{path}/reply_timeout/prj_s.ut.rb" )
+
+	required_prj( "#{path}/reply_to_mbox/prj.ut.rb" )
+	required_prj( "#{path}/reply_to_mbox/prj_s.ut.rb" )
 }
