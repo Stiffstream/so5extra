@@ -24,4 +24,10 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/reply_to_mbox/prj.ut.rb" )
 	required_prj( "#{path}/reply_to_mbox/prj_s.ut.rb" )
+
+	required_prj( "#{path}/reply_to_agent/prj.ut.rb" )
+	required_prj( "#{path}/reply_to_agent/prj_s.ut.rb" )
+
+	required_prj( "#{path}/reply_to_mchain_1/prj.ut.rb" )
+	required_prj( "#{path}/reply_to_mchain_1/prj_s.ut.rb" )
 }

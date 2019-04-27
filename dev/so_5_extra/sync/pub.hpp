@@ -133,10 +133,10 @@ inline mbox_t
 query_actual_reply_target( const reply_target_t & rt ) noexcept
 	{
 		struct extractor_t {
-			so_5::mbox_t operator()( const mchain_t & ch ) const noexcept {
+			mbox_t operator()( const mchain_t & ch ) const noexcept {
 				return ch->as_mbox();
 			}
-			so_5::mbox_t operator()( const mbox_t & mbox ) const noexcept {
+			mbox_t operator()( const mbox_t & mbox ) const noexcept {
 				return mbox;
 			}
 		};
@@ -247,6 +247,22 @@ class request_holder_part_t<Base, true> : public Base
 	};
 
 } /* namespace details */
+
+//
+// close_reply_chain_flag_t
+//
+//FIXME: document this!
+enum class close_reply_chain_flag_t
+	{
+		close,
+		do_not_close
+	};
+
+constexpr const close_reply_chain_flag_t close_reply_chain =
+		close_reply_chain_flag_t::close;
+
+constexpr const close_reply_chain_flag_t do_not_close_reply_chain =
+		close_reply_chain_flag_t::do_not_close;
 
 //
 // request_reply_t
@@ -503,6 +519,8 @@ class request_reply_t final
 		using base_type::is_reply_moveable;
 		using base_type::is_reply_copyable;
 
+		using msg_holder_t = message_holder_t< mutable_msg< request_reply_t > >;
+
 		//! Helper method for getting the result value from reply_mhood
 		//! with respect to moveability of reply object.
 		template< typename Reply_Receiver >
@@ -609,7 +627,7 @@ class request_reply_t final
 		 */
 		template< typename Target, typename... Args >
 		SO_5_NODISCARD
-		static so_5::mchain_t
+		static mchain_t
 		initiate( const Target & target, Args && ...args )
 			{
 				auto mchain = create_mchain(
@@ -618,7 +636,7 @@ class request_reply_t final
 						so_5::mchain_props::memory_usage_t::preallocated,
 						so_5::mchain_props::overflow_reaction_t::throw_exception );
 
-				message_holder_t< mutable_msg< request_reply_t > > msg{
+				msg_holder_t msg{
 					// Calling 'new' directly because request_reply_t has
 					// private constructor.
 					new request_reply_t{ mchain, std::forward<Args>(args)... }
@@ -634,14 +652,61 @@ class request_reply_t final
 		static void
 		initiate_with_custom_reply_to(
 			const Target & target,
-			const so_5::mbox_t & reply_to,
+			const mbox_t & reply_to,
 			Args && ...args )
 			{
-				message_holder_t< mutable_msg< request_reply_t > > msg{
+				msg_holder_t msg{
 					// Calling 'new' directly because request_reply_t has
 					// private constructor.
 					new request_reply_t{ reply_to, std::forward<Args>(args)... }
 				};
+
+				send( target, std::move(msg) );
+			}
+
+		//FIXME: document this!
+		template< typename Target, typename... Args >
+		static void
+		initiate_with_custom_reply_to(
+			const Target & target,
+			const agent_t & reply_to,
+			Args && ...args )
+			{
+				msg_holder_t msg{
+					// Calling 'new' directly because request_reply_t has
+					// private constructor.
+					new request_reply_t{
+							reply_to.so_direct_mbox(), std::forward<Args>(args)... }
+				};
+
+				send( target, std::move(msg) );
+			}
+
+		//FIXME: document this!
+		template< typename Target, typename... Args >
+		static void
+		initiate_with_custom_reply_to(
+			const Target & target,
+			const mchain_t & reply_ch,
+			close_reply_chain_flag_t close_flag,
+			Args && ...args )
+			{
+				msg_holder_t msg;
+
+				switch( close_flag )
+					{
+					case close_reply_chain:
+						msg = msg_holder_t{ new request_reply_t{
+								reply_ch,
+								std::forward<Args>(args)... } };
+					break;
+
+					case do_not_close_reply_chain:
+						msg = msg_holder_t{ new request_reply_t{
+								reply_ch->as_mbox(),
+								std::forward<Args>(args)... } };
+					break;
+					}
 
 				send( target, std::move(msg) );
 			}
