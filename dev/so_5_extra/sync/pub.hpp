@@ -731,7 +731,33 @@ class request_reply_t final
 				return mchain;
 			}
 
-		//FIXME: document this!
+		/*!
+		 * \brief Initiate a request by sending request_reply_t message instance
+		 * with sending the reply to the specified mbox.
+		 *
+		 * A new instance of request_reply_t message is created and sent to
+		 * \a target. The reply will be sent to \a reply_to mbox.
+		 *
+		 * Usage example:
+		 * \code
+		 * using my_ask_reply = so_5::extra::sync::request_reply_t<my_request, my_reply>;
+		 * class consumer final : public so_5::agent_t {
+		 * 	void on_some_event(mhood_t<some_event> cmd) {
+		 * 		// Prepare for issuing a request.
+		 * 		// New mbox for receiving the reply.
+		 * 		auto reply_mbox = so_make_new_direct_mbox();
+		 * 		// Make subscription for handling the reply.
+		 * 		so_subscribe(reply_mbox).event(
+		 * 			[this](typename my_ask_reply::reply_mhood_t cmd) {
+		 * 				... // Some handling.
+		 * 			});
+		 * 		// Issuing a request with redirection of the reply to
+		 * 		// the new reply mbox.
+		 * 		my_ask_reply::initiate_with_custom_reply_to(target, reply_mbox, ...);
+		 * 	}
+		 * };
+		 * \endcode
+		 */
 		template< typename Target, typename... Args >
 		static void
 		initiate_with_custom_reply_to(
@@ -748,7 +774,31 @@ class request_reply_t final
 				send( target, std::move(msg) );
 			}
 
-		//FIXME: document this!
+		/*!
+		 * \brief Initiate a request by sending request_reply_t message instance
+		 * with sending the reply to the direct mbox of the specified agent.
+		 *
+		 * A new instance of request_reply_t message is created and sent to
+		 * \a target. The reply will be sent to the direct mbox \a reply_to agent.
+		 *
+		 * Usage example:
+		 * \code
+		 * using my_ask_reply = so_5::extra::sync::request_reply_t<my_request, my_reply>;
+		 * class consumer final : public so_5::agent_t {
+		 * 	void on_some_event(mhood_t<some_event> cmd) {
+		 * 		// Prepare for issuing a request.
+		 * 		// Make subscription for handling the reply.
+		 * 		so_subscribe_self().event(
+		 * 			[this](typename my_ask_reply::reply_mhood_t cmd) {
+		 * 				... // Some handling.
+		 * 			});
+		 * 		// Issuing a request with redirection of the reply to
+		 * 		// the direct mbox of the agent.
+		 * 		my_ask_reply::initiate_with_custom_reply_to(target, *this, ...);
+		 * 	}
+		 * };
+		 * \endcode
+		 */
 		template< typename Target, typename... Args >
 		static void
 		initiate_with_custom_reply_to(
@@ -766,7 +816,22 @@ class request_reply_t final
 				send( target, std::move(msg) );
 			}
 
-		//FIXME: document this!
+		/*!
+		 * \brief Initiate a request by sending request_reply_t message instance
+		 * with sending the reply to the specified mchain.
+		 *
+		 * A new instance of request_reply_t message is created and sent to
+		 * \a target. The reply will be sent to \a reply_ch mchain.
+		 *
+		 * Argument \a close_flag specifies what should be done with \a reply_ch
+		 * after destroying of request_reply_t message instance:
+		 * - if \a close_flag is so_5::extra::sync::close_reply_chain then \a
+		 *   reply_ch will be automatically closed;
+		 * - if \a close_flag is so_5::extra::sync::do_not_close_reply_chain then
+		 *   \a reply_ch won't be closed. In that case \a reply_ch mchain can be
+		 *   used for handling replies from several requests. See description of
+		 *   so_5::extra::sync::do_not_close_reply_chain for an example.
+		 */
 		template< typename Target, typename... Args >
 		static void
 		initiate_with_custom_reply_to(
