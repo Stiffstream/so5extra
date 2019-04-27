@@ -49,10 +49,10 @@ int main()
 	// Perform some requests.
 	std::cout
 		<< "First provider reply: "
-		<< sync_ns::request_reply_t<int, std::string>::request_value(in1, 1s, 3)
+		<< sync_ns::request_reply<int, std::string>(in1, 1s, 3)
 		<< std::endl
 		<< "Second provider reply: "
-		<< sync_ns::request_reply_t<int, std::string>::request_value(in2, 1s, 3)
+		<< sync_ns::request_reply<int, std::string>(in2, 1s, 3)
 		<< std::endl;
 
 	return 0;

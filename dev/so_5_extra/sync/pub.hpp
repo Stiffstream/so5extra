@@ -463,12 +463,12 @@ class request_reply_t final
 					result = *cmd;
 			}
 
-		//! An actual implementation of request_value for the case when
+		//! An actual implementation of ask_value for the case when
 		//! reply object is DefaultConstructible.
 		template<typename Target, typename Duration, typename... Args>
 		SO_5_NODISCARD
 		static auto
-		request_default_constructible_value(
+		ask_default_constructible_value(
 			Target && target,
 			Duration duration,
 			Args && ...args )
@@ -504,14 +504,14 @@ class request_reply_t final
 		template<typename Target, typename Duration, typename... Args>
 		SO_5_NODISCARD
 		static auto
-		request_not_default_constructible_value(
+		ask_not_default_constructible_value(
 			Target && target,
 			Duration duration,
 			Args && ...args )
 			{
 				// For the case when Reply is not default constructible we
 				// will use request_opt_value that can handle then case.
-				auto result = request_opt_value(
+				auto result = ask_opt_value(
 						std::forward<Target>(target),
 						duration,
 						std::forward<Args>(args)... );
@@ -527,6 +527,32 @@ class request_reply_t final
 			}
 
 	public :
+		/*!
+		 * \brief Initiate a request by sending request_reply_t message instance.
+		 *
+		 * This method creates a mchain for reply, then instantiates and
+		 * sends an instance of request_reply_t<Request, Reply> type.
+		 *
+		 * Returns the reply mchain.
+		 *
+		 * Note that this method is used in implementation of ask_value()
+		 * and ask_opt_value() methods. Call it only if you want to receive
+		 * reply message by itself. For example usage of initiate() can
+		 * be useful in a such case:
+		 * \code
+		 * // Issue the first request.
+		 * auto ch1 = so_5::extra::sync::request_reply_t<Ask1, Reply1>::initiate(target1, ..);
+		 * // Issue the second request.
+		 * auto ch2 = so_5::extra::sync::request_reply_t<Ask2, Reply2>::initiate(target2, ...);
+		 * // Issue the third request.
+		 * auto ch3 = so_5::extra::sync::request_reply_t<Ask3, Reply3>::initiate(target3, ...);
+		 * // Wait and handle requests in any order of appearance.
+		 * so_5::select( so_5::from_all().handle_all(),
+		 * 	case_(ch1, [](so_5::extra::sync::reply_mhood_t<Ask1, Reply1> cmd) {...}),
+		 * 	case_(ch2, [](so_5::extra::sync::reply_mhood_t<Ask2, Reply2> cmd) {...}),
+		 * 	case_(ch3, [](so_5::extra::sync::reply_mhood_t<Ask3, Reply3> cmd) {...}));
+		 * \endcode
+		 */
 		template< typename Target, typename... Args >
 		SO_5_NODISCARD
 		static so_5::mchain_t
@@ -549,6 +575,28 @@ class request_reply_t final
 				return mchain;
 			}
 
+		/*!
+		 * \brief Make the reply and send it back.
+		 *
+		 * Instantiates an instance of type Reply and send it back to
+		 * the reply chain.
+		 *
+		 * \attention This method should be called at most once.
+		 * An attempt to call it twice will lead to an exception.
+		 *
+		 * Usage example:
+		 * \code
+		 * void some_agent::on_request(
+		 * 	so_5::extra::sync::request_reply_t<Request, Reply> cmd)
+		 * {
+		 * 	... // Some processing of the request.
+		 * 	// Sending the reply back.
+		 * 	cmd->make_reply(...);
+		 * }
+		 * \endcode
+		 *
+		 * \tparam Args types of arguments for Reply's constructor.
+		 */
 		template< typename... Args >
 		void
 		make_reply( Args && ...args )
@@ -565,10 +613,48 @@ class request_reply_t final
 				this->m_reply_sent = true;
 			}
 
+		/*!
+		 * \brief Send a request and wait for the reply.
+		 *
+		 * This method instantiates request_reply_t object using 
+		 * \a args arguments for initializing instance of Request type.
+		 * Then the request_reply_t is sent as a mutable message to
+		 * \a target. Then this method waits the reply for no more
+		 * than \a duration. If there is no reply then an empty
+		 * std::optional is returned.
+		 *
+		 * Returns an instance of std::optional<Reply>.
+		 *
+		 * Usage example:
+		 * \code
+		 * struct check_user_request final {...};
+		 * struct check_user_result final {...};
+		 * using check_user = so_5::extra::sync::request_reply_t<check_user_request, check_user_result>;
+		 * ...
+		 * std::optional<check_user_result> result = check_user::ask_opt_value(
+		 * 		target,
+		 * 		10s,
+		 * 		... );
+		 * if(result) {
+		 * 	... // Some handling of *result.
+		 * }
+		 * \endcode
+		 *
+		 * \note
+		 * If Request is a type of a signal then \a args should be an empty
+		 * sequence:
+		 * \code
+		 * struct statistics_request final : public so_5::signal_t {};
+		 * class current_stats final {...};
+		 *
+		 * std::optional<current_stats> stats =
+		 * 	so_5::extra::sync::request_reply_t<statistics_request, current_stats>::ask_opt_value(target, 10s);
+		 * \endcode
+		 */
 		template<typename Target, typename Duration, typename... Args>
 		SO_5_NODISCARD
 		static auto
-		request_opt_value(
+		ask_opt_value(
 			Target && target,
 			Duration duration,
 			Args && ...args )
@@ -587,21 +673,56 @@ class request_reply_t final
 				return result;
 			}
 
+		/*!
+		 * \brief Send a request and wait for the reply.
+		 *
+		 * This method instantiates request_reply_t object using 
+		 * \a args arguments for initializing instance of Request type.
+		 * Then the request_reply_t is sent as a mutable message to
+		 * \a target. Then this method waits the reply for no more
+		 * than \a duration. If there is no reply then an exception
+		 * of type so_5::exception_t is thrown.
+		 *
+		 * Returns an instance of Reply.
+		 *
+		 * Usage example:
+		 * \code
+		 * struct check_user_request final {...};
+		 * struct check_user_result final {...};
+		 * using check_user = so_5::extra::sync::request_reply_t<check_user_request, check_user_result>;
+		 * ...
+		 * check_user_result result = check_user::ask_value(
+		 * 		target,
+		 * 		10s,
+		 * 		... );
+		 * \endcode
+		 *
+		 * \note
+		 * If Request is a type of a signal then \a args should be an empty
+		 * sequence:
+		 * \code
+		 * struct statistics_request final : public so_5::signal_t {};
+		 * class current_stats final {...};
+		 *
+		 * std::optional<current_stats> stats =
+		 * 	so_5::extra::sync::request_reply_t<statistics_request, current_stats>::ask_value(target, 10s);
+		 * \endcode
+		 */
 		template<typename Target, typename Duration, typename... Args>
 		SO_5_NODISCARD
 		static auto
-		request_value(
+		ask_value(
 			Target && target,
 			Duration duration,
 			Args && ...args )
 			{
 				if constexpr( std::is_default_constructible_v<reply_t> )
-					return request_default_constructible_value(
+					return ask_default_constructible_value(
 							std::forward<Target>(target),
 							duration,
 							std::forward<Args>(args)... );
 				else
-					return request_not_default_constructible_value(
+					return ask_not_default_constructible_value(
 							std::forward<Target>(target),
 							duration,
 							std::forward<Args>(args)... );
@@ -637,6 +758,81 @@ using request_mhood_t = typename request_reply_t<Request, Reply>::request_mhood_
  */
 template< typename Request, typename Reply >
 using reply_mhood_t = typename request_reply_t<Request, Reply>::reply_mhood_t;
+
+//
+// request_reply
+//
+/*!
+ * \brief A helper function for performing request_reply-iteraction.
+ *
+ * Sends a so_5::extra::sync::request_reply_t <Request,Reply> to the specified
+ * \a target and waits the reply for no more that \a duration. If there is no
+ * reply then an exception will be thrown.
+ *
+ * Usage example:
+ * \code
+ * auto r = so_5::extra::sync::request_reply<my_request, my_reply>(
+ * 		some_mchain,
+ * 		10s,
+ * 		...);
+ * \endcode
+ *
+ * Returns an instance of Reply object.
+ */
+template<
+	typename Request, typename Reply,
+	typename Target, typename Duration, typename... Args>
+SO_5_NODISCARD
+auto
+request_reply(
+	Target && target,
+	Duration duration,
+	Args && ...args )
+	{
+		return request_reply_t<Request, Reply>::ask_value(
+				std::forward<Target>(target),
+				duration,
+				std::forward<Args>(args)... );
+	}
+
+//
+// request_opt_reply
+//
+/*!
+ * \brief A helper function for performing request_reply-iteraction.
+ *
+ * Sends a so_5::extra::sync::request_reply_t <Request,Reply> to the specified
+ * \a target and waits the reply for no more that \a duration. If there is no
+ * reply then an empty optional object will be returned.
+ *
+ * Usage example:
+ * \code
+ * auto r = so_5::extra::sync::request_opt_reply<my_request, my_reply>(
+ * 		some_mchain,
+ * 		10s,
+ * 		...);
+ * if(r) {
+ * 	... // Do something with *r.
+ * }
+ * \endcode
+ *
+ * Returns an instance of std::optional<Reply> object.
+ */
+template<
+	typename Request, typename Reply,
+	typename Target, typename Duration, typename... Args>
+SO_5_NODISCARD
+auto
+request_opt_reply(
+	Target && target,
+	Duration duration,
+	Args && ...args )
+	{
+		return request_reply_t<Request, Reply>::ask_opt_value(
+				std::forward<Target>(target),
+				duration,
+				std::forward<Args>(args)... );
+	}
 
 } /* namespace sync */
 

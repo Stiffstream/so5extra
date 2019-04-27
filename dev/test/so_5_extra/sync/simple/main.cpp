@@ -37,8 +37,7 @@ TEST_CASE( "simple shutdown on empty environment" )
 								return coop.make_agent<service_t>()->so_direct_mbox();
 							} );
 
-						result = sync_ns::request_reply_t<int, int>
-								::request_value( svc, 5s, 2 );
+						result = sync_ns::request_reply<int, int>( svc, 5s, 2 );
 
 						env.stop();
 					} );

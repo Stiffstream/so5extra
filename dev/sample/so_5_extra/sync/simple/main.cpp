@@ -43,7 +43,7 @@ public :
 	void so_evt_start() override
 	{
 		// Issue a request and wait for the result no more than 500ms.
-		auto result = sync_ns::request_reply_t<int, std::string>::request_value(
+		auto result = sync_ns::request_reply<int, std::string>(
 				// The destination for the request.
 				m_service,
 				// Max waiting time.

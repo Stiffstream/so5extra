@@ -33,8 +33,7 @@ TEST_CASE( "simple shutdown on empty environment" )
 						{
 							// Set timeout to 10s. It won't elapsed because
 							// run_with_time_limit() uses 5s limit.
-							(void)sync_ns::request_reply_t<int, int>::
-									request_value( svc, 10s, 2 );
+							(void)sync_ns::request_reply<int, int>( svc, 10s, 2 );
 							result = reply_received;
 						}
 						catch( const so_5::exception_t & x )
