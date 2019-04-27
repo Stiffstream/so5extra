@@ -85,15 +85,32 @@ using ensure_no_mutability_modificators_t =
 //
 // reply_target_t
 //
-//FIXME: document this!
+/*!
+ * \brief Type of storage for reply's target.
+ *
+ * A reply can be sent to a mchain or to a mbox. If a mchain is used as
+ * a target then it should be closed.
+ *
+ * This type allow to distinguish between mchain and mbox cases.
+ */
 using reply_target_t = std::variant< mchain_t, mbox_t >;
 
 //
 // reply_target_holder_t
 //
-//FIXME: document this!
+/*!
+ * \brief A special holder for reply_target instance.
+ *
+ * This class performs the proper cleanup in the destructor: if
+ * reply_target instance holds a mchain that mchain will be closed
+ * automatically.
+ *
+ * \note
+ * This class is not Moveable nor Copyable.
+ */
 class reply_target_holder_t final
 	{
+		//! The target for the reply message.
 		reply_target_t m_target;
 
 	public :
@@ -121,6 +138,7 @@ class reply_target_holder_t final
 		reply_target_holder_t( const reply_target_holder_t & ) = delete;
 		reply_target_holder_t( reply_target_holder_t && ) = delete;
 
+		//! Getter.
 		const auto &
 		target() const noexcept { return m_target; }
 	};
@@ -128,7 +146,13 @@ class reply_target_holder_t final
 //
 // query_actual_reply_target
 //
-//FIXME: document this!
+/*!
+ * \brief Helper function for extraction of actual reply target
+ * from reply_target instance.
+ *
+ * \note
+ * Reply target is returned as mbox_t.
+ */
 inline mbox_t
 query_actual_reply_target( const reply_target_t & rt ) noexcept
 	{
@@ -251,16 +275,76 @@ class request_holder_part_t<Base, true> : public Base
 //
 // close_reply_chain_flag_t
 //
-//FIXME: document this!
+/*!
+ * \brief A flag to specify should the reply chain be closed automatically.
+ */
 enum class close_reply_chain_flag_t
 	{
+		//! The reply chain should be automatically closed when
+		//! the corresponding request_reply_t instance is being destroyed.
 		close,
+		//! The reply chain shouldn't be closed even if the corresponding
+		//! request_reply_t instance is destroyed.
+		//! A user should close the reply chain manually.
 		do_not_close
 	};
 
+//! The indicator that the reply chain should be closed automatically.
+/*!
+ * If this flag is used then the reply chain will be automatically closed when
+ * the corresponding request_reply_t instance is being destroyed.
+ *
+ * Usage example:
+ * \code
+ * using my_ask_reply = so_5::extra::sync::request_reply_t<my_request, my_reply>;
+ * // Create the reply chain manually.
+ * auto reply_ch = create_mchain(env);
+ * // Issue a request.
+ * my_ask_reply::initiate_with_custom_reply_to(
+ * 	target,
+ * 	reply_ch,
+ * 	so_5::extra::sync::close_reply_chain,
+ * 	...);
+ * ... // Do something.
+ * // Now we can read the reply.
+ * // The reply chain will be automatically closed after dispatching of the request.
+ * receive(from(reply_ch).handle_n(1),
+ * 	[](typename my_ask_reply::reply_mhood_t cmd) {...});
+ * \endcode
+ */
 constexpr const close_reply_chain_flag_t close_reply_chain =
 		close_reply_chain_flag_t::close;
 
+//! The indicator that the reply chain shouldn't be closed automatically.
+/*!
+ * If this flag is used then the reply chain won't be automatically closed when
+ * the corresponding request_reply_t instance is being destroyed. It means that
+ * one reply chain can be used for receiving of different replies:
+ * \code
+ * using one_ask_reply = so_5::extra::sync::request_reply_t<one_request, one_reply>;
+ * using another_ask_reply = so_5::extra::sync::request_reply_t<another_request, another_reply>;
+ *
+ * // Create the reply chain manually.
+ * auto reply_ch = create_mchain(env);
+ * // Issue the first request.
+ * one_ask_reply::initiate_with_custom_reply_to(
+ * 	one_target,
+ * 	reply_ch,
+ * 	so_5::extra::sync::do_not_close_reply_chain,
+ * 	...);
+ * // Issue the second request.
+ * another_ask_reply::initiate_with_custom_reply_to(
+ * 	another_target,
+ * 	reply_ch,
+ * 	so_5::extra::sync::do_not_close_reply_chain,
+ * 	...);
+ * ... // Do something.
+ * // Now we can read the replies.
+ * receive(from(reply_ch).handle_n(2),
+ * 	[](typename one_ask_reply::reply_mhood_t cmd) {...},
+ * 	[](typename another_ask_reply::reply_mhood_t cmd) {...});
+ * \endcode
+ */
 constexpr const close_reply_chain_flag_t do_not_close_reply_chain =
 		close_reply_chain_flag_t::do_not_close;
 
