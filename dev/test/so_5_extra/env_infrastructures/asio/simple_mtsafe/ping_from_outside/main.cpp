@@ -6,7 +6,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 using namespace std;
 
@@ -23,7 +23,7 @@ public :
 		: so_5::agent_t( std::move(ctx) )
 	{
 		so_subscribe_self()
-			.event< ping >( [this, pong_ch] {
+			.event( [this, pong_ch]( mhood_t< ping > ) {
 				so_5::send< pong >( pong_ch );
 			} );
 	}
@@ -66,8 +66,7 @@ main()
 
 						// Wait while outside thread started.
 						so_5::receive(
-								ready_ch,
-								so_5::infinite_wait,
+								from(ready_ch).handle_n(1),
 								[](so_5::mhood_t<started>) {} );
 					},
 					[&]( so_5::environment_params_t & params ) {

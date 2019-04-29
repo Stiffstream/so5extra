@@ -43,5 +43,10 @@
  * \example enveloped_msg/time_limited_delivery/main.cpp
  */
 
+/*!
+ * \example sync/simple/main.cpp
+ * \example sync/mchains/main.cpp
+ */
+
 // vim:ft=cpp
 

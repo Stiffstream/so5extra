@@ -10,7 +10,7 @@
 
 #include <so_5_extra/enveloped_msg/errors.hpp>
 
-#include <so_5/rt/h/enveloped_msg.hpp>
+#include <so_5/enveloped_msg.hpp>
 
 namespace so_5 {
 
@@ -100,7 +100,7 @@ class just_envelope_t : public so_5::enveloped_msg::envelope_t
 		// Mutability of payload will be returned as mutability
 		// of the whole envelope.
 		message_mutability_t
-		so5_message_mutability() const override
+		so5_message_mutability() const noexcept override
 			{
 				return message_mutability( m_payload );
 			}

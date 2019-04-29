@@ -84,7 +84,7 @@ int main()
 			using namespace so_5::disp::thread_pool;
 			env.introduce_coop(
 				// Dispatcher and binder for agents from example coop.
-				create_private_disp(env)->binder(
+				make_dispatcher(env).binder(
 					bind_params_t{}.fifo(fifo_t::individual)),
 				[](so_5::coop_t & coop) {
 					// Create two service providers to be used in example.

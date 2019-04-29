@@ -5,7 +5,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 namespace collecting_mbox_ns = so_5::extra::mboxes::collecting_mbox;
 
@@ -24,9 +24,9 @@ struct constexpr_case
 			collecting_mbox_ns::constexpr_size_traits_t<3> >;
 
 	static auto
-	make( so_5::environment_t & env, const so_5::mbox_t & target )
+	make( const so_5::mbox_t & target )
 	{
-		return collecting_mbox_t::make( env, target );
+		return collecting_mbox_t::make( target );
 	}
 };
 
@@ -38,9 +38,20 @@ struct runtime_case
 			collecting_mbox_ns::runtime_size_traits_t >;
 
 	static auto
-	make( so_5::environment_t & env, const so_5::mbox_t & target )
+	make( const so_5::mbox_t & target )
 	{
-		return collecting_mbox_t::make( env, target, 3u );
+		return collecting_mbox_t::make( target, 3u );
+	}
+};
+
+class dummy_actor final : public so_5::agent_t
+{
+public :
+	using so_5::agent_t::agent_t;
+
+	void so_evt_start() override
+	{
+		so_environment().stop();
 	}
 };
 
@@ -51,18 +62,17 @@ TEST_CASE( "mutable mboxes (constexpr case)" )
 
 			so_5::launch( [&](so_5::environment_t & env) {
 				env.introduce_coop( [&](so_5::coop_t & coop) {
-					auto a = coop.define_agent();
-					a.on_start( [&]{ env.stop(); } );
+					auto a = coop.make_agent< dummy_actor >();
 
 					REQUIRE_NOTHROW(
 						constexpr_case< so_5::mutable_msg< hello > >::make(
-								env, a.direct_mbox() ) );
+								a->so_direct_mbox() ) );
 
 					REQUIRE_THROWS_AS( [&]() {
 						auto mpmc_mbox = env.create_mbox();
 						try {
 							constexpr_case< so_5::mutable_msg< hello > >::make(
-									env, mpmc_mbox );
+									mpmc_mbox );
 						}
 						catch( const so_5::exception_t & x ) {
 							error_caught = x.error_code();
@@ -84,17 +94,16 @@ TEST_CASE( "immutable mboxes (constexpr case)" )
 	run_with_time_limit( [] {
 			so_5::launch( [&](so_5::environment_t & env) {
 				env.introduce_coop( [&](so_5::coop_t & coop) {
-					auto a = coop.define_agent();
-					a.on_start( [&]{ env.stop(); } );
+					auto a = coop.make_agent< dummy_actor >();
 
 					REQUIRE_NOTHROW(
 						constexpr_case< so_5::immutable_msg< hello > >::make(
-								env, a.direct_mbox() ) );
+								a->so_direct_mbox() ) );
 
 					REQUIRE_NOTHROW( [&]() {
 						auto mpmc_mbox = env.create_mbox();
 						constexpr_case< so_5::immutable_msg< hello > >::make(
-								env, mpmc_mbox );
+								mpmc_mbox );
 					}() );
 
 				} );
@@ -110,18 +119,17 @@ TEST_CASE( "mutable mboxes (runtime case)" )
 
 			so_5::launch( [&](so_5::environment_t & env) {
 				env.introduce_coop( [&](so_5::coop_t & coop) {
-					auto a = coop.define_agent();
-					a.on_start( [&]{ env.stop(); } );
+					auto a = coop.make_agent< dummy_actor >();
 
 					REQUIRE_NOTHROW(
 						runtime_case< so_5::mutable_msg< hello > >::make(
-								env, a.direct_mbox() ) );
+								a->so_direct_mbox() ) );
 
 					REQUIRE_THROWS_AS( [&]() {
 						auto mpmc_mbox = env.create_mbox();
 						try {
 							runtime_case< so_5::mutable_msg< hello > >::make(
-									env, mpmc_mbox );
+									mpmc_mbox );
 						}
 						catch( const so_5::exception_t & x ) {
 							error_caught = x.error_code();
@@ -143,89 +151,20 @@ TEST_CASE( "immutable mboxes (runtime case)" )
 	run_with_time_limit( [] {
 			so_5::launch( [&](so_5::environment_t & env) {
 				env.introduce_coop( [&](so_5::coop_t & coop) {
-					auto a = coop.define_agent();
-					a.on_start( [&]{ env.stop(); } );
+					auto a = coop.make_agent< dummy_actor >();
 
 					REQUIRE_NOTHROW(
 						runtime_case< so_5::immutable_msg< hello > >::make(
-								env, a.direct_mbox() ) );
+								a->so_direct_mbox() ) );
 
 					REQUIRE_NOTHROW( [&]() {
 						auto mpmc_mbox = env.create_mbox();
 						runtime_case< so_5::immutable_msg< hello > >::make(
-								env, mpmc_mbox );
+								mpmc_mbox );
 					}() );
 
 				} );
 			} );
-		},
-		5 );
-}
-
-TEST_CASE( "service request (constexpr case)" )
-{
-	run_with_time_limit( [] {
-			int error_caught = 0;
-
-			so_5::launch( [&](so_5::environment_t & env) {
-				auto target = env.create_mbox();
-
-				auto mbox = constexpr_case< hello >::make( env, target );
-				auto svc_req = [&] {
-					return so_5::request_value< std::string, hello >(
-							mbox,
-							std::chrono::milliseconds(150),
-							"hello" );
-				};
-
-				REQUIRE_THROWS_AS( [&]() {
-					try {
-						svc_req();
-					}
-					catch( const so_5::exception_t & x ) {
-						error_caught = x.error_code();
-						throw;
-					}
-				}(),
-				so_5::exception_t );
-			} );
-
-			REQUIRE( so_5::extra::mboxes::collecting_mbox::errors
-					::rc_service_request_on_collecting_mbox == error_caught );
-		},
-		5 );
-}
-
-TEST_CASE( "service request (runtime case)" )
-{
-	run_with_time_limit( [] {
-			int error_caught = 0;
-
-			so_5::launch( [&](so_5::environment_t & env) {
-				auto target = env.create_mbox();
-
-				auto mbox = runtime_case< hello >::make( env, target );
-				auto svc_req = [&] {
-					return so_5::request_value< std::string, hello >(
-							mbox,
-							std::chrono::milliseconds(150),
-							"hello" );
-				};
-
-				REQUIRE_THROWS_AS( [&]() {
-					try {
-						svc_req();
-					}
-					catch( const so_5::exception_t & x ) {
-						error_caught = x.error_code();
-						throw;
-					}
-				}(),
-				so_5::exception_t );
-			} );
-
-			REQUIRE( so_5::extra::mboxes::collecting_mbox::errors
-					::rc_service_request_on_collecting_mbox == error_caught );
 		},
 		5 );
 }

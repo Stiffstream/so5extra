@@ -10,8 +10,14 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/simplest_agent_2/prj.ut.rb" )
 	required_prj( "#{path}/simplest_agent_2/prj_s.ut.rb" )
 
+	required_prj( "#{path}/simplest_agent_3/prj.ut.rb" )
+	required_prj( "#{path}/simplest_agent_3/prj_s.ut.rb" )
+
 	required_prj( "#{path}/agent_ring/prj.ut.rb" )
 	required_prj( "#{path}/agent_ring/prj_s.ut.rb" )
+
+	required_prj( "#{path}/agent_ring_2/prj.ut.rb" )
+	required_prj( "#{path}/agent_ring_2/prj_s.ut.rb" )
 
 	required_prj( "#{path}/multifile_hello/prj.ut.rb" )
 	required_prj( "#{path}/multifile_hello/prj_s.ut.rb" )

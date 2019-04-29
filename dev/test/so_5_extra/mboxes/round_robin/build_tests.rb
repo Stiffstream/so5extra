@@ -10,17 +10,11 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/simple_enveloped_msg/prj.ut.rb" )
 	required_prj( "#{path}/simple_enveloped_msg/prj_s.ut.rb" )
 
-	required_prj( "#{path}/simple_svc_request/prj.ut.rb" )
-	required_prj( "#{path}/simple_svc_request/prj_s.ut.rb" )
-
 	required_prj( "#{path}/rr_msg_delivery/prj.ut.rb" )
 	required_prj( "#{path}/rr_msg_delivery/prj_s.ut.rb" )
 
 	required_prj( "#{path}/rr_enveloped_msg_delivery/prj.ut.rb" )
 	required_prj( "#{path}/rr_enveloped_msg_delivery/prj_s.ut.rb" )
-
-	required_prj( "#{path}/rr_svc_delivery/prj.ut.rb" )
-	required_prj( "#{path}/rr_svc_delivery/prj_s.ut.rb" )
 
 	required_prj( "#{path}/msg_limits/prj.ut.rb" )
 	required_prj( "#{path}/msg_limits/prj_s.ut.rb" )

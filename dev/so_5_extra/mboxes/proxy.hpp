@@ -10,15 +10,7 @@
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/rt/h/mbox.hpp>
-
-#if defined(SO_5_VERSION)
-	#if (SO_5_VERSION < SO_5_VERSION_MAKE(5, 23, 0))
-		#error "SObjectizer v.5.5.23 or above is required"
-	#endif
-#else
-		#error "SObjectizer v.5.5.23 or above is required"
-#endif
+#include <so_5/mbox.hpp>
 
 namespace so_5 {
 
@@ -64,7 +56,7 @@ const int rc_nullptr_as_underlying_mbox =
  * 	void do_deliver_message(
  * 			const std::type_index & msg_type,
  * 			const so_5::message_ref_t & message,
- * 			unsigned int overlimit_reaction_deep ) const override {
+ * 			unsigned int overlimit_reaction_deep ) override {
  * 		if(is_appropriate_message_type(msg_type))
  * 			++counter_;
  * 		... // Actual message delivery.
@@ -89,7 +81,7 @@ const int rc_nullptr_as_underlying_mbox =
  * 	void do_deliver_message(
  * 			const std::type_index & msg_type,
  * 			const so_5::message_ref_t & message,
- * 			unsigned int overlimit_reaction_deep ) const override {
+ * 			unsigned int overlimit_reaction_deep ) override {
  * 		if(is_appropriate_message_type(msg_type))
  * 			++counter_;
  * 		// Use actual mbox for message delivery.
@@ -119,7 +111,7 @@ const int rc_nullptr_as_underlying_mbox =
  * 	void do_deliver_message(
  * 			const std::type_index & msg_type,
  * 			const so_5::message_ref_t & message,
- * 			unsigned int overlimit_reaction_deep ) const override {
+ * 			unsigned int overlimit_reaction_deep ) override {
  * 		if(is_appropriate_message_type(msg_type))
  * 			++counter_;
  * 		// Use actual mbox for message delivery.
@@ -168,7 +160,7 @@ class simple_t : public ::so_5::abstract_message_box_t
 		 * 	void do_deliver_message(
 		 * 			const std::type_index & msg_type,
 		 * 			const so_5::message_ref_t & message,
-		 * 			unsigned int overlimit_reaction_deep ) const override {
+		 * 			unsigned int overlimit_reaction_deep ) override {
 		 * 		... // Do some specific stuff.
 		 * 		// Use actual mbox for message delivery.
 		 * 		underlying_mbox().do_deliver_message(
@@ -208,7 +200,7 @@ class simple_t : public ::so_5::abstract_message_box_t
 		subscribe_event_handler(
 			const std::type_index & type_index,
 			const ::so_5::message_limit::control_block_t * limit,
-			::so_5::agent_t * subscriber ) override
+			::so_5::agent_t & subscriber ) override
 			{
 				underlying_mbox().subscribe_event_handler(
 						type_index,
@@ -219,7 +211,7 @@ class simple_t : public ::so_5::abstract_message_box_t
 		void
 		unsubscribe_event_handlers(
 			const std::type_index & type_index,
-			::so_5::agent_t * subscriber ) override
+			::so_5::agent_t & subscriber ) override
 			{
 				underlying_mbox().unsubscribe_event_handlers(
 						type_index,
@@ -242,33 +234,9 @@ class simple_t : public ::so_5::abstract_message_box_t
 		do_deliver_message(
 			const std::type_index & msg_type,
 			const ::so_5::message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const override
-			{
-				underlying_mbox().do_deliver_message(
-						msg_type,
-						message,
-						overlimit_reaction_deep );
-			}
-
-		void
-		do_deliver_service_request(
-			const std::type_index & msg_type,
-			const ::so_5::message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const override
-			{
-				underlying_mbox().do_deliver_service_request(
-						msg_type,
-						message,
-						overlimit_reaction_deep );
-			}
-
-		void
-		do_deliver_enveloped_msg(
-			const std::type_index & msg_type,
-			const ::so_5::message_ref_t & message,
 			unsigned int overlimit_reaction_deep ) override
 			{
-				underlying_mbox().do_deliver_enveloped_msg(
+				underlying_mbox().do_deliver_message(
 						msg_type,
 						message,
 						overlimit_reaction_deep );
@@ -294,6 +262,12 @@ class simple_t : public ::so_5::abstract_message_box_t
 				underlying_mbox().drop_delivery_filter(
 						msg_type,
 						subscriber );
+			}
+
+		so_5::environment_t &
+		environment() const noexcept override
+			{
+				return underlying_mbox().environment();
 			}
 
 	protected :

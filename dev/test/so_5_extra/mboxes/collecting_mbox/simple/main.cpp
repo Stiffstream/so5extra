@@ -5,7 +5,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 namespace collecting_mbox_ns = so_5::extra::mboxes::collecting_mbox;
 
@@ -23,9 +23,9 @@ struct constexpr_case
 			collecting_mbox_ns::constexpr_size_traits_t<3> >;
 
 	static auto
-	make( so_5::environment_t & env, const so_5::mbox_t & target )
+	make( const so_5::mbox_t & target )
 	{
-		return collecting_mbox_t::make( env, target );
+		return collecting_mbox_t::make( target );
 	}
 };
 
@@ -36,16 +36,16 @@ struct runtime_case
 			collecting_mbox_ns::runtime_size_traits_t >;
 
 	static auto
-	make( so_5::environment_t & env, const so_5::mbox_t & target )
+	make( const so_5::mbox_t & target )
 	{
-		return collecting_mbox_t::make( env, target, 3u );
+		return collecting_mbox_t::make( target, 3u );
 	}
 };
 
-template< typename CASE >
+template< typename Case >
 class a_test_case_t final : public so_5::agent_t
 {
-	using collecting_mbox_t = typename CASE::collecting_mbox_t;
+	using collecting_mbox_t = typename Case::collecting_mbox_t;
 
 public :
 	a_test_case_t(
@@ -53,7 +53,7 @@ public :
 		std::string & dest )
 		:	so_5::agent_t( std::move(ctx) )
 		,	m_dest( dest )
-		,	m_mbox( CASE::make( so_environment(), so_direct_mbox() ) )
+		,	m_mbox( Case::make( so_direct_mbox() ) )
 	{}
 
 	virtual void
@@ -91,7 +91,7 @@ TEST_CASE( "constexpr case" )
 			std::string scenario;
 
 			so_5::launch( [&](so_5::environment_t & env) {
-						env.register_agent_as_coop( "test",
+						env.register_agent_as_coop(
 								env.make_agent< a_test_case_t< constexpr_case > >(
 										std::ref(scenario) ) );
 					},
@@ -111,7 +111,7 @@ TEST_CASE( "runtime case" )
 			std::string scenario;
 
 			so_5::launch( [&](so_5::environment_t & env) {
-						env.register_agent_as_coop( "test",
+						env.register_agent_as_coop(
 								env.make_agent< a_test_case_t< constexpr_case > >(
 										std::ref(scenario) ) );
 					},

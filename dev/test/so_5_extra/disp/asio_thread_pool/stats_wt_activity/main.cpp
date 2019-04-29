@@ -2,7 +2,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 class a_test_t : public so_5::agent_t
 	{
@@ -53,13 +53,13 @@ void
 fill_test_coop(
 	asio::io_context & io_svc,
 	so_5::coop_t & coop,
-	so_5::extra::disp::asio_thread_pool::private_dispatcher_handle_t disp )
+	so_5::extra::disp::asio_thread_pool::dispatcher_handle_t disp )
 {
 	auto member_strand = coop.take_under_control(
 			std::make_unique< asio::io_context::strand >( std::ref(io_svc) ) );
 
 	coop.make_agent_with_binder< a_test_t >(
-			disp->binder( *member_strand ) );
+			disp.binder( *member_strand ) );
 }
 
 int
@@ -78,7 +78,7 @@ main()
 						asio_tp::disp_params_t params;
 						params.use_external_io_context( io_svc );
 
-						auto disp = asio_tp::create_private_disp(
+						auto disp = asio_tp::make_dispatcher(
 								env,
 								"asio_tp",
 								std::move(params) );

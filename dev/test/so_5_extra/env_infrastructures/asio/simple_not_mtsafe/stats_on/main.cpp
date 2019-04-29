@@ -5,7 +5,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 using namespace std;
 
@@ -59,12 +59,12 @@ public :
 					so_5::send_delayed< start_second >( *this,
 							std::chrono::milliseconds( 200 ) );
 				} )
-			.event< start_second >( [this] {
+			.event( [this]( mhood_t<start_second> ) {
 					so_environment().stats_controller().turn_on();
 					so_5::send_delayed< finish_second >( *this,
 							std::chrono::milliseconds( 350 ) );
 				} )
-			.event< finish_second >( [this] {
+			.event( [this]( mhood_t<finish_second> ) {
 					so_deregister_agent_coop_normally();
 				} )
 			.event( so_environment().stats_controller().mbox(),

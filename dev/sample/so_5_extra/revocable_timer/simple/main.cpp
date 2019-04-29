@@ -82,7 +82,7 @@ private :
 int main()
 {
 	so_5::launch( [](so_5::environment_t & env) {
-		env.register_agent_as_coop( "example", env.make_agent< example_t >() );
+		env.register_agent_as_coop( env.make_agent< example_t >() );
 	} );
 
 	return 0;

@@ -5,9 +5,7 @@
 
 #pragma once
 
-#include <so_5/rt/impl/h/st_env_infrastructure_reuse.hpp>
-
-#include <so_5/h/stdcpp.hpp>
+#include <so_5/impl/st_env_infrastructure_reuse.hpp>
 
 #include <asio.hpp>
 
@@ -103,7 +101,7 @@ class singleshot_timer_holder_t : public atomic_refcounted_t
 						if( ::asio::error::operation_aborted == ec )
 							return;
 
-						::so_5::rt::impl::mbox_iface_for_timers_t{ self->m_mbox }
+						::so_5::impl::mbox_iface_for_timers_t{ self->m_mbox }
 								.deliver_message_from_timer(
 										self->m_type_index,
 										self->m_msg );
@@ -177,7 +175,7 @@ class periodic_timer_holder_t : public atomic_refcounted_t
 						if( ::asio::error::operation_aborted == ec )
 							return;
 
-						::so_5::rt::impl::mbox_iface_for_timers_t{ self->m_mbox }
+						::so_5::impl::mbox_iface_for_timers_t{ self->m_mbox }
 								.deliver_message_from_timer(
 										self->m_type_index,
 										self->m_msg );
@@ -206,7 +204,7 @@ class actual_timer_t : public timer_t
 			holder_smart_ptr_t holder )
 			:	m_holder( std::move(holder) )
 			{}
-		virtual ~actual_timer_t()
+		virtual ~actual_timer_t() override
 			{
 				release();
 			}

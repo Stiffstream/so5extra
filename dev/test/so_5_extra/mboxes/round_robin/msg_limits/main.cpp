@@ -5,7 +5,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 struct request final : public so_5::message_t
 {
@@ -45,7 +45,7 @@ public :
 			.event( [index](mhood_t<request> cmd) {
 				so_5::send< reply >( cmd->m_reply_to, index );
 			} )
-			.event( [index](mhood_t<final_request> cmd) {
+			.event( [](mhood_t<final_request> cmd) {
 				so_5::send< final_reply >( cmd->m_reply_to );
 			} );
 	}

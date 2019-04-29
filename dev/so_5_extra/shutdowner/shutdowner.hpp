@@ -7,16 +7,16 @@
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/rt/impl/h/msg_tracing_helpers.hpp>
-#include <so_5/rt/impl/h/message_limit_internals.hpp>
-#include <so_5/rt/impl/h/agent_ptr_compare.hpp>
+#include <so_5/impl/msg_tracing_helpers.hpp>
+#include <so_5/impl/message_limit_internals.hpp>
+#include <so_5/impl/agent_ptr_compare.hpp>
 
-#include <so_5/details/h/sync_helpers.hpp>
+#include <so_5/details/sync_helpers.hpp>
 
-#include <so_5/rt/h/mbox.hpp>
-#include <so_5/rt/h/send_functions.hpp>
+#include <so_5/mbox.hpp>
+#include <so_5/send_functions.hpp>
 
-#include <so_5/h/outliving.hpp>
+#include <so_5/outliving.hpp>
 
 namespace so_5 {
 
@@ -105,34 +105,34 @@ class time_elapsed_mbox_t
 			,	m_id( id )
 			{}
 
-		virtual mbox_id_t
+		mbox_id_t
 		id() const override
 			{
 				return m_id;
 			}
 
-		virtual void
+		void
 		subscribe_event_handler(
 			const std::type_index & /*type_index*/,
 			const message_limit::control_block_t * /*limit*/,
-			agent_t * /*subscriber*/ ) override
+			agent_t & /*subscriber*/ ) override
 			{
 				SO_5_THROW_EXCEPTION( rc_not_implemented,
 						"subscribe_event_handler is not implemented for "
 						"time_elapsed_mbox" );
 			}
 
-		virtual void
+		void
 		unsubscribe_event_handlers(
 			const std::type_index & /*type_index*/,
-			agent_t * /*subscriber*/ ) override
+			agent_t & /*subscriber*/ ) override
 			{
 				SO_5_THROW_EXCEPTION( rc_not_implemented,
 						"subscribe_event_handler is not implemented for "
 						"time_elapsed_mbox" );
 			}
 
-		virtual std::string
+		std::string
 		query_name() const override
 			{
 				std::ostringstream ss;
@@ -140,17 +140,17 @@ class time_elapsed_mbox_t
 				return ss.str();
 			}
 
-		virtual mbox_type_t
+		mbox_type_t
 		type() const override
 			{
 				return mbox_type_t::multi_producer_single_consumer;
 			}
 
-		virtual void
+		void
 		do_deliver_message(
 			const std::type_index & /*msg_type*/,
 			const message_ref_t & /*message*/,
-			unsigned int /*overlimit_reaction_deep*/ ) const override
+			unsigned int /*overlimit_reaction_deep*/ ) override
 			{
 				m_env.get().error_logger().log(
 						__FILE__, __LINE__,
@@ -159,18 +159,7 @@ class time_elapsed_mbox_t
 				std::abort();
 			}
 
-		virtual void
-		do_deliver_service_request(
-			const std::type_index & /*msg_type*/,
-			const message_ref_t & /*message*/,
-			unsigned int /*overlimit_reaction_deep*/ ) const override
-			{
-				SO_5_THROW_EXCEPTION( rc_not_implemented,
-						"do_deliver_service_request is not implemented for "
-						"time_elapsed_mbox" );
-			}
-
-		virtual void
+		void
 		set_delivery_filter(
 			const std::type_index & /*msg_type*/,
 			const delivery_filter_t & /*filter*/,
@@ -181,12 +170,18 @@ class time_elapsed_mbox_t
 						"time_elapsed_mbox" );
 			}
 
-		virtual void
+		void
 		drop_delivery_filter(
 			const std::type_index & /*msg_type*/,
 			agent_t & /*subscriber*/ ) noexcept override
 			{
 				/* Nothing to do. */
+			}
+
+		environment_t &
+		environment() const noexcept override
+			{
+				return m_env.get();
 			}
 
 	private :
@@ -258,9 +253,9 @@ enum class value_t
 		must_be_completed
 	};
 
-const value_t not_started = value_t::not_started;
-const value_t started = value_t::started;
-const value_t must_be_completed = value_t::must_be_completed;
+constexpr const value_t not_started = value_t::not_started;
+constexpr const value_t started = value_t::started;
+constexpr const value_t must_be_completed = value_t::must_be_completed;
 
 //! Which action must be performed after updating status of shutdown operation.
 enum class deferred_action_t
@@ -283,7 +278,7 @@ class holder_t
 
 	public :
 		value_t
-		current() const { return m_status; }
+		current() const noexcept { return m_status; }
 	};
 
 //! Special object to change the status and detect deferred action to be performed.
@@ -299,10 +294,10 @@ class updater_t
 			{}
 
 		value_t
-		current() const { return m_status.get().current(); }
+		current() const noexcept { return m_status.get().current(); }
 
 		void
-		update( value_t new_status )
+		update( value_t new_status ) noexcept
 			{
 				m_status.get().m_status = new_status;
 				if( value_t::must_be_completed == new_status )
@@ -312,7 +307,7 @@ class updater_t
 			}
 
 		deferred_action_t
-		action() const { return m_action; }
+		action() const noexcept { return m_action; }
 	};
 
 } /* namespace status */
@@ -402,17 +397,17 @@ class notify_mbox_t
 				m_shutdowner_guard = std::move(guard);
 			}
 
-		virtual mbox_id_t
+		mbox_id_t
 		id() const override
 			{
 				return m_id;
 			}
 
-		virtual void
+		void
 		subscribe_event_handler(
 			const std::type_index & type_index,
 			const message_limit::control_block_t * limit,
-			agent_t * subscriber ) override
+			agent_t & subscriber ) override
 			{
 				ensure_valid_message_type( type_index );
 				this->lock_and_perform( [&] {
@@ -420,10 +415,10 @@ class notify_mbox_t
 				} );
 			}
 
-		virtual void
+		void
 		unsubscribe_event_handlers(
 			const std::type_index & type_index,
-			agent_t * subscriber ) override
+			agent_t & subscriber ) override
 			{
 				ensure_valid_message_type( type_index );
 				const auto action = this->lock_and_perform( [&] {
@@ -434,7 +429,7 @@ class notify_mbox_t
 					complete_shutdown();
 			}
 
-		virtual std::string
+		std::string
 		query_name() const override
 			{
 				std::ostringstream ss;
@@ -442,17 +437,17 @@ class notify_mbox_t
 				return ss.str();
 			}
 
-		virtual mbox_type_t
+		mbox_type_t
 		type() const override
 			{
 				return mbox_type_t::multi_producer_multi_consumer;
 			}
 
-		virtual void
+		void
 		do_deliver_message(
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int /*overlimit_reaction_deep*/ ) const override
+			unsigned int /*overlimit_reaction_deep*/ ) override
 			{
 				ensure_valid_message_type( msg_type );
 				const auto action = do_initiate_shutdown( msg_type, message );
@@ -460,19 +455,7 @@ class notify_mbox_t
 					complete_shutdown();
 			}
 
-		virtual void
-		do_deliver_service_request(
-			const std::type_index & msg_type,
-			const message_ref_t & /*message*/,
-			unsigned int /*overlimit_reaction_deep*/ ) const override
-			{
-				ensure_valid_message_type( msg_type );
-				SO_5_THROW_EXCEPTION( rc_not_implemented,
-						"do_deliver_service_request is not implemented for "
-						"shutdowner mbox" );
-			}
-
-		virtual void
+		void
 		set_delivery_filter(
 			const std::type_index & msg_type,
 			const delivery_filter_t & /*filter*/,
@@ -483,12 +466,18 @@ class notify_mbox_t
 						"unable to set delivery filter to shutdowner mbox" );
 			}
 
-		virtual void
+		void
 		drop_delivery_filter(
 			const std::type_index & /*msg_type*/,
 			agent_t & /*subscriber*/ ) noexcept override
 			{
 				/* Nothing to do. */
+			}
+
+		environment_t &
+		environment() const noexcept override
+			{
+				return m_env.get();
 			}
 
 	private :
@@ -502,13 +491,7 @@ class notify_mbox_t
 		const mbox_id_t m_id;
 
 		//! Actual mbox data.
-		/*!
-		 * \attention
-		 * It is marked as `mutable` because some methods of
-		 * abstract_message_box_t are const by historical reasons.
-		 * But there is a necessity to change mbox's data inside such methods.
-		 */
-		mutable notify_mbox_data_t m_data;
+		notify_mbox_data_t m_data;
 
 		//! Check for valid type of message to be handled.
 		/*!
@@ -532,7 +515,7 @@ class notify_mbox_t
 		void
 		do_event_subscription(
 			const message_limit::control_block_t * limit,
-			agent_t * subscriber )
+			agent_t & subscriber )
 			{
 				if( status::not_started != m_data.m_status.current() )
 					SO_5_THROW_EXCEPTION(
@@ -540,7 +523,7 @@ class notify_mbox_t
 							"a creation of new subscription is disabled during "
 							"shutdown procedure" );
 
-				subscriber_info_t info{ subscriber, limit };
+				subscriber_info_t info{ &subscriber, limit };
 				auto it = std::lower_bound(
 						std::begin(m_data.m_subscribers),
 						std::end(m_data.m_subscribers),
@@ -554,18 +537,18 @@ class notify_mbox_t
 		 * necessary).
 		 */
 		status::deferred_action_t
-		do_event_unsubscripton( agent_t * subscriber )
+		do_event_unsubscripton( agent_t & subscriber )
 			{
 				status::updater_t status_updater(
 						outliving_mutable( m_data.m_status ) );
 
-				subscriber_info_t info{ subscriber, nullptr };
+				subscriber_info_t info{ &subscriber, nullptr };
 				auto it = std::lower_bound(
 						std::begin(m_data.m_subscribers),
 						std::end(m_data.m_subscribers), 
 						info );
 				if( it != std::end(m_data.m_subscribers) &&
-						it->m_subscriber == subscriber )
+						it->m_subscriber == &subscriber )
 					{
 						m_data.m_subscribers.erase( it );
 
@@ -583,13 +566,8 @@ class notify_mbox_t
 			}
 
 		//! Do all necessary actions for completion of shutdown.
-		/*!
-		 * \note
-		 * This method is marked as const because is may be called from
-		 * const virtual methods.
-		 */
 		void
-		complete_shutdown() const
+		complete_shutdown()
 			{
 				m_data.m_shutdown_timer.release();
 
@@ -600,15 +578,11 @@ class notify_mbox_t
 		/*!
 		 * Returns the action to be performed (shutdown completion may be
 		 * necessary).
-		 *
-		 * \note
-		 * This method is marked as const because is may be called from
-		 * const virtual methods.
 		 */
 		status::deferred_action_t
 		do_initiate_shutdown(
 			const std::type_index & msg_type,
-			const message_ref_t & message ) const
+			const message_ref_t & message )
 			{
 				status::updater_t updater(
 						outliving_mutable( m_data.m_status ) );
@@ -631,15 +605,10 @@ class notify_mbox_t
 			}
 
 		//! Send shutdown_initiated message to all actual subscribers.
-		/*!
-		 * \note
-		 * This method is marked as const because is may be called from
-		 * const virtual methods.
-		 */
 		void
 		send_shutdown_initated_to_all(
 			const std::type_index & msg_type,
-			const message_ref_t & message ) const
+			const message_ref_t & message )
 			{
 				constexpr unsigned int overlimit_reaction_deep = 0u;
 
@@ -655,7 +624,6 @@ class notify_mbox_t
 
 						try_to_deliver_to_agent(
 								m_id,
-								invocation_type_t::event,
 								*(subscriber.m_subscriber),
 								subscriber.m_limits,
 								msg_type,
@@ -676,16 +644,10 @@ class notify_mbox_t
 			}
 
 		//! Initiate delayed shutdown_time_elapsed message.
-		/*!
-		 * \note
-		 * This method is marked as const because is may be called from
-		 * const virtual methods.
-		 */
 		void
-		start_shutdown_clock() const
+		start_shutdown_clock()
 			{
 				m_data.m_shutdown_timer = so_5::send_periodic< shutdown_time_elapsed_t >(
-						m_env,
 						m_data.m_time_elapsed_mbox,
 						m_data.m_max_shutdown_time,
 						std::chrono::milliseconds::zero() );

@@ -53,18 +53,17 @@ public:
 	{
 		// Create instance of collecting mbox.
 		auto ready_mbox = child_started_mbox_t::make(
-				so_environment(),
 				so_direct_mbox(),
 				m_child_count);
 
 		// All children agents will work on the same thread_pool dispatcher.
-		auto tp_disp = so_5::disp::thread_pool::create_private_disp(
+		auto tp_disp = so_5::disp::thread_pool::make_dispatcher(
 				so_environment(),
 				3 );
 		for(std::size_t i = 0; i != m_child_count; ++i)
 		{
 			introduce_child_coop(*this,
-					tp_disp->binder(so_5::disp::thread_pool::bind_params_t{}),
+					tp_disp.binder(so_5::disp::thread_pool::bind_params_t{}),
 					[&ready_mbox](so_5::coop_t & coop) {
 						coop.make_agent<child_t>(ready_mbox);
 					});

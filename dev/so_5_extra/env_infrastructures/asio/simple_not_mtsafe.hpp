@@ -8,14 +8,15 @@
 
 #include <so_5_extra/env_infrastructures/asio/impl/common.hpp>
 
-#include <so_5/rt/impl/h/st_env_infrastructure_reuse.hpp>
-#include <so_5/details/h/sync_helpers.hpp>
-#include <so_5/details/h/at_scope_exit.hpp>
-#include <so_5/details/h/invoke_noexcept_code.hpp>
-
-#include <so_5/h/stdcpp.hpp>
+#include <so_5/impl/st_env_infrastructure_reuse.hpp>
+#include <so_5/impl/internal_env_iface.hpp>
+#include <so_5/details/sync_helpers.hpp>
+#include <so_5/details/at_scope_exit.hpp>
+#include <so_5/details/invoke_noexcept_code.hpp>
 
 #include <asio.hpp>
+
+#include <string_view>
 
 namespace so_5 {
 
@@ -92,7 +93,7 @@ class event_queue_impl_t final : public event_queue_t
 			,	m_activity_tracker(activity_tracker)
 			{}
 
-		virtual void
+		void
 		push( execution_demand_t demand ) override
 			{
 				::asio::post(
@@ -118,11 +119,11 @@ class event_queue_impl_t final : public event_queue_t
 								m_activity_tracker.get().wait_started();
 						} );
 
-				// Increment demands count only if post doesn't throw.
 				if( !m_stats.m_demands_count )
 					// Waiting must be stopped because we have received an event.
 					m_activity_tracker.get().wait_stopped();
 
+				// Increment demands count only if post doesn't throw.
 				++m_stats.m_demands_count;
 			}
 
@@ -162,51 +163,48 @@ class event_queue_impl_t final : public event_queue_t
  */
 struct disp_ds_name_parts_t final
 	{
-		static const char * disp_type_part() noexcept { return "asio_not_mtsafe"; }
+		static constexpr std::string_view
+		disp_type_part() noexcept { return { "asio_not_mtsafe" }; }
 	};
 
 //
-// default_disp_impl_basis_t
+// default_dispatcher_t
 //
 /*!
- * \brief A basic part of implementation of dispatcher interface to be used in
- * places where default dispatcher is needed.
- */
-template< typename Activity_Tracker >
-using default_disp_impl_basis_t =
-	reusable::default_disp_impl_basis_t< event_queue_impl_t< Activity_Tracker > >;
-
-//
-// default_disp_binder_t
-//
-/*!
- * \brief An implementation of disp_binder interface for default dispatcher
- * for this environment infrastructure.
- */
-template< typename Activity_Tracker >
-using default_disp_binder_t =
-	reusable::default_disp_binder_t<
-			default_disp_impl_basis_t< Activity_Tracker > >;
-
-//
-// default_disp_impl_t
-//
-/*!
- * \brief An implementation of dispatcher interface to be used in
+ * \brief An implementation of dispatcher to be used in
  * places where default dispatcher is needed.
  *
  * \tparam Activity_Tracker a type of activity tracker to be used
  * for run-time statistics.
  *
  * \since
- * v.5.5.19
+ * v.1.3.0
  */
 template< typename Activity_Tracker >
-using default_disp_impl_t =
-	reusable::default_disp_impl_t<
+class default_dispatcher_t final
+	: public reusable::default_dispatcher_t<
 			event_queue_impl_t< Activity_Tracker >,
 			Activity_Tracker,
-			disp_ds_name_parts_t >;
+			disp_ds_name_parts_t >
+	{
+		using base_type = reusable::default_dispatcher_t<
+				event_queue_impl_t< Activity_Tracker >,
+				Activity_Tracker,
+				disp_ds_name_parts_t >;
+
+	public :
+		default_dispatcher_t(
+			outliving_reference_t< environment_t > env,
+			outliving_reference_t< event_queue_impl_t<Activity_Tracker> > event_queue,
+			outliving_reference_t< Activity_Tracker > activity_tracker )
+			:	base_type{ env, event_queue, activity_tracker }
+			{
+				// Event queue should be started manually.
+				// We known that the default dispatcher is created on a thread
+				// that will be used for events dispatching.
+				event_queue.get().start( this->thread_id() );
+			}
+	};
 
 //
 // env_infrastructure_t
@@ -235,30 +233,31 @@ class env_infrastructure_t
 			//! Mbox for distribution of run-time stats.
 			mbox_t stats_distribution_mbox );
 
-		virtual void
+		void
 		launch( env_init_t init_fn ) override;
 
-		virtual void
+		void
 		stop() override;
 
-		virtual void
+		SO_5_NODISCARD
+		coop_unique_holder_t
+		make_coop(
+			coop_handle_t parent,
+			disp_binder_shptr_t default_binder ) override;
+
+		coop_handle_t
 		register_coop(
-			coop_unique_ptr_t coop ) override;
+			coop_unique_holder_t coop ) override;
 
-		virtual void
-		deregister_coop(
-			nonempty_name_t name,
-			coop_dereg_reason_t dereg_reason ) override;
-
-		virtual void
+		void
 		ready_to_deregister_notify(
-			coop_t * coop ) override;
+			coop_shptr_t coop ) override;
 
-		virtual bool
+		bool
 		final_deregister_coop(
-			std::string coop_name ) override;
+			coop_shptr_t coop_name ) override;
 
-		virtual so_5::timer_id_t
+		so_5::timer_id_t
 		schedule_timer(
 			const std::type_index & type_wrapper,
 			const message_ref_t & msg,
@@ -266,29 +265,26 @@ class env_infrastructure_t
 			std::chrono::steady_clock::duration pause,
 			std::chrono::steady_clock::duration period ) override;
 
-		virtual void
+		void
 		single_timer(
 			const std::type_index & type_wrapper,
 			const message_ref_t & msg,
 			const mbox_t & mbox,
 			std::chrono::steady_clock::duration pause ) override;
 
-		virtual stats::controller_t &
+		stats::controller_t &
 		stats_controller() noexcept override;
 
-		virtual stats::repository_t &
+		stats::repository_t &
 		stats_repository() noexcept override;
 
-		virtual dispatcher_t &
-		query_default_dispatcher() override;
-
-		virtual so_5::environment_infrastructure_t::coop_repository_stats_t
+		so_5::environment_infrastructure_t::coop_repository_stats_t
 		query_coop_repository_stats() override;
 
-		virtual timer_thread_stats_t
+		timer_thread_stats_t
 		query_timer_thread_stats() override;
 
-		virtual disp_binder_unique_ptr_t
+		disp_binder_shptr_t
 		make_default_disp_binder() override;
 
 	private :
@@ -311,7 +307,11 @@ class env_infrastructure_t
 		event_queue_impl_t< Activity_Tracker > m_event_queue;
 
 		//! Dispatcher to be used as default dispatcher.
-		default_disp_impl_t< Activity_Tracker > m_default_disp;
+		/*!
+		 * \note
+		 * Has an actual value only inside launch() method.
+		 */
+		std::shared_ptr< default_dispatcher_t< Activity_Tracker > > m_default_disp;
 
 		//! Stats controller for this environment.
 		stats_controller_t m_stats_controller;
@@ -323,11 +323,19 @@ class env_infrastructure_t
 		 */
 		std::size_t m_final_dereg_coop_count{ 0 };
 
+		//! The pointer to an exception that was thrown during init phase.
+		/*!
+		 * This exception is stored inside a callback posted to Asio.
+		 * An then this exception will be rethrown from launch() method
+		 * after the shutdown of SObjectizer.
+		 */
+		std::exception_ptr m_exception_from_init;
+
 		void
 		run_default_dispatcher_and_go_further( env_init_t init_fn );
 
 		/*!
-		 * \note Calls m_io_svc.stop() and m_default_disp.shutdown() if necessary.
+		 * \note Calls m_io_svc.stop() if necessary.
 		 */
 		void
 		check_shutdown_completeness();
@@ -341,15 +349,11 @@ env_infrastructure_t<Activity_Tracker>::env_infrastructure_t(
 	mbox_t stats_distribution_mbox )
 	:	m_io_svc( io_svc )
 	,	m_env( env )
-	,	m_coop_repo( env, std::move(coop_listener) )
+	,	m_coop_repo( outliving_mutable(env), std::move(coop_listener) )
 	,	m_event_queue( io_svc, outliving_mutable(m_activity_tracker) )
-	,	m_default_disp(
-			outliving_mutable(m_event_queue),
-			outliving_mutable(m_activity_tracker) )
 	,	m_stats_controller(
-			m_env,
-			stats_distribution_mbox,
-			stats::impl::st_env_stuff::next_turn_mbox_t::make() )
+			std::move(stats_distribution_mbox),
+			stats::impl::st_env_stuff::next_turn_mbox_t::make(m_env) )
 	{}
 
 template< typename Activity_Tracker >
@@ -360,6 +364,11 @@ env_infrastructure_t<Activity_Tracker>::launch( env_init_t init_fn )
 		::asio::post( m_io_svc.get(), [this, init = std::move(init_fn)] {
 			run_default_dispatcher_and_go_further( std::move(init) );
 		} );
+
+		// Default dispatcher should be destroyed on exit from this function.
+		auto default_disp_destroyer = so_5::details::at_scope_exit( [this] {
+				m_default_disp.reset();
+			} );
 
 		// Launch Asio event loop.
 		m_io_svc.get().run();
@@ -385,6 +394,11 @@ env_infrastructure_t<Activity_Tracker>::launch( env_init_t init_fn )
 					}
 				while( still_working() );
 			}
+
+		if( m_exception_from_init )
+			// Some exception was thrown during initialization.
+			// It should be rethrown.
+			std::rethrow_exception( m_exception_from_init );
 	}
 
 template< typename Activity_Tracker >
@@ -393,7 +407,7 @@ env_infrastructure_t<Activity_Tracker>::stop()
 	{
 		// Note: if the code below throws then we don't know the actual
 		// state of env_infrastructure. Because of that we just terminate
-		// the whole application the the case of an exception.
+		// the whole application in the case of an exception.
 		::so_5::details::invoke_noexcept_code( [&] {
 			if( shutdown_status_t::not_started == m_shutdown_status )
 				{
@@ -414,41 +428,44 @@ env_infrastructure_t<Activity_Tracker>::stop()
 	}
 
 template< typename Activity_Tracker >
-void
-env_infrastructure_t<Activity_Tracker>::register_coop(
-	coop_unique_ptr_t coop )
+coop_unique_holder_t
+env_infrastructure_t< Activity_Tracker >::make_coop(
+	coop_handle_t parent,
+	disp_binder_shptr_t default_binder ) 
 	{
-		m_coop_repo.register_coop( std::move(coop) );
+		return m_coop_repo.make_coop(
+				std::move(parent),
+				std::move(default_binder) );
 	}
 
 template< typename Activity_Tracker >
-void
-env_infrastructure_t<Activity_Tracker>::deregister_coop(
-	nonempty_name_t name,
-	coop_dereg_reason_t dereg_reason )
+coop_handle_t
+env_infrastructure_t< Activity_Tracker >::register_coop(
+	coop_unique_holder_t coop )
 	{
-		m_coop_repo.deregister_coop( std::move(name), dereg_reason );
+		return m_coop_repo.register_coop( std::move(coop) );
 	}
 
 template< typename Activity_Tracker >
 void
 env_infrastructure_t<Activity_Tracker>::ready_to_deregister_notify(
-	coop_t * coop )
+	coop_shptr_t coop_to_dereg )
 	{
 		++m_final_dereg_coop_count;
 
-		::asio::post( m_io_svc.get(), [this, coop] {
+		::asio::post( m_io_svc.get(), [this, coop = std::move(coop_to_dereg)] {
 			--m_final_dereg_coop_count;
-			coop_t::call_final_deregister_coop( coop );
+			so_5::impl::internal_env_iface_t{ m_env }
+					.final_deregister_coop( std::move(coop) );
 		} );
 	}
 
 template< typename Activity_Tracker >
 bool
 env_infrastructure_t<Activity_Tracker>::final_deregister_coop(
-	std::string coop_name )
+	coop_shptr_t coop )
 	{
-		return m_coop_repo.final_deregister_coop( std::move(coop_name) )
+		return m_coop_repo.final_deregister_coop( std::move(coop) )
 				.m_has_live_coop;
 	}
 
@@ -532,21 +549,13 @@ env_infrastructure_t<Activity_Tracker>::stats_repository() noexcept
 	}
 
 template< typename Activity_Tracker >
-dispatcher_t &
-env_infrastructure_t<Activity_Tracker>::query_default_dispatcher()
-	{
-		return m_default_disp;
-	}
-
-template< typename Activity_Tracker >
 so_5::environment_infrastructure_t::coop_repository_stats_t
 env_infrastructure_t<Activity_Tracker>::query_coop_repository_stats()
 	{
 		const auto stats = m_coop_repo.query_stats();
 
 		return environment_infrastructure_t::coop_repository_stats_t{
-				stats.m_registered_coop_count,
-				stats.m_deregistered_coop_count,
+				stats.m_total_coop_count,
 				stats.m_total_agent_count,
 				m_final_dereg_coop_count
 		};
@@ -562,11 +571,10 @@ env_infrastructure_t<Activity_Tracker>::query_timer_thread_stats()
 	}
 
 template< typename Activity_Tracker >
-disp_binder_unique_ptr_t
-env_infrastructure_t<Activity_Tracker>::make_default_disp_binder()
+disp_binder_shptr_t
+env_infrastructure_t< Activity_Tracker >::make_default_disp_binder()
 	{
-		return stdcpp::make_unique< default_disp_binder_t<Activity_Tracker> >(
-				outliving_mutable(m_default_disp) );
+		return { m_default_disp };
 	}
 
 template< typename Activity_Tracker >
@@ -574,31 +582,31 @@ void
 env_infrastructure_t<Activity_Tracker>::run_default_dispatcher_and_go_further(
 	env_init_t init_fn )
 	{
-		bool default_disp_started = false;
-
 		try
 			{
-				// Event queue must know ID of the current thread.
-				// It also must start counting the waiting time.
-				m_event_queue.start( query_current_thread_id() );
-
-				// Now we can start the default dispatcher.
-				m_default_disp.set_data_sources_name_base( "DEFAULT" );
-				m_default_disp.start( m_env );
-
-				// Now, if init_fn will throw we must call shutdown() for
-				// the default dispatcher.
-				default_disp_started = true;
+				m_default_disp = std::make_shared<
+						default_dispatcher_t< Activity_Tracker > >(
+								outliving_mutable(m_env),
+								outliving_mutable(m_event_queue),
+								outliving_mutable(m_activity_tracker) );
 
 				// User-supplied init can be called now.
 				init_fn();
 			}
 		catch(...)
 			{
-				if( default_disp_started )
-					m_default_disp.shutdown();
+				// We can't restore if the following fragment throws and exception.
+				so_5::details::invoke_noexcept_code( [&] {
+						// The current exception should be stored to be
+						// rethrown later.
+						m_exception_from_init = std::current_exception();
 
-				throw;
+						// SObjectizer's shutdown should be initiated.
+						stop();
+
+						// NOTE: pointer to the default dispatcher will be dropped
+						// in launch() method.
+					} );
 			}
 	}
 
@@ -615,9 +623,6 @@ env_infrastructure_t<Activity_Tracker>::check_shutdown_completeness()
 						m_shutdown_status = shutdown_status_t::completed;
 						// Asio's event loop must be broken here!
 						m_io_svc.get().stop();
-
-						// Default dispatcher can be shut down now.
-						m_default_disp.shutdown();
 					}
 			}
 	}

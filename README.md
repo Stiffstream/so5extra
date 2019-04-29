@@ -7,17 +7,18 @@ so_5_extra is a collection of various SObjectizer's extensions. so_5_extra is bu
 At the current moment so_5_extra contains the following components:
 
 * so_5::extra::async_op. Several implementation of *async operations*. Contains subcomponents so_5::extra::async_op::time_unlimited (async operations without a limit for execution time) and so_5::extra::async_op::time_limited (async operations with a time limit);
-* so_5::extra::env_infrastructures::asio::simple_not_mtsafe. An implementation of not-thread-safe single threaded environment infrastructure on top of Asio;
-* so_5::extra::env_infrastructures::asio::simple_mtsafe. An implementation of thread-safe single threaded environment infrastructure on top of Asio;
-* so_5::extra::mboxes::round_robin. An implementation of *round-robin* mbox which performs delivery of messages by round-robin scheme;
-* so_5::extra::mboxes::collecting_mbox. An implementation of mbox which collects messages of type T and sends bunches of collected messages to the target mbox;
-* so_5::extra::mboxes::retained_msg. An implementation of mbox which holds the last sent message and automatically resend it to every new subscriber for this message type;
-* so_5::extra::mboxes::proxy. A proxy-mbox which delegates all calls to the underlying actual mbox. Such proxy simplifies development of custom mboxes.
-* so_5::extra::shutdowner. A tool to simplify prevention of SObjectizer shutdown in cases where some agents require more time for graceful shutdown (like storing caches to disk and stuff like that);
 * so_5::extra::disp::asio_thread_pool. A dispatcher which runs Asio's io_service::run() on a thread pool and schedules execution of event-handler via asio::post() facility.
+* so_5::extra::env_infrastructures::asio::simple_mtsafe. An implementation of thread-safe single threaded environment infrastructure on top of Asio;
+* so_5::extra::env_infrastructures::asio::simple_not_mtsafe. An implementation of not-thread-safe single threaded environment infrastructure on top of Asio;
+* so_5::extra::enveloped_msg. A set of tools for working with enveloped messages.
+* so_5::extra::mboxes::collecting_mbox. An implementation of mbox which collects messages of type T and sends bunches of collected messages to the target mbox;
+* so_5::extra::mboxes::proxy. A proxy-mbox which delegates all calls to the underlying actual mbox. Such proxy simplifies development of custom mboxes.
+* so_5::extra::mboxes::retained_msg. An implementation of mbox which holds the last sent message and automatically resend it to every new subscriber for this message type;
+* so_5::extra::mboxes::round_robin. An implementation of *round-robin* mbox which performs delivery of messages by round-robin scheme;
 * so_5::extra::revocable_msg. A set of tools for sending messages/signals those can be revoked. 
 * so_5::extra::revocable_timer. A set of tools for sending delayed/periodic messages/signals those can be revoked.
-* so_5::extra::enveloped_msg. A set of tools for working with enveloped messages.
+* so_5::extra::shutdowner. A tool to simplify prevention of SObjectizer shutdown in cases where some agents require more time for graceful shutdown (like storing caches to disk and stuff like that);
+* so_5::extra::sync. A set of tools for performing synchronous interaction between agents (or threads if only mchains are used).
 
 More features can be added to so_5_extra in future. Some of so_5_extra's features can become parts of SObjectizer itself if they will be in wide use.
 
@@ -27,19 +28,19 @@ More features can be added to so_5_extra in future. Some of so_5_extra's feature
 
 ### Obtaining 
 
-so_5_extra can be obtained from source-code repository via Subversion. For example:
+so_5_extra can be obtained from source-code repository via Hg. For example:
 
-    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.2.0 so_5_extra-1.2.0
+    hg clone https://bitbucket.org/sobjectizerteam/so5extra
 
-so_5_extra can also be downloaded from the corresponding [Files](https://sourceforge.net/projects/sobjectizer/files/sobjectizer/so_5_extra/) section on SourceForge. There are two types of achives with so_5_extra: 
+so_5_extra can also be downloaded from the corresponding [Downloads](https://bitbucket.org/sobjectizerteam/so5extra/downloads/) section on BitBucket. There are two types of achives with so_5_extra: 
 
-* archives with so_5_extra sources only (with names like `so_5_extra-1.2.0.tar.xz`);
-* archives with so_5_extra and all dependecies, like SObjectizer and Asio. These archives have names like `so_5_extra-1.2.0-full.tar.xz`).
+* archives with so_5_extra sources only (with names like `so5extra-1.3.0.tar.xz`);
+* archives with so_5_extra and all dependecies, like SObjectizer and Asio. These archives have names like `so5extra-1.3.0-full.tar.xz`).
 
 If so_5_extra is got from repository or downloaded as archive without dependecies inside then obtaining of dependecies could be necessary. It can be done via mxxruexternals command: 
 
-    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.2.0 so_5_extra-1.2.0
-    cd so_5_extra-1.2.0
+    hg clone https://bitbucket.org/sobjectizerteam/so5extra
+    cd so5extra
     mxxruexternals
 
 Note: `mxxruexternals` is a part of Mxx_ru gem. To use Mxx_ru it is necessary to install Ruby and then Mxx_ru gem (by `gem install Mxx_ru`).
@@ -50,12 +51,10 @@ so_5_extra is a header-only library. There is no need to compile and link so_5_e
 
 ### Using via CMake
 
-Since v.1.2.1 there is the very basic support for CMake: so_5_extra can be used
-in CMake-based projects. There is `dev/so_5_extra/CMakeFiles.txt` for that.
+Since v.1.2.1 there is the very basic support for CMake: so_5_extra can be used in CMake-based projects. There is `dev/so_5_extra/CMakeFiles.txt` for that.
 
 But building so_5_extra's examples and/or tests via CMake is not supported.
-If you want to have CMake support for these things let us known
-via "info at stiffstream dot com".
+If you want to have CMake support for these things let us known via "info at stiffstream dot com".
 
 ## Obtaining And Using Via vcpkg
 
@@ -105,7 +104,7 @@ It can be also necessary to add public-conan remote:
 Add so_5_extra to conanfile.txt of your project:
 
     [requires]
-    so5extra/1.2.1@stiffstream/testing
+    so5extra/1.3.0@stiffstream/testing
 
 It also may be necessary to specify shared option for SObjectizer. For example, for build SObjectizer as a static library:
 
@@ -127,7 +126,7 @@ Please note that so_5_extra and SObjectizer should be added to your CMakeLists.t
     find_package(sobjectizer CONFIG REQUIRED)
     find_package(so5extra CONFIG REQUIRED)
     ...
-    target_link_libraries(your_target sobjectizer::SharedLib) # Or so_5_extra::StaticLib
+    target_link_libraries(your_target sobjectizer::SharedLib) # Or sobjectizer::StaticLib
     target_link_libraries(your_target sobjectizer::so5extra)
 
 
@@ -135,16 +134,16 @@ Please note that so_5_extra and SObjectizer should be added to your CMakeLists.t
 
 To build so_5_extra samples and tests it is necessary to use Ruby and Mxx_ru gem. For example:
 
-    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.2.0 so_5_extra-1.2.0
-    cd so_5_extra-1.2.0
+    hg clone https://bitbucket.org/sobjectizerteam/so5extra
+    cd so5extra
     mxxruexternals
     cd dev
     ruby build.rb
 
 All tests and samples will be built. If it is necessary to build only examples it can be done by:
 
-    svn export https://svn.code.sf.net/p/sobjectizer/repo/tags/so_5_extra/1.2.0 so_5_extra-1.2.0
-    cd so_5_extra-1.2.0
+    hg clone https://bitbucket.org/sobjectizerteam/so5extra
+    cd so5extra
     mxxruexternals
     cd dev
     ruby sample/so_5_extra/build_samples.rb
@@ -162,4 +161,3 @@ For the license of *SObjectizer* library see LICENSE file in *SObjectizer* distr
 For the license of *asio* library see COPYING file in *asio* distributive.
 
 For the license of *doctest* library see LICENSE file in *doctest* distributive.
-

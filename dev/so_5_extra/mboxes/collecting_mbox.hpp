@@ -10,22 +10,14 @@
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/rt/impl/h/msg_tracing_helpers.hpp>
+#include <so_5/impl/msg_tracing_helpers.hpp>
 
-#include <so_5/details/h/sync_helpers.hpp>
+#include <so_5/details/sync_helpers.hpp>
 
-#include <so_5/rt/h/mbox.hpp>
-#include <so_5/rt/h/enveloped_msg.hpp>
+#include <so_5/mbox.hpp>
+#include <so_5/enveloped_msg.hpp>
 
-#include <so_5/h/optional.hpp>
-
-#if defined(SO_5_VERSION)
-	#if (SO_5_VERSION < SO_5_VERSION_MAKE(5, 19, 3))
-		#error "SObjectizer v.5.5.19.3 or above is required"
-	#endif
-#else
-	#error "SObjectizer v.5.5.19.3 or above is required"
-#endif
+#include <so_5/optional.hpp>
 
 #include <memory>
 #include <tuple>
@@ -66,15 +58,6 @@ const int rc_delivery_filter_cannot_be_used_on_collecting_mbox =
  * v.1.0.1
  */
 const int rc_different_message_type =
-		so_5::extra::errors::collecting_mbox_errors + 2;
-
-/*!
- * \brief An attempt to make service request via collecting_mbox.
- *
- * \since
- * v.1.0.1
- */
-const int rc_service_request_on_collecting_mbox =
 		so_5::extra::errors::collecting_mbox_errors + 2;
 
 } /* namespace errors */
@@ -405,7 +388,7 @@ class collected_messages_bunch_builder_t
 			}
 
 		bool
-		is_ready_to_be_sent( std::size_t messages_to_collect ) const
+		is_ready_to_be_sent( std::size_t messages_to_collect ) const noexcept
 			{
 				return m_collected_messages >= messages_to_collect;
 			}
@@ -660,31 +643,31 @@ class actual_mbox_t final
 					std::make_index_sequence<sizeof...(Tracing_Base_Args)>{} }
 			{}
 
-		virtual mbox_id_t
+		mbox_id_t
 		id() const override
 			{
 				return this->m_id;
 			}
 
-		virtual void
+		void
 		subscribe_event_handler(
 			const std::type_index & /*type_wrapper*/,
 			const so_5::message_limit::control_block_t * /*limit*/,
-			agent_t * /*subscriber*/ ) override
+			agent_t & /*subscriber*/ ) override
 			{
 				SO_5_THROW_EXCEPTION(
 						errors::rc_subscribe_event_handler_be_used_on_collecting_mbox,
 						"subscribe_event_handler is called for collecting-mbox" );
 			}
 
-		virtual void
+		void
 		unsubscribe_event_handlers(
 			const std::type_index & /*type_wrapper*/,
-			agent_t * /*subscriber*/ ) override
+			agent_t & /*subscriber*/ ) override
 			{
 			}
 
-		virtual std::string
+		std::string
 		query_name() const override
 			{
 				std::ostringstream s;
@@ -693,17 +676,17 @@ class actual_mbox_t final
 				return s.str();
 			}
 
-		virtual mbox_type_t
+		mbox_type_t
 		type() const override
 			{
 				return this->m_target->type();
 			}
 
-		virtual void
+		void
 		do_deliver_message(
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const override
+			unsigned int overlimit_reaction_deep ) override
 			{
 				ensure_valid_message_type( msg_type );
 
@@ -716,37 +699,7 @@ class actual_mbox_t final
 				collect_new_message( tracer, message );
 			}
 
-		virtual void
-		do_deliver_service_request(
-			const std::type_index & msg_type,
-			const message_ref_t & /*message*/,
-			unsigned int /*overlimit_reaction_deep*/ ) const override
-			{
-				ensure_valid_message_type( msg_type );
-
-				SO_5_THROW_EXCEPTION(
-						errors::rc_service_request_on_collecting_mbox,
-						"service request can't be performed on collecting-mbox" );
-			}
-
 		void
-		do_deliver_enveloped_msg(
-			const std::type_index & msg_type,
-			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) override
-			{
-				ensure_valid_message_type( msg_type );
-
-				typename Tracing_Base::deliver_op_tracer tracer{
-						*this, // as Tracing_Base
-						*this, // as abstract_message_box_t
-						"collect_enveloped_msg",
-						msg_type, message, overlimit_reaction_deep };
-
-				collect_new_message( tracer, message );
-			}
-
-		virtual void
 		set_delivery_filter(
 			const std::type_index & /*msg_type*/,
 			const delivery_filter_t & /*filter*/,
@@ -757,7 +710,7 @@ class actual_mbox_t final
 						"set_delivery_filter is called for collecting-mbox" );
 			}
 
-		virtual void
+		void
 		drop_delivery_filter(
 			const std::type_index & /*msg_type*/,
 			agent_t & /*subscriber*/ ) noexcept override
@@ -765,14 +718,16 @@ class actual_mbox_t final
 				// Nothing to do.
 			}
 
+		so_5::environment_t &
+		environment() const noexcept override
+			{
+				return this->m_target->environment();
+			}
+
 	private :
 		//! The current instance of messages_collected to store 
 		//! messages to be delivered.
-		/*!
-		 * \note
-		 * It is declared as mutable because do_deliver_message is const.
-		 */
-		mutable messages_collected_builder_t m_msg_builder;
+		messages_collected_builder_t m_msg_builder;
 
 		static void
 		ensure_valid_message_type( const std::type_index & msg_type_id )
@@ -789,14 +744,10 @@ class actual_mbox_t final
 							+ msg_type_id.name() );
 			}
 
-		/*!
-		 * \note
-		 * This method is declared as const because do_deliver_message is const.
-		 */
 		void
 		collect_new_message(
 			typename Tracing_Base::deliver_op_tracer const & tracer,
-			const message_ref_t & message ) const
+			const message_ref_t & message )
 			{
 				this->lock_and_perform( [&] {
 					// A new message must be stored to the current messages_collected.
@@ -815,12 +766,10 @@ class actual_mbox_t final
 									text_separator{ "->" },
 									mbox_as_msg_destination{ *(this->m_target) } );
 
-							this->m_target->deliver_message(
+							this->m_target->do_deliver_message(
 									typeid(messages_collected_subscription_type),
 									std::move(msg_to_send),
-									message_payload_type<
-											collecting_msg_t<Config_Type>
-										>::mutability() );
+									1u );
 						}
 				} );
 			}
@@ -865,7 +814,7 @@ struct constexpr_size_traits_t
 				signals_collected_mixin_type( std::size_t /*size*/ ) {}
 
 				constexpr std::size_t
-				size() const { return S; }
+				size() const noexcept { return S; }
 			};
 
 		/*!
@@ -879,13 +828,13 @@ struct constexpr_size_traits_t
 				messages_collected_mixin_type( std::size_t /*size*/ ) {}
 
 				container_type &
-				storage() { return m_messages; }
+				storage() noexcept { return m_messages; }
 
 				const container_type &
-				storage() const { return m_messages; }
+				storage() const noexcept { return m_messages; }
 
 				constexpr std::size_t
-				size() const { return S; }
+				size() const noexcept { return S; }
 			};
 
 		/*!
@@ -903,15 +852,15 @@ struct constexpr_size_traits_t
 				size_specific_base_type(
 					mbox_id_t mbox_id,
 					mbox_t target )
-					:	m_id( mbox_id )
-					,	m_target( std::move(target) )
+					:	m_id{ mbox_id }
+					,	m_target{ std::move(target) }
 					{}
 
 				/*!
 				 * \brief Total count of messages to be collected before
 				 * messages_collected will be sent.
 				 */
-				constexpr std::size_t messages_to_collect() const { return S; }
+				constexpr std::size_t messages_to_collect() const noexcept { return S; }
 			};
 	};
 
@@ -945,7 +894,7 @@ struct runtime_size_traits_t
 				signals_collected_mixin_type( std::size_t size ) : m_size{size} {}
 
 				std::size_t
-				size() const { return m_size; }
+				size() const noexcept { return m_size; }
 			};
 
 		/*!
@@ -961,13 +910,13 @@ struct runtime_size_traits_t
 					{}
 
 				container_type &
-				storage() { return m_messages; }
+				storage() noexcept { return m_messages; }
 
 				const container_type &
-				storage() const { return m_messages; }
+				storage() const noexcept { return m_messages; }
 
 				std::size_t
-				size() const { return m_messages.size(); }
+				size() const noexcept { return m_messages.size(); }
 			};
 
 		/*!
@@ -988,14 +937,14 @@ struct runtime_size_traits_t
 					mbox_id_t mbox_id,
 					mbox_t target,
 					std::size_t size )
-					:	m_id( mbox_id )
-					,	m_target( std::move(target) )
-					,	m_size( size )
+					:	m_id{ mbox_id }
+					,	m_target{ std::move(target) }
+					,	m_size{ size }
 					{}
 
 				//! Total count of messages to be collected before
 				//! messages_collected will be sent.
-				std::size_t messages_to_collect() const { return m_size; }
+				std::size_t messages_to_collect() const noexcept { return m_size; }
 			};
 	};
 
@@ -1013,8 +962,6 @@ struct runtime_size_traits_t
  * using my_mbox_type = so_5::extra::mboxes::collecting_mbox::mbox_template_t<
  * 		my_msg >;
  * auto my_mbox = my_mbox_type::make(
- * 		// SObjectizer Environment to work in.
- * 		so_environment(),
  * 		// A target mbox for messages_collected_t.
  * 		target_mbox,
  * 		// Count of messages to be collected.
@@ -1034,8 +981,6 @@ struct runtime_size_traits_t
  * 		so_5::extra::mboxes::collecting_mbox::constexpr_size_traits_t<10> >;
  * // Note: there is no need to specify message count because it is already known.
  * auto my_mbox = my_mbox_type::make(
- * 		// SObjectizer Environment to work in.
- * 		so_environment(),
  * 		// A target mbox for messages_collected_t.
  * 		target_mbox );
  *
@@ -1052,8 +997,6 @@ struct runtime_size_traits_t
  * using my_mbox_type = so_5::extra::mboxes::collecting_mbox::mbox_template_t<
  * 		so_5::mutable_msg<my_msg> >;
  * auto my_mbox = my_mbox_type::make(
- * 		// SObjectizer Environment to work in.
- * 		so_environment(),
  * 		// A target mbox for messages_collected_t.
  * 		target_mbox,
  * 		// Count of messages to be collected.
@@ -1074,8 +1017,6 @@ struct runtime_size_traits_t
  * 		so_5::extra::mboxes::collecting_mbox::constexpr_size_traits_t<10> >;
  * // Note: there is no need to specify message count because it is already known.
  * auto my_mbox = my_mbox_type::make(
- * 		// SObjectizer Environment to work in.
- * 		so_environment(),
  * 		// A target mbox for messages_collected_t.
  * 		target_mbox );
  *
@@ -1205,21 +1146,21 @@ class mbox_template_t final
 		 * If \a Traits is constexpr_size_traits_t then `make` will have the
 		 * following format:
 		 * \code
-		 * mbox_t make(environment_t & env, const mbox_t & target);
+		 * mbox_t make(const mbox_t & target);
 		 * \endcode
 		 * If \a Traits is runtime_size_traits_t then `make` will have the
 		 * following format:
 		 * \code
-		 * mbox_t make(environment_t & env, const mbox_t & target, size_t messages_to_collect);
+		 * mbox_t make(const mbox_t & target, size_t messages_to_collect);
 		 * \endcode
 		 */
 		template< typename... Args >
 		static mbox_t
-		make( environment_t & env, Args &&... args )
+		make( const mbox_t & target, Args &&... args )
 			{
 				ensure_not_mutable_signal< Collecting_Msg >();
 
-				return env.make_custom_mbox(
+				return target->environment().make_custom_mbox(
 						[&]( const mbox_creation_data_t & data ) {
 							mbox_t result;
 
@@ -1231,7 +1172,7 @@ class mbox_template_t final
 
 									result = mbox_t{ new T{
 											data.m_id,
-											std::make_tuple( std::forward<Args>(args)... ),
+											std::make_tuple( target, std::forward<Args>(args)... ),
 											std::make_tuple( std::ref(data.m_tracer.get()) )
 									} };
 								}
@@ -1242,7 +1183,7 @@ class mbox_template_t final
 											::so_5::impl::msg_tracing_helpers::tracing_disabled_base >;
 									result = mbox_t{ new T{
 											data.m_id,
-											std::make_tuple( std::forward<Args>(args)... ),
+											std::make_tuple( target, std::forward<Args>(args)... ),
 											std::make_tuple()
 									} };
 								}

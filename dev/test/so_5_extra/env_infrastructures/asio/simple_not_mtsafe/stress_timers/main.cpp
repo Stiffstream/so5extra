@@ -135,13 +135,13 @@ int main()
 	asio::io_context io_svc;
 
 	so_5::launch( [](so_5::environment_t & env) {
-				env.register_agent_as_coop( "sender_A",
+				env.register_agent_as_coop(
 						env.make_agent< sender_A >() );
 
-				env.register_agent_as_coop( "sender_B",
+				env.register_agent_as_coop(
 						env.make_agent< sender_B >() );
 
-				env.register_agent_as_coop( "sender_C",
+				env.register_agent_as_coop(
 						env.make_agent< sender_C >() );
 			},
 			[&io_svc](so_5::environment_params_t & params) {

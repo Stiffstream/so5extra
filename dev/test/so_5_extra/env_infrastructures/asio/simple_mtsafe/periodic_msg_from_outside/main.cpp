@@ -7,7 +7,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 using namespace std;
 
@@ -21,7 +21,7 @@ public :
 	a_test_t( context_t ctx ) : so_5::agent_t( std::move(ctx) )
 	{
 		so_subscribe_self()
-			.event< tick >( [this] {
+			.event( [this]( mhood_t< tick > ) {
 				++m_ticks;
 				if( 3 == m_ticks )
 					so_deregister_agent_coop_normally();
@@ -50,7 +50,7 @@ main()
 						outside_thread = thread( [&env, test_mbox] {
 							this_thread::sleep_for( chrono::milliseconds( 350 ) );
 							auto timer = so_5::send_periodic< a_test_t::tick >(
-									env, test_mbox,
+									test_mbox,
 									chrono::milliseconds(100),
 									chrono::milliseconds(100) );
 							this_thread::sleep_for( chrono::seconds(1) );

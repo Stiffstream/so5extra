@@ -7,7 +7,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 using namespace std;
 
@@ -40,7 +40,7 @@ make_thread( so_5::environment_t & env, so_5::mbox_t finish_mbox )
 						so_5::make_coop_dereg_notificator( ch->as_mbox() ) );
 			} );
 
-			so_5::receive( ch, so_5::infinite_wait,
+			so_5::receive( from(ch).handle_n(1),
 					[]( so_5::mhood_t<so_5::msg_coop_deregistered> ) {} );
 		}
 
@@ -55,7 +55,7 @@ public :
 		: so_5::agent_t( std::move(ctx) )
 	{
 		so_subscribe_self()
-			.event< thread_completed >( [this] {
+			.event( [this]( mhood_t< thread_completed > ) {
 				++m_completed_threads;
 				if( m_completed_threads == total_threads )
 					so_deregister_agent_coop_normally();

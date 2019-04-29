@@ -7,7 +7,7 @@
 
 #include <so_5/all.hpp>
 
-#include <various_helpers_1/time_limited_execution.hpp>
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 using namespace std;
 
@@ -20,8 +20,8 @@ public :
 	a_test_t( context_t ctx ) : so_5::agent_t( std::move(ctx) )
 	{
 		so_subscribe_self()
-			.event< tick >( [this] { std::abort(); } )
-			.event< perform_stop >( [this] {
+			.event( [this]( mhood_t< tick > ) { std::abort(); } )
+			.event( [this]( mhood_t< perform_stop > ) {
 				so_environment().stop();
 				so_5::send_delayed< tick >( *this, std::chrono::seconds(10) );
 			} );

@@ -213,7 +213,7 @@ do_sample()
 					std::move(host_name) ); // host name to be resolved.
 
 			// Wait for resolve result.
-			so_5::receive( reply_ch, so_5::infinite_wait,
+			so_5::receive( from(reply_ch).handle_n(1),
 					[]( so_5::mhood_t<resolver_t::resolve_successed> cmd ) {
 						std::cout << "Successed: '" << cmd->m_what << "' -> "
 								<< cmd->m_result << std::endl;
