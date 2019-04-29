@@ -351,7 +351,6 @@ constexpr const close_reply_chain_flag_t do_not_close_reply_chain =
 //
 // request_reply_t
 //
-//FIXME: document this!
 /*!
  * \brief A special class for performing interactions between
  * agents in request-reply maner.
@@ -503,9 +502,9 @@ void some_agent::on_another_request(
 {...}
 
 ...
-auto some_result = some_request_reply::request_value(...);
+auto some_result = some_request_reply::ask_value(...);
 ...
-auto another_result = another_request_reply::request_value(...);
+auto another_result = another_request_reply::ask_value(...);
 \endcode
 
 \attention The request_reply_t is not thread safe class.
@@ -519,6 +518,44 @@ auto v1 = so_5::extra::sync::request_value<so_5::immutable_msg<Q>, A>(...);
 
 // NOTE: so_5::mutable_msg can't be used here!
 auto v2 = so_5::extra::sync::request_value<Q, so_5::mutable_msg<A>>(...);
+\endcode
+
+\par A custom destination for the reply message
+
+By default the reply message is sent to a separate mchain created inside
+request_value() and request_opt_value() functions (strictly speacking
+this mchain is created inside request_reply_t::initiate() function and
+then used by request_value() and request_opt_value() functions).
+
+But sometimes it can be necessary to have an ability to specify a custom
+destination for the reply message. It can be done via
+request_reply_t::initiate_with_custom_reply_to() methods. For example,
+the following code sends two requests to different targets but all replies
+are going to the same mchain:
+\code
+using first_ask_reply = so_5::extra::sync::request_reply_t<first_request, first_reply>;
+using second_ask_reply = so_5::extra::sync::request_reply_t<second_request, second_reply>;
+
+auto reply_ch = create_mchain(env);
+
+// Sending of requests.
+first_ask_reply::initiate_with_custom_reply_to(
+		first_target,
+		// do_not_close_reply_chain is mandatory in that scenario.
+		reply_ch, so_5::extra::sync::do_not_close_reply_chain,
+		... );
+second_ask_reply::initiate_with_custom_reply_to(
+		second_target,
+		// do_not_close_reply_chain is mandatory in that scenario.
+		reply_ch, so_5::extra::sync::do_not_close_reply_chain,
+		... );
+
+... // Do something.
+
+// Now we want to receive and handle replies.
+receive(from(reply_ch).handle_n(2).empty_timeout(15s),
+		[](typename first_ask_reply::reply_mhood_t cmd) {...},
+		[](typename second_ask_reply::reply_mhood_t cmd) {...});
 \endcode
 
 \tparam Request a type of a request. It can be type of a signal.
