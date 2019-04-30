@@ -634,6 +634,26 @@ class request_reply_t final
 		 */
 		using reply_mhood_t = mutable_mhood_t< reply_t >;
 
+		//! A shorthand for message_holder that can hold request_reply instance.
+		/*!
+		 * Usage example:
+		 * \code
+		 * using my_request_reply = so_5::extra::sync::request_reply_t<my_request, my_reply>;
+		 *
+		 * class requests_collector final : public so_5::agent_t {
+		 * 	// Container for holding received requests.
+		 * 	std::vector<typename my_request_reply::holder_t> requests_;
+		 *
+		 * 	...
+		 * 	void on_request(typename my_request_reply::request_mhood_t cmd) {
+		 * 		// Store the request to process it later.
+		 * 		requests_.push_back(cmd.make_holder());
+		 * 	}
+		 * };
+		 * \endcode
+		 */
+		using holder_t = message_holder_t< mutable_msg<request_reply_t> >;
+
 	private :
 		using base_type::base_type;
 
