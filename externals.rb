@@ -1,6 +1,5 @@
-MxxRu::hg_externals :so5 do |e|
-  e.url 'https://bitbucket.org/sobjectizerteam/sobjectizer'
-  e.tag '8ca41fea05d4'
+MxxRu::arch_externals :so5 do |e|
+  e.url 'https://bitbucket.org/sobjectizerteam/sobjectizer/downloads/so-5.6.0-b1.zip'
 
   e.map_dir 'dev/so_5' => 'dev'
 end
