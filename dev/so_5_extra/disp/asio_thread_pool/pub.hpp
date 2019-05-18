@@ -1010,13 +1010,22 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 		 * v.1.0.2
 		 */
 		class disp_data_source_t
-			:	public ::so_5::stats::manually_registered_source_t
+			:	public ::so_5::stats::source_t
 			{
 				//! Dispatcher to work with.
 				basic_dispatcher_skeleton_t & m_dispatcher;
 
 				//! Basic prefix for data sources.
 				::so_5::stats::prefix_t m_base_prefix;
+
+				//! Data source repository.
+				/*!
+				 * Will receive actual value in start() method.
+				 *
+				 * \since
+				 * v.1.3.0
+				 */
+				::so_5::stats::repository_t * m_stats_repo{ nullptr };
 
 			protected :
 				//! Access to data source prefix for derived classes.
@@ -1063,6 +1072,19 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 								"ext-asio-tp",
 								name_base,
 								&m_dispatcher );
+					}
+
+				void
+				start( ::so_5::stats::repository_t & repo )
+					{
+						repo.add( *this );
+						m_stats_repo = &repo;
+					}
+
+				void
+				stop() noexcept
+					{
+						m_stats_repo->remove( *this );
 					}
 			};
 
