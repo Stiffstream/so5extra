@@ -258,7 +258,7 @@ class env_infrastructure_t
 
 		void
 		ready_to_deregister_notify(
-			coop_shptr_t coop ) override;
+			coop_shptr_t coop ) noexcept override;
 
 		bool
 		final_deregister_coop(
@@ -447,7 +447,7 @@ env_infrastructure_t< Activity_Tracker >::register_coop(
 template< typename Activity_Tracker >
 void
 env_infrastructure_t<Activity_Tracker>::ready_to_deregister_notify(
-	coop_shptr_t coop_to_dereg )
+	coop_shptr_t coop_to_dereg ) noexcept
 	{
 		++m_final_dereg_coop_count;
 

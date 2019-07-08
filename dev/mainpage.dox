@@ -3,6 +3,13 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
+ * \subsection so_5_extra_v1_3_0 v.1.3.0
+ *
+ * \attention This version is not compatible with v.1.2.
+ * This version requires SObjectizer-5.6.0 or higher.
+ *
+ * New submodule so_5::extra::sync added.
+ *
  * \subsection so_5_extra_v1_2_2 v.1.2.2
  *
  * New example `disp/asio_thread_pool/hello_world` added.
