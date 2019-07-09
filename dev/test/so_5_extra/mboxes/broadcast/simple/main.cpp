@@ -8,6 +8,7 @@
 #include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
 #include <list>
+#include <deque>
 
 namespace broadcast_mbox = so_5::extra::mboxes::broadcast;
 
@@ -109,6 +110,29 @@ TEST_CASE( "simplest case with std::array (const reference)" )
 
 				auto mbox = broadcast_mbox::fixed_mbox_template_t<
 							std::array< so_5::mbox_t, 10 >
+						>::make( env, destinations );
+
+				so_5::send< shutdown >( mbox );
+			});
+
+			REQUIRE( true );
+		},
+		5 );
+}
+
+TEST_CASE( "simplest case with std::deque (another container)" )
+{
+	run_with_time_limit( [] {
+			so_5::launch( [&](so_5::environment_t & env) {
+				std::list< so_5::mbox_t > destinations;
+				for( int i = 0; i != 10; ++i ) {
+					auto actor = env.make_agent< a_test_case_t >();
+					destinations.push_back( actor->so_direct_mbox() );
+					env.register_agent_as_coop( std::move(actor) );
+				}
+
+				auto mbox = broadcast_mbox::fixed_mbox_template_t<
+							std::deque< so_5::mbox_t >
 						>::make( env, destinations );
 
 				so_5::send< shutdown >( mbox );
