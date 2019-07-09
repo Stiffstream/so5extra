@@ -38,7 +38,7 @@ TEST_CASE( "simplest case with std::vector (const reference)" )
 					env.register_agent_as_coop( std::move(actor) );
 				}
 
-				auto mbox = broadcast_mbox::mbox_template_t<>::make(
+				auto mbox = broadcast_mbox::fixed_mbox_template_t<>::make(
 						env, destinations );
 
 				so_5::send< shutdown >( mbox );
@@ -63,7 +63,7 @@ TEST_CASE( "simplest case with std::vector (rvalue reference)" )
 					return destinations;
 				};
 
-				auto mbox = broadcast_mbox::mbox_template_t<>::make(
+				auto mbox = broadcast_mbox::fixed_mbox_template_t<>::make(
 						env, maker() );
 
 				so_5::send< shutdown >( mbox );
@@ -85,8 +85,31 @@ TEST_CASE( "simplest case with std::vector (two iterators)" )
 					env.register_agent_as_coop( std::move(actor) );
 				}
 
-				auto mbox = broadcast_mbox::mbox_template_t<>::make(
+				auto mbox = broadcast_mbox::fixed_mbox_template_t<>::make(
 						env, begin(destinations), end(destinations) );
+
+				so_5::send< shutdown >( mbox );
+			});
+
+			REQUIRE( true );
+		},
+		5 );
+}
+
+TEST_CASE( "simplest case with std::array (const reference)" )
+{
+	run_with_time_limit( [] {
+			so_5::launch( [&](so_5::environment_t & env) {
+				std::array< so_5::mbox_t, 10 > destinations;
+				for( int i = 0; i != 10; ++i ) {
+					auto actor = env.make_agent< a_test_case_t >();
+					destinations[ i ] = actor->so_direct_mbox();
+					env.register_agent_as_coop( std::move(actor) );
+				}
+
+				auto mbox = broadcast_mbox::fixed_mbox_template_t<
+							std::array< so_5::mbox_t, 10 >
+						>::make( env, destinations );
 
 				so_5::send< shutdown >( mbox );
 			});

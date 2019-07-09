@@ -25,14 +25,14 @@ namespace broadcast
 
 //FIXME: document this!
 template< typename Container = std::vector<mbox_t> >
-class mbox_template_t final : public abstract_message_box_t
+class fixed_mbox_template_t final : public abstract_message_box_t
 {
 	outliving_reference_t< environment_t > m_env;
 	const mbox_id_t m_id;
 	const Container m_destinations;
 
 public :
-	mbox_template_t(
+	fixed_mbox_template_t(
 		outliving_reference_t< environment_t > env,
 		mbox_id_t id,
 		const Container & destinations )
@@ -41,7 +41,7 @@ public :
 		,	m_destinations{ destinations }
 		{}
 
-	mbox_template_t(
+	fixed_mbox_template_t(
 		outliving_reference_t< environment_t > env,
 		mbox_id_t id,
 		Container && destinations )
@@ -51,7 +51,7 @@ public :
 		{}
 
 	template< typename Input_It >
-	mbox_template_t(
+	fixed_mbox_template_t(
 		outliving_reference_t< environment_t > env,
 		mbox_id_t id,
 		Input_It first, Input_It last )
@@ -141,7 +141,7 @@ public :
 		{
 			return env.make_custom_mbox(
 					[&destinations]( const mbox_creation_data_t & data ) {
-						return std::make_unique< mbox_template_t<Container> >(
+						return std::make_unique< fixed_mbox_template_t<Container> >(
 								data.m_env,
 								data.m_id,
 								destinations );
@@ -155,7 +155,7 @@ public :
 		{
 			return env.make_custom_mbox(
 					[&destinations]( const mbox_creation_data_t & data ) {
-						return std::make_unique< mbox_template_t<Container> >(
+						return std::make_unique< fixed_mbox_template_t<Container> >(
 								data.m_env,
 								data.m_id,
 								std::move(destinations) );
@@ -171,7 +171,7 @@ public :
 		{
 			return env.make_custom_mbox(
 					[&first, &last]( const mbox_creation_data_t & data ) {
-						return std::make_unique< mbox_template_t<Container> >(
+						return std::make_unique< fixed_mbox_template_t<Container> >(
 								data.m_env,
 								data.m_id,
 								first, last );
