@@ -11,6 +11,8 @@
 #include <so_5/custom_mbox.hpp>
 #include <so_5/environment.hpp>
 
+#include <iterator>
+
 namespace so_5
 {
 
@@ -332,15 +334,17 @@ public :
 	template< typename Another_Container >
 	static std::enable_if_t<
 			!std::is_same_v< Container, Another_Container >
-			&& !std::is_same_v<
-					decltype(std::declval<const Another_Container &>().begin()),
-					void >
-			&& !std::is_same_v<
-					decltype(std::declval<const Another_Container &>().end()),
-					void >
+			&& std::is_same_v<
+					decltype(
+						++std::declval<
+							std::add_lvalue_reference_t<
+								decltype(std::begin(std::declval<const Another_Container &>()))>
+							>()
+						== std::end(std::declval<const Another_Container &>()) ),
+					bool>
 			&& std::is_same_v<
 					std::decay_t<
-							decltype(*(std::declval<const Another_Container &>().begin())) >,
+							decltype(*std::begin(std::declval<const Another_Container &>())) >,
 					mbox_t >,
 			mbox_t >
 	make(
@@ -349,7 +353,7 @@ public :
 		//! The container (or range object) with a set of destinations to a new mbox.
 		const Another_Container & destinations )
 		{
-			return make( env, destinations.begin(), destinations.end() );
+			return make( env, std::begin(destinations), std::end(destinations) );
 		}
 
 };

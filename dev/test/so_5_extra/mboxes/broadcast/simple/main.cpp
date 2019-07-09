@@ -143,3 +143,32 @@ TEST_CASE( "simplest case with std::deque (another container)" )
 		5 );
 }
 
+TEST_CASE( "simplest case with plain C array -> std::deque" )
+{
+	run_with_time_limit( [] {
+			so_5::launch( [&](so_5::environment_t & env) {
+				auto actor_maker = [&env]() {
+					auto actor = env.make_agent< a_test_case_t >();
+					auto mbox = actor->so_direct_mbox();
+					env.register_agent_as_coop( std::move(actor) );
+					return mbox;
+				};
+
+				so_5::mbox_t destinations[] = {
+					actor_maker(),
+					actor_maker(),
+					actor_maker(),
+					actor_maker()
+				};
+
+				auto mbox = broadcast_mbox::fixed_mbox_template_t<
+							std::deque< so_5::mbox_t >
+						>::make( env, destinations );
+
+				so_5::send< shutdown >( mbox );
+			});
+
+			REQUIRE( true );
+		},
+		5 );
+}
