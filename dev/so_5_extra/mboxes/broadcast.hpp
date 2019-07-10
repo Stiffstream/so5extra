@@ -334,7 +334,7 @@ public :
 	template< typename Another_Container >
 	static std::enable_if_t<
 			!std::is_same_v< Container, Another_Container >
-			&& std::is_same_v<
+			&& std::is_convertible_v<
 					decltype(
 						++std::declval<
 							std::add_lvalue_reference_t<
