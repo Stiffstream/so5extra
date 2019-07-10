@@ -18,6 +18,10 @@
  */
 
 /*!
+ * \example mboxes/broadcast/simple/main.cpp
+ */
+
+/*!
  * \example shutdowner/simple/main.cpp
  */
 
