@@ -7,4 +7,5 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/round_robin/build_samples.rb" )
 	required_prj( "#{path}/collecting_mbox/build_samples.rb" )
 	required_prj( "#{path}/retained_msg/build_samples.rb" )
+	required_prj( "#{path}/broadcast/build_samples.rb" )
 }
