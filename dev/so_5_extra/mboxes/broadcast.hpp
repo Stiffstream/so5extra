@@ -332,28 +332,38 @@ public :
 	 * \endcode
 	 */
 	template< typename Another_Container >
-	static std::enable_if_t<
-			!std::is_same_v< Container, Another_Container >
-			&& std::is_convertible_v<
-					decltype(
-						++std::declval<
-							std::add_lvalue_reference_t<
-								decltype(std::begin(std::declval<const Another_Container &>()))>
-							>()
-						== std::end(std::declval<const Another_Container &>()) ),
-					bool>
-			&& std::is_same_v<
-					std::decay_t<
-							decltype(*std::begin(std::declval<const Another_Container &>())) >,
-					mbox_t >,
-			mbox_t >
+	static mbox_t
 	make(
 		//! SObjectizer Environment to work in.
 		environment_t & env,
 		//! The container (or range object) with a set of destinations to a new mbox.
 		const Another_Container & destinations )
 		{
-			return make( env, std::begin(destinations), std::end(destinations) );
+			using std::begin;
+			using std::end;
+
+			// Ensure that destinations if a container or range-like object
+			// with mbox_t inside.
+			static_assert(
+				std::is_convertible_v<
+					decltype(
+						++std::declval<
+							std::add_lvalue_reference_t<
+								decltype(begin(std::declval<const Another_Container &>()))>
+							>()
+						== end(std::declval<const Another_Container &>()) ),
+					bool>,
+				"destinations should be a container or range-like object" );
+
+			static_assert(
+				std::is_same_v<
+					std::decay_t<
+							decltype(*begin(std::declval<const Another_Container &>())) >,
+					mbox_t >,
+				"mbox_t should be accessible via iterator for destinations container (or "
+				"range-like object" );
+
+			return make( env, begin(destinations), end(destinations) );
 		}
 
 };

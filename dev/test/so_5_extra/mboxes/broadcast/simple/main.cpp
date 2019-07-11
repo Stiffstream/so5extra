@@ -172,3 +172,49 @@ TEST_CASE( "simplest case with plain C array -> std::deque" )
 		},
 		5 );
 }
+
+namespace adl_check
+{
+
+template< typename T >
+class my_container_t
+{
+	std::vector<T> m_data;
+
+public:
+	void push_back( T item ) { m_data.push_back( std::move(item) ); }
+
+	template< typename I >
+	friend auto begin( const my_container_t<I> & c ) noexcept
+	{ return c.m_data.begin(); }
+
+	template< typename I >
+	friend auto end( const my_container_t<I> & c ) noexcept
+	{ return c.m_data.end(); }
+};
+
+}
+
+TEST_CASE( "simplest case with custom container and ADL (another container)" )
+{
+	run_with_time_limit( [] {
+			so_5::launch( [&](so_5::environment_t & env) {
+				adl_check::my_container_t< so_5::mbox_t > destinations;
+				for( int i = 0; i != 10; ++i ) {
+					auto actor = env.make_agent< a_test_case_t >();
+					destinations.push_back( actor->so_direct_mbox() );
+					env.register_agent_as_coop( std::move(actor) );
+				}
+
+				auto mbox = broadcast_mbox::fixed_mbox_template_t<
+							std::deque< so_5::mbox_t >
+						>::make( env, destinations );
+
+				so_5::send< shutdown >( mbox );
+			});
+
+			REQUIRE( true );
+		},
+		5 );
+}
+
