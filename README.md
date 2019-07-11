@@ -12,6 +12,7 @@ At the current moment so_5_extra contains the following components:
 * so_5::extra::env_infrastructures::asio::simple_not_mtsafe. An implementation of not-thread-safe single threaded environment infrastructure on top of Asio;
 * so_5::extra::enveloped_msg. A set of tools for working with enveloped messages.
 * so_5::extra::mboxes::collecting_mbox. An implementation of mbox which collects messages of type T and sends bunches of collected messages to the target mbox;
+* so_5::extra::mboxes::broadcast::fixed_mbox. An implementation of mbox which broadcasts messages to a set of destination mboxes;
 * so_5::extra::mboxes::proxy. A proxy-mbox which delegates all calls to the underlying actual mbox. Such proxy simplifies development of custom mboxes.
 * so_5::extra::mboxes::retained_msg. An implementation of mbox which holds the last sent message and automatically resend it to every new subscriber for this message type;
 * so_5::extra::mboxes::round_robin. An implementation of *round-robin* mbox which performs delivery of messages by round-robin scheme;
