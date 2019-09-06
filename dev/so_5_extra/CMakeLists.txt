@@ -1,20 +1,20 @@
-cmake_minimum_required(VERSION 3.3)
+cmake_minimum_required(VERSION 3.8)
 
 include(cmake/target.cmake)
 
-project(so5extra)
+project(so5extra VERSION ${SO5EXTRA_VERSION} LANGUAGES CXX)
 
 add_library(so5extra INTERFACE)
 add_library(sobjectizer::so5extra ALIAS so5extra)
 
 IF (${CMAKE_VERSION} VERSION_LESS "3.8.0")
 	set_target_properties(so5extra PROPERTIES
-		CXX_STANDARD 14
+		CXX_STANDARD 17
 		CXX_STANDARD_REQUIRED YES
 		CXX_EXTENSIONS NO
 	)
 ELSE ()
-	target_compile_features(so5extra INTERFACE cxx_std_14)
+	target_compile_features(so5extra INTERFACE cxx_std_17)
 ENDIF ()
 
 get_filename_component(CURRENT_FILE_DIR ${CMAKE_CURRENT_LIST_FILE} DIRECTORY)
