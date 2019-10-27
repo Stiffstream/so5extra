@@ -40,7 +40,6 @@ class a_test_t final : public so_5::agent_t
 										"unreacheable state should not be called!" );
 							} )
 					.default_timeout_handler(
-							so_default_state(),
 							[this]( mhood_t<timeout> cmd ) {
 								ensure_or_die( "timedout" == cmd->m_msg,
 										"unexpected value in timeout message: " +

@@ -1344,7 +1344,7 @@ class definition_point_t
 		definition_point_t &&
 		default_timeout_handler( Args && ...args ) &&
 			{
-				return std::move(this->timeout_handler(
+				return std::move(this->default_timeout_handler(
 						std::forward<Args>(args)...));
 			}
 
