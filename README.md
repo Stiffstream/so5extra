@@ -33,8 +33,8 @@ so5extra can be obtained from source-code repository via Git. For example:
 
 so5extra can also be downloaded from the corresponding [Releases](https://github.com/Stiffstream/so5extra/releases) section on GitHub. There are two types of achives with so5extra: 
 
-* archives with so5extra sources only (with names like `so5extra-1.3.0.tar.xz`);
-* archives with so5extra and all dependecies, like SObjectizer and Asio. These archives have names like `so5extra-1.3.0-full.tar.xz`).
+* archives with so5extra sources only (with names like `so5extra-1.4.0.tar.xz`);
+* archives with so5extra and all dependecies, like SObjectizer and Asio. These archives have names like `so5extra-1.4.0-full.tar.xz`).
 
 If so5extra is got from repository or downloaded as archive without dependecies inside then obtaining of dependecies could be necessary. It can be done via mxxruexternals command: 
 
@@ -101,7 +101,7 @@ It can be also necessary to add public-conan remote:
 Add so5extra to conanfile.txt of your project:
 
     [requires]
-    so5extra/1.3.0@stiffstream/testing
+    so5extra/1.4.0@stiffstream/stable
 
 It also may be necessary to specify shared option for SObjectizer. For example, for build SObjectizer as a static library:
 
@@ -151,7 +151,7 @@ API Reference Manual can be build via doxygen. Just go into `dev` subdirectory w
 
 # License
 
-so5extra is distributed on dual-license mode. There is a GNU Affero GPL v.3 license for usage of so5extra in OpenSource software. There is also a commercial license for usage of so5extra in proprietary projects (contact "info at stiffstream dot com" for more information).
+Since v.1.4.0 so5extra is distributed under BSD-3-CLAUSE license (see LICENSE file).
 
 For the license of *SObjectizer* library see LICENSE file in *SObjectizer* distributive.
 
