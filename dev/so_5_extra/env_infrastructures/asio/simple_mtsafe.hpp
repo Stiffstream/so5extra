@@ -246,7 +246,7 @@ class env_infrastructure_t
 		void
 		stop() override;
 
-		SO_5_NODISCARD
+		[[nodiscard]]
 		coop_unique_holder_t
 		make_coop(
 			coop_handle_t parent,

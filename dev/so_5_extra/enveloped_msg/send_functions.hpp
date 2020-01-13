@@ -76,7 +76,7 @@ class payload_holder_t final
 		payload_holder_t & operator=( payload_holder_t && ) = default;
 
 		template< typename Envelope, typename... Args >
-		SO_5_NODISCARD
+		[[nodiscard]]
 		payload_holder_t
 		envelope( Args && ...args )
 			{
@@ -139,7 +139,7 @@ class payload_holder_t final
 						pause );
 			}
 
-		SO_5_NODISCARD
+		[[nodiscard]]
 		auto
 		send_periodic_to(
 			const so_5::mbox_t & to,
@@ -157,7 +157,7 @@ class payload_holder_t final
 			}
 
 		template< typename Target >
-		SO_5_NODISCARD
+		[[nodiscard]]
 		auto
 		send_periodic_to(
 			Target && to,
@@ -253,7 +253,7 @@ class payload_holder_t final
  * v.1.2.0
  */
 template< typename Message, typename... Args >
-SO_5_NODISCARD
+[[nodiscard]]
 details::payload_holder_t
 make( Args && ...args )
 	{

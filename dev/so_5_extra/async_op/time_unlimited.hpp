@@ -276,14 +276,14 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 			}
 
 		//! Get the current status of the operation.
-		SO_5_NODISCARD status_t
+		[[nodiscard]] status_t
 		current_status() const noexcept
 			{
 				return m_status;
 			}
 
 		//! Is there any completion handler?
-		SO_5_NODISCARD bool
+		[[nodiscard]] bool
 		has_completion_handlers() const noexcept
 			{
 				return !m_subscriptions.empty();
@@ -337,7 +337,8 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 										sd.m_subscription_type,
 										*(sd.m_state),
 										sd.m_handler,
-										::so_5::thread_safety_t::unsafe );
+										::so_5::thread_safety_t::unsafe,
+										::so_5::event_handler_kind_t::final_handler );
 							}
 					}
 				catch(...)
@@ -470,7 +471,7 @@ class cancellation_point_t
 		 * (like another cancellation_point_t). Or after a call to
 		 * cleanup() method.
 		 */
-		SO_5_NODISCARD status_t
+		[[nodiscard]] status_t
 		status() const noexcept
 			{
 				if( m_op)
@@ -483,7 +484,7 @@ class cancellation_point_t
 		 * \return true if the cancellation_point holds actual async operation's
 		 * data and this async operation is not completed yet.
 		 */
-		SO_5_NODISCARD bool
+		[[nodiscard]] bool
 		is_cancellable() const noexcept
 			{
 				return m_op && status_t::activated == m_op->current_status();
@@ -749,7 +750,7 @@ class definition_point_t
 		 * holds the operation data (e.g. operation is not activated yet) and
 		 * there is at least one completion handler for the operation.
 		 */
-		SO_5_NODISCARD bool
+		[[nodiscard]] bool
 		is_activable() const noexcept
 			{
 				// Operation is activable if we still hold the operation data.
@@ -968,7 +969,7 @@ class definition_point_t
  * \since
  * v.1.0.4
  */
-SO_5_NODISCARD inline definition_point_t<details::op_data_t>
+[[nodiscard]] inline definition_point_t<details::op_data_t>
 make(
 	//! Agent for that this async operation will be created.
 	::so_5::agent_t & owner )

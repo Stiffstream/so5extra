@@ -215,7 +215,7 @@ namespace impl {
 struct timer_id_maker_t
 	{
 		template< typename... Args >
-		SO_5_NODISCARD static auto
+		[[nodiscard]] static auto
 		make( Args && ...args )
 			{
 				return ::so_5::extra::revocable_timer::timer_id_t{
@@ -226,7 +226,7 @@ struct timer_id_maker_t
 /*
  * Helper function for actual sending of periodic message.
  */
-SO_5_NODISCARD
+[[nodiscard]]
 inline so_5::extra::revocable_timer::timer_id_t
 make_envelope_and_initiate_timer(
 	const so_5::mbox_t & to,
@@ -259,7 +259,7 @@ template< class Message, bool Is_Signal >
 struct instantiator_and_sender_base
 	{
 		template< typename... Args >
-		SO_5_NODISCARD static ::so_5::extra::revocable_timer::timer_id_t
+		[[nodiscard]] static ::so_5::extra::revocable_timer::timer_id_t
 		send_periodic(
 			const ::so_5::mbox_t & to,
 			std::chrono::steady_clock::duration pause,
@@ -288,7 +288,7 @@ struct instantiator_and_sender_base< Message, true >
 		//! Type of signal to be delivered.
 		using actual_signal_type = typename message_payload_type< Message >::subscription_type;
 
-		SO_5_NODISCARD static so_5::extra::revocable_timer::timer_id_t
+		[[nodiscard]] static so_5::extra::revocable_timer::timer_id_t
 		send_periodic(
 			const so_5::mbox_t & to,
 			std::chrono::steady_clock::duration pause,
@@ -374,7 +374,7 @@ struct instantiator_and_sender
  * v.1.2.0
  */
 template< typename Message, typename Target, typename... Args >
-SO_5_NODISCARD timer_id_t
+[[nodiscard]] timer_id_t
 send_periodic(
 	//! A destination for the periodic message.
 	Target && target,
@@ -440,7 +440,7 @@ send_periodic(
  * v.1.2.0
  */
 template< typename Message >
-SO_5_NODISCARD
+[[nodiscard]]
 typename std::enable_if<
 		!::so_5::is_signal< Message >::value,
 		timer_id_t >::type
@@ -496,7 +496,7 @@ send_periodic(
  * v.1.2.0
  */
 template< typename Message >
-SO_5_NODISCARD
+[[nodiscard]]
 typename std::enable_if<
 		::so_5::is_signal< Message >::value,
 		timer_id_t >::type
@@ -552,7 +552,7 @@ send_periodic(
  * v.1.2.0
  */
 template< typename Message, typename Target >
-SO_5_NODISCARD timer_id_t
+[[nodiscard]] timer_id_t
 send_periodic(
 	//! A target for periodic message/signal.
 	//! It can be a reference to a target agent or a mchain_t.
@@ -633,7 +633,7 @@ send_periodic(
  * v.1.2.0
  */
 template< typename Message, typename Target, typename... Args >
-SO_5_NODISCARD timer_id_t
+[[nodiscard]] timer_id_t
 send_delayed(
 	//! A destination for the periodic message.
 	Target && target,
@@ -685,7 +685,7 @@ send_delayed(
  * v.1.2.0
  */
 template< typename Message >
-SO_5_NODISCARD timer_id_t
+[[nodiscard]] timer_id_t
 send_delayed(
 	//! Mbox for the message to be sent to.
 	const so_5::mbox_t & to,
@@ -738,7 +738,7 @@ send_delayed(
  * v.1.2.0
  */
 template< typename Message, typename Target >
-SO_5_NODISCARD timer_id_t
+[[nodiscard]] timer_id_t
 send_delayed(
 	//! A destination for the periodic message.
 	Target && target,

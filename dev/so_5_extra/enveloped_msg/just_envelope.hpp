@@ -85,7 +85,7 @@ class just_envelope_t : public so_5::enveloped_msg::envelope_t
 
 	protected :
 		//! Get access to content of envelope.
-		SO_5_NODISCARD
+		[[nodiscard]]
 		payload_info_t
 		whole_payload() const noexcept
 			{
@@ -93,7 +93,7 @@ class just_envelope_t : public so_5::enveloped_msg::envelope_t
 			}
 
 		//! Get access to payload only.
-		SO_5_NODISCARD
+		[[nodiscard]]
 		message_ref_t &
 		payload() const noexcept { return m_payload; }
 

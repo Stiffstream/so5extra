@@ -183,7 +183,8 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 										ch.m_subscription_type,
 										ch.m_state.get(),
 										ch.m_handler,
-										::so_5::thread_safety_t::unsafe );
+										::so_5::thread_safety_t::unsafe,
+										::so_5::event_handler_kind_t::final_handler );
 							}
 					},
 					[&] {
@@ -244,7 +245,8 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 										m_timeout_msg_type,
 										th.m_state,
 										th.m_handler,
-										::so_5::thread_safety_t::unsafe );
+										::so_5::thread_safety_t::unsafe,
+										::so_5::event_handler_kind_t::final_handler );
 							}
 					},
 					[&] {
@@ -390,28 +392,28 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 			{}
 
 		//! Access to timeout mbox.
-		SO_5_NODISCARD const ::so_5::mbox_t &
+		[[nodiscard]] const ::so_5::mbox_t &
 		timeout_mbox() const noexcept
 			{
 				return m_timeout_mbox;
 			}
 
 		//! Access to type of timeout message/signal.
-		SO_5_NODISCARD const std::type_index &
+		[[nodiscard]] const std::type_index &
 		timeout_msg_type() const noexcept
 			{
 				return m_timeout_msg_type;
 			}
 
 		//! Access to owner of the async operation.
-		SO_5_NODISCARD ::so_5::agent_t &
+		[[nodiscard]] ::so_5::agent_t &
 		owner() noexcept
 			{
 				return m_owner.get();
 			}
 
 		//! Access to SObjectizer Environment in that the owner is working.
-		SO_5_NODISCARD ::so_5::environment_t &
+		[[nodiscard]] ::so_5::environment_t &
 		environment() noexcept
 			{
 				return m_owner.get().so_environment();
@@ -469,7 +471,7 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 			}
 
 		//! Get the current status of async operation.
-		SO_5_NODISCARD status_t
+		[[nodiscard]] status_t
 		current_status() const noexcept
 			{
 				return m_status;
@@ -644,7 +646,7 @@ class cancellation_point_t
 		 * (like another cancellation_point_t). Or after a call to
 		 * cleanup() method.
 		 */
-		SO_5_NODISCARD status_t
+		[[nodiscard]] status_t
 		status() const noexcept
 			{
 				if( m_op)
@@ -657,7 +659,7 @@ class cancellation_point_t
 		 * \return true if the cancellation_point holds actual async operation's
 		 * data and this async operation is not completed nor timedout yet.
 		 */
-		SO_5_NODISCARD bool
+		[[nodiscard]] bool
 		is_cancellable() const noexcept
 			{
 				return m_op && status_t::activated == m_op->current_status();
@@ -781,7 +783,7 @@ class msg_independent_part_of_definition_point_t
 		 * Or if the content of the definition_point is moved to another
 		 * definition_point.
 		 */
-		SO_5_NODISCARD bool
+		[[nodiscard]] bool
 		is_activable() const noexcept
 			{
 				return m_op;
@@ -914,7 +916,7 @@ class msg_independent_part_of_definition_point_t
 	private :
 		//! A helper method for creation a wrapper for a timeout handler.
 		template< typename Event_Handler >
-		SO_5_NODISCARD ::so_5::event_handler_method_t
+		[[nodiscard]] ::so_5::event_handler_method_t
 		create_actual_timeout_handler(
 			//! Timeout handler to be wrapped.
 			Event_Handler && evt_handler )
@@ -1512,7 +1514,7 @@ class definition_point_t
  * v.1.0.4
  */
 template< typename Message >
-SO_5_NODISCARD definition_point_t< Message >
+[[nodiscard]] definition_point_t< Message >
 make(
 	//! Agent for that this async operation will be created.
 	::so_5::agent_t & owner )

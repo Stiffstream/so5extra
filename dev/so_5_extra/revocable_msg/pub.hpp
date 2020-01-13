@@ -288,7 +288,7 @@ namespace impl {
 struct delivery_id_maker_t
 	{
 		template< typename... Args >
-		SO_5_NODISCARD static auto
+		[[nodiscard]] static auto
 		make( Args && ...args )
 			{
 				return delivery_id_t{ std::forward<Args>(args)... };
@@ -298,7 +298,7 @@ struct delivery_id_maker_t
 /*
  * Helper function for actual sending of revocable message.
  */
-SO_5_NODISCARD
+[[nodiscard]]
 inline so_5::extra::revocable_msg::delivery_id_t
 make_envelope_and_deliver(
 	const so_5::mbox_t & to,
@@ -323,7 +323,7 @@ template< class Message, bool Is_Signal >
 struct instantiator_and_sender_base
 	{
 		template< typename... Args >
-		SO_5_NODISCARD static so_5::extra::revocable_msg::delivery_id_t
+		[[nodiscard]] static so_5::extra::revocable_msg::delivery_id_t
 		send(
 			const so_5::mbox_t & to,
 			Args &&... args )
@@ -348,7 +348,7 @@ struct instantiator_and_sender_base< Message, true >
 		//! Type of signal to be delivered.
 		using actual_signal_type = typename message_payload_type< Message >::subscription_type;
 
-		SO_5_NODISCARD static so_5::extra::revocable_msg::delivery_id_t
+		[[nodiscard]] static so_5::extra::revocable_msg::delivery_id_t
 		send(
 			const so_5::mbox_t & to )
 			{
@@ -415,7 +415,7 @@ struct instantiator_and_sender
  *
  */
 template< typename Message, typename Target, typename... Args >
-SO_5_NODISCARD delivery_id_t
+[[nodiscard]] delivery_id_t
 send(
 	//! Target for the message.
 	//! Can be a reference to mbox, mchain, agent or ad-hod agent.
@@ -456,7 +456,7 @@ send(
  * v.1.2.0
  */
 template< typename Message, typename Target >
-SO_5_NODISCARD
+[[nodiscard]]
 typename std::enable_if<
 		!::so_5::is_signal< Message >::value,
 		delivery_id_t >::type
@@ -505,7 +505,7 @@ send(
  * v.1.2.0
  */
 template< typename Message, typename Target >
-SO_5_NODISCARD
+[[nodiscard]]
 typename std::enable_if<
 		::so_5::is_signal< Message >::value,
 		delivery_id_t >::type

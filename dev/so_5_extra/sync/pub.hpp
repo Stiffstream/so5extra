@@ -679,7 +679,7 @@ class request_reply_t final
 		//! An actual implementation of ask_value for the case when
 		//! reply object is DefaultConstructible.
 		template<typename Target, typename Duration, typename... Args>
-		SO_5_NODISCARD
+		[[nodiscard]]
 		static auto
 		ask_default_constructible_value(
 			Target && target,
@@ -715,7 +715,7 @@ class request_reply_t final
 		//! An actual implementation of request_value for the case when
 		//! reply object is not DefaultConstructible.
 		template<typename Target, typename Duration, typename... Args>
-		SO_5_NODISCARD
+		[[nodiscard]]
 		static auto
 		ask_not_default_constructible_value(
 			Target && target,
@@ -767,7 +767,7 @@ class request_reply_t final
 		 * \endcode
 		 */
 		template< typename Target, typename... Args >
-		SO_5_NODISCARD
+		[[nodiscard]]
 		static mchain_t
 		initiate( const Target & target, Args && ...args )
 			{
@@ -996,7 +996,7 @@ class request_reply_t final
 		 * \endcode
 		 */
 		template<typename Target, typename Duration, typename... Args>
-		SO_5_NODISCARD
+		[[nodiscard]]
 		static auto
 		ask_opt_value(
 			Target && target,
@@ -1053,7 +1053,7 @@ class request_reply_t final
 		 * \endcode
 		 */
 		template<typename Target, typename Duration, typename... Args>
-		SO_5_NODISCARD
+		[[nodiscard]]
 		static auto
 		ask_value(
 			Target && target,
@@ -1126,7 +1126,7 @@ using reply_mhood_t = typename request_reply_t<Request, Reply>::reply_mhood_t;
 template<
 	typename Request, typename Reply,
 	typename Target, typename Duration, typename... Args>
-SO_5_NODISCARD
+[[nodiscard]]
 auto
 request_reply(
 	Target && target,
@@ -1165,7 +1165,7 @@ request_reply(
 template<
 	typename Request, typename Reply,
 	typename Target, typename Duration, typename... Args>
-SO_5_NODISCARD
+[[nodiscard]]
 auto
 request_opt_reply(
 	Target && target,

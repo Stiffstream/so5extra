@@ -195,7 +195,7 @@ class basic_dispatcher_iface_t
 		/*!
 		 * The binder will use an external strand object.
 		 */
-		SO_5_NODISCARD
+		[[nodiscard]]
 		virtual disp_binder_shptr_t
 		binder_with_external_strand( ::asio::io_context::strand & ) = 0;
 
@@ -204,7 +204,7 @@ class basic_dispatcher_iface_t
 		 * The binder will use an internal (automatically created)
 		 * strand object.
 		 */
-		SO_5_NODISCARD
+		[[nodiscard]]
 		virtual disp_binder_shptr_t
 		binder_with_own_strand() = 0;
 
@@ -230,7 +230,7 @@ class dispatcher_handle_maker_t;
  * \since
  * v.1.3.0
  */
-class SO_5_NODISCARD dispatcher_handle_t
+class [[nodiscard]] dispatcher_handle_t
 	{
 		friend class impl::dispatcher_handle_maker_t;
 
@@ -282,7 +282,7 @@ class SO_5_NODISCARD dispatcher_handle_t
 		 * \attention
 		 * An attempt to call this method on empty handle is UB.
 		 */
-		SO_5_NODISCARD
+		[[nodiscard]]
 		disp_binder_shptr_t
 		binder(
 			::asio::io_context::strand & strand ) const
@@ -323,7 +323,7 @@ class SO_5_NODISCARD dispatcher_handle_t
 		 * \since
 		 * v.1.3.0
 		 */
-		SO_5_NODISCARD
+		[[nodiscard]]
 		disp_binder_shptr_t
 		binder() const
 			{
@@ -335,7 +335,7 @@ class SO_5_NODISCARD dispatcher_handle_t
 		 * \attention
 		 * An attempt to call this method on empty handle is UB.
 		 */
-		SO_5_NODISCARD
+		[[nodiscard]]
 		::asio::io_context &
 		io_context() noexcept 
 			{
@@ -908,7 +908,7 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 			{
 			}
 
-		SO_5_NODISCARD
+		[[nodiscard]]
 		disp_binder_shptr_t
 		binder_with_external_strand(
 			::asio::io_context::strand & strand ) override
@@ -919,7 +919,7 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 				};
 			}
 
-		SO_5_NODISCARD
+		[[nodiscard]]
 		disp_binder_shptr_t
 		binder_with_own_strand() override
 			{
@@ -1408,7 +1408,7 @@ class dispatcher_template_t final : public Basic_Skeleton
 class dispatcher_handle_maker_t
 	{
 	public :
-		SO_5_NODISCARD
+		[[nodiscard]]
 		static dispatcher_handle_t
 		make( actual_dispatcher_shptr_t disp ) noexcept
 			{
@@ -1538,7 +1538,7 @@ struct default_traits_t
  * v.1.0.2
  */
 template< typename Traits = default_traits_t >
-SO_5_NODISCARD
+[[nodiscard]]
 inline dispatcher_handle_t
 make_dispatcher(
 	//! SObjectizer Environment to work in.
