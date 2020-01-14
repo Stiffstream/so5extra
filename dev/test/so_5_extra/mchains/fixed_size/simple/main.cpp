@@ -1,0 +1,43 @@
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN 
+#include <doctest/doctest.h>
+
+#include <so_5_extra/mchains/fixed_size.hpp>
+
+#include <so_5/all.hpp>
+
+#include <test/3rd_party/various_helpers/time_limited_execution.hpp>
+
+namespace fixed_mchain_ns = so_5::extra::mchains::fixed_size;
+
+TEST_CASE( "no waiting case" )
+{
+	run_with_time_limit( [] {
+			so_5::launch( [&](so_5::environment_t & env) {
+					auto ch = fixed_mchain_ns::create_mchain<2>(
+							env,
+							so_5::mchain_props::overflow_reaction_t::remove_oldest );
+
+					REQUIRE( 0u == ch->size() );
+
+					so_5::send< int >( ch, 0 );
+					REQUIRE( 1u == ch->size() );
+
+					so_5::send< int >( ch, 1 );
+					REQUIRE( 2u == ch->size() );
+
+					so_5::send< int >( ch, 2 );
+					REQUIRE( 2u == ch->size() );
+
+					so_5::receive( so_5::from(ch).handle_n(1),
+						[](int v) { REQUIRE( 1 == v ); } );
+					so_5::receive( so_5::from(ch).handle_n(1),
+						[](int v) { REQUIRE( 2 == v ); } );
+				},
+				[](so_5::environment_params_t & params) {
+					params.message_delivery_tracer(
+							so_5::msg_tracing::std_cout_tracer() );
+				} );
+		},
+		5 );
+}
+
