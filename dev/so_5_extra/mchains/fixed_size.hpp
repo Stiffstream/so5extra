@@ -150,6 +150,26 @@ create_mchain(
 				env_iface.allocate_mbox_id() );
 	}
 
+//
+// create_mchain
+//
+//FIXME: document this!
+template< std::size_t Size >
+[[nodiscard]] mchain_t
+create_mchain(
+	environment_t & env,
+	const so_5::mchain_params_t & params )
+	{
+		so_5::impl::internal_env_iface_t env_iface{ env };
+
+		return so_5::impl::make_mchain< details::demand_queue_t<Size> >(
+				outliving_mutable( env_iface.msg_tracing_stuff() ),
+				// NOTE: some of params's value won't be used.
+				params,
+				env,
+				env_iface.allocate_mbox_id() );
+	}
+
 } /* namespace fixed_size */
 
 } /* namespace mchains */
