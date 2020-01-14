@@ -1,6 +1,6 @@
 MxxRu::git_externals :so5 do |e|
   e.url 'https://github.com/Stiffstream/sobjectizer'
-  e.commit 'c122cc88'
+  e.commit '69bbd194'
 
   e.map_dir 'dev/so_5' => 'dev'
 end

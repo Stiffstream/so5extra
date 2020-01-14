@@ -6,6 +6,7 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/env_infrastructures/build_samples.rb" )
 	required_prj( "#{path}/mboxes/build_samples.rb" )
+	required_prj( "#{path}/mchains/build_samples.rb" )
 	required_prj( "#{path}/shutdowner/build_samples.rb" )
 	required_prj( "#{path}/disp/build_samples.rb" )
 	required_prj( "#{path}/async_op/build_samples.rb" )

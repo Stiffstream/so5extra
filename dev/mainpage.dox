@@ -3,6 +3,17 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
+ * \subsection so_5_extra_v1_4_0 v.1.4.0
+ *
+ * License for so5extra library changed. Since v.1.4.0 so5extra is distributed
+ * under BSD-3-CLAUSE license.
+ *
+ * Switch to SObjectizer-5.7.0. Please note that so5extra-1.4.0 won't work
+ * with previous versions of SObjectizer.
+ *
+ * New submodule so_5::extra::mchains::fixed_size added with several
+ * so_5::extra::mchains::fixed_size::create_mchain() functions.
+ *
  * \subsection so_5_extra_v1_3_1 v.1.3.1
  *
  * New class so_5::extra::mboxes::broadcast::fixed_mbox_template_t added.

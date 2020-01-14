@@ -103,7 +103,24 @@ class demand_queue_t
 //
 // create_mchain
 //
-//FIXME: document this!
+/*!
+ * \brief Helper function for creation of fixed-size mchain.
+ *
+ * Creates a mchain without waiting on attempt to push a new message
+ * into full mchain.
+ *
+ * Usage example:
+ * \code
+	so_5::wrapped_env_t sobj;
+
+	auto reply_ch = so_5::extra::mchains::fixed_size::create_mchain<1>(
+			sobj.environment(),
+			so_5::mchain_props::overflow_reaction_t::drop_newest);
+ * \endcode
+ *
+ * \brief
+ * v.1.4.0
+ */
 template< std::size_t Size >
 [[nodiscard]] mchain_t
 create_mchain(
@@ -113,7 +130,7 @@ create_mchain(
 		so_5::impl::internal_env_iface_t env_iface{ env };
 
 		return so_5::impl::make_mchain< details::demand_queue_t<Size> >(
-				outliving_mutable( env_iface.msg_tracing_stuff() ),
+				outliving_mutable( env_iface.msg_tracing_stuff_nonchecked() ),
 				make_limited_without_waiting_mchain_params(
 						// NOTE: this value won't be used.
 						Size,
@@ -127,7 +144,25 @@ create_mchain(
 //
 // create_mchain
 //
-//FIXME: document this!
+/*!
+ * \brief Helper function for creation of fixed-size mchain.
+ *
+ * Creates a mchain with waiting on attempt to push a new message
+ * into full mchain.
+ *
+ * Usage example:
+ * \code
+	so_5::wrapped_env_t sobj;
+
+	auto reply_ch = so_5::extra::mchains::fixed_size::create_mchain<5>(
+			sobj.environment(),
+			std::chrono::milliseconds{250},
+			so_5::mchain_props::overflow_reaction_t::remove_oldest);
+ * \endcode
+ *
+ * \brief
+ * v.1.4.0
+ */
 template< std::size_t Size >
 [[nodiscard]] mchain_t
 create_mchain(
@@ -138,7 +173,7 @@ create_mchain(
 		so_5::impl::internal_env_iface_t env_iface{ env };
 
 		return so_5::impl::make_mchain< details::demand_queue_t<Size> >(
-				outliving_mutable( env_iface.msg_tracing_stuff() ),
+				outliving_mutable( env_iface.msg_tracing_stuff_nonchecked() ),
 				make_limited_with_waiting_mchain_params(
 						// NOTE: this value won't be used.
 						Size,
@@ -153,7 +188,32 @@ create_mchain(
 //
 // create_mchain
 //
-//FIXME: document this!
+/*!
+ * \brief Helper function for creation of fixed-size mchain.
+ *
+ * Usage example:
+ * \code
+	so_5::wrapped_env_t sobj;
+
+	auto params = so_5::make_limited_with_waiting_mchain_params(
+			1, // Will be ignored.
+			so_5::mchain_props::memory_usage_t::preallocated, // Will be ignored.
+			so_5::mchain_props::overflow_reaction_t::throw_exception,
+			std::chrono::seconds{3});
+	params.disable_msg_tracing();
+	params.not_empty_notificator([]{...});
+			
+	auto reply_ch = so_5::extra::mchains::fixed_size::create_mchain<20>(
+			sobj.environment(),
+			params);
+ * \endcode
+ *
+ * \attention
+ * Value of params.capacity() will be ignored.
+ *
+ * \brief
+ * v.1.4.0
+ */
 template< std::size_t Size >
 [[nodiscard]] mchain_t
 create_mchain(
@@ -163,7 +223,7 @@ create_mchain(
 		so_5::impl::internal_env_iface_t env_iface{ env };
 
 		return so_5::impl::make_mchain< details::demand_queue_t<Size> >(
-				outliving_mutable( env_iface.msg_tracing_stuff() ),
+				outliving_mutable( env_iface.msg_tracing_stuff_nonchecked() ),
 				// NOTE: some of params's value won't be used.
 				params,
 				env,

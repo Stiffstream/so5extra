@@ -22,6 +22,10 @@
  */
 
 /*!
+ * \example mchains/fixed_size/fibonacci/main.cpp
+ */
+
+/*!
  * \example shutdowner/simple/main.cpp
  */
 
