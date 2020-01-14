@@ -101,7 +101,7 @@ class demand_queue_t
 } /* namespace details */
 
 //
-// make_mchain
+// create_mchain
 //
 //FIXME: document this!
 template< std::size_t Size >
@@ -120,6 +120,32 @@ create_mchain(
 						// NOTE: this value won't be used.
 						so_5::mchain_props::memory_usage_t::preallocated,
 						overflow_reaction ),
+				env,
+				env_iface.allocate_mbox_id() );
+	}
+
+//
+// create_mchain
+//
+//FIXME: document this!
+template< std::size_t Size >
+[[nodiscard]] mchain_t
+create_mchain(
+	environment_t & env,
+	so_5::mchain_props::duration_t wait_timeout,
+	so_5::mchain_props::overflow_reaction_t overflow_reaction )
+	{
+		so_5::impl::internal_env_iface_t env_iface{ env };
+
+		return so_5::impl::make_mchain< details::demand_queue_t<Size> >(
+				outliving_mutable( env_iface.msg_tracing_stuff() ),
+				make_limited_with_waiting_mchain_params(
+						// NOTE: this value won't be used.
+						Size,
+						// NOTE: this value won't be used.
+						so_5::mchain_props::memory_usage_t::preallocated,
+						overflow_reaction,
+						wait_timeout ),
 				env,
 				env_iface.allocate_mbox_id() );
 	}

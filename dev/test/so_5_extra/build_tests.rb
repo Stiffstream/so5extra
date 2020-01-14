@@ -8,6 +8,8 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/mboxes/build_tests.rb" )
 
+	required_prj( "#{path}/mchains/build_tests.rb" )
+
 	required_prj( "#{path}/shutdowner/build_tests.rb" )
 
 	required_prj( "#{path}/disp/build_tests.rb" )
