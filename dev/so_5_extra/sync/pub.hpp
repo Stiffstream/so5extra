@@ -10,6 +10,8 @@
 
 #include <so_5_extra/error_ranges.hpp>
 
+#include <so_5_extra/mchains/fixed_size.hpp>
+
 #include <so_5/send_functions.hpp>
 
 #include <so_5/details/always_false.hpp>
@@ -771,10 +773,9 @@ class request_reply_t final
 		static mchain_t
 		initiate( const Target & target, Args && ...args )
 			{
-				auto mchain = create_mchain(
+				// Only one message should be stored in reply_ch.
+				auto mchain = so_5::extra::mchains::fixed_size::create_mchain<1>(
 						so_5::send_functions_details::arg_to_env( target ),
-						1u, // Only one message should be stored in reply_ch.
-						so_5::mchain_props::memory_usage_t::preallocated,
 						so_5::mchain_props::overflow_reaction_t::throw_exception );
 
 				msg_holder_t msg{
