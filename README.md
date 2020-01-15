@@ -14,6 +14,7 @@ At the current moment so5extra contains the following components:
 * so_5::extra::mboxes::proxy. A proxy-mbox which delegates all calls to the underlying actual mbox. Such proxy simplifies development of custom mboxes.
 * so_5::extra::mboxes::retained_msg. An implementation of mbox which holds the last sent message and automatically resend it to every new subscriber for this message type;
 * so_5::extra::mboxes::round_robin. An implementation of *round-robin* mbox which performs delivery of messages by round-robin scheme;
+* so_5::extra::mchains::fixed_size. An implementation of fixed-size mchain which capacity is known at the compile-time;
 * so_5::extra::revocable_msg. A set of tools for sending messages/signals those can be revoked. 
 * so_5::extra::revocable_timer. A set of tools for sending delayed/periodic messages/signals those can be revoked.
 * so_5::extra::shutdowner. A tool to simplify prevention of SObjectizer shutdown in cases where some agents require more time for graceful shutdown (like storing caches to disk and stuff like that);
