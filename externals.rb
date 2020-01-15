@@ -1,17 +1,8 @@
-MxxRu::git_externals :so5 do |e|
-  e.url 'https://github.com/Stiffstream/sobjectizer'
-  e.commit '69bbd194'
-
-  e.map_dir 'dev/so_5' => 'dev'
-end
-
-=begin
 MxxRu::arch_externals :so5 do |e|
-  e.url 'https://github.com/Stiffstream/sobjectizer/archive/v.5.7.0-b1.tar.gz'
+  e.url 'https://github.com/Stiffstream/sobjectizer/archive/v.5.7.0-b2.tar.gz'
 
   e.map_dir 'dev/so_5' => 'dev'
 end
-=end
 
 MxxRu::arch_externals :asio do |e|
   e.url 'https://github.com/chriskohlhoff/asio/archive/asio-1-14-0.tar.gz'
