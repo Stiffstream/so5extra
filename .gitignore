@@ -11,6 +11,8 @@
 /dev/local-build.rb
 /dev/doc
 /dev/*.log
+/dev/__*.?pp
+/dev/__*.vim
 o/*
 cmake_build*
 *.sublime-project

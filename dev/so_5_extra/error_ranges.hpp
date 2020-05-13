@@ -70,6 +70,13 @@ const int revocable_msg_errors = 20800;
  */
 const int sync_errors = 20900;
 
+//! Starting point for errors of asio_one_thread submodule.
+/*!
+ * \since
+ * v.1.4.1
+ */
+const int asio_one_thread_errors = 21000;
+
 } /* namespace errors */
 
 } /* namespace extra */
