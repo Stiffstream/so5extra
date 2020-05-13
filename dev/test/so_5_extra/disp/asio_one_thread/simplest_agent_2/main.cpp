@@ -55,12 +55,11 @@ TEST_CASE( "simplest agent must handle so_evt_start and so_evt_finish" )
 	run_with_time_limit( [] {
 			std::string scenario;
 
-			asio::io_context io_ctx;
 			so_5::launch( [&](so_5::environment_t & env) {
 						namespace asio_ot = so_5::extra::disp::asio_one_thread;
 
 						asio_ot::disp_params_t params;
-						params.use_external_io_context( io_ctx );
+						params.use_own_io_context();
 
 						auto disp = asio_ot::make_dispatcher(
 								env,
