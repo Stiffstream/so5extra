@@ -501,14 +501,39 @@ using work_thread_no_activity_tracking_t =
 			Thread_Type,
 			work_thread_details::no_activity_tracking_impl_t >;
 
+template< typename Thread_Type >
+void
+send_thread_activity_stats(
+	const so_5::mbox_t &,
+	const so_5::stats::prefix_t &,
+	work_thread_no_activity_tracking_t< Thread_Type > & )
+	{
+		/* Nothing to do */
+	}
+
 //
 // work_thread_with_activity_tracking_t
 //
-template< typename Demand_Queue >
+template< typename Thread_Type >
 using work_thread_with_activity_tracking_t =
 	work_thread_template_t<
-			Demand_Queue,
+			Thread_Type,
 			work_thread_details::with_activity_tracking_impl_t >;
+
+template< typename Thread_Type >
+void
+send_thread_activity_stats(
+	const so_5::mbox_t & mbox,
+	const so_5::stats::prefix_t & prefix,
+	work_thread_with_activity_tracking_t< Thread_Type > & wt )
+	{
+		so_5::send< so_5::stats::messages::work_thread_activity >(
+				mbox,
+				prefix,
+				so_5::stats::suffixes::work_thread_activity(),
+				wt.thread_id(),
+				wt.take_activity_stats() );
+	}
 
 //
 // dispatcher_template_t
@@ -607,7 +632,24 @@ class dispatcher_template_t final : public actual_disp_binder_t
 				void
 				distribute( const mbox_t & mbox ) override
 					{
-//FIXME: implement this!
+						so_5::send< stats::messages::quantity< std::size_t > >(
+								mbox,
+								this->m_base_prefix,
+								stats::suffixes::agent_count(),
+								m_dispatcher.get().m_agents_bound.load(
+										std::memory_order_acquire ) );
+
+						so_5::send< stats::messages::quantity< std::size_t > >(
+								mbox,
+								this->m_base_prefix,
+								stats::suffixes::work_thread_queue_size(),
+								m_dispatcher.get().m_work_thread.demands_counter().load(
+										std::memory_order_acquire ) );
+
+						send_thread_activity_stats(
+								mbox,
+								this->m_base_prefix,
+								m_dispatcher.get().m_work_thread );
 					}
 
 			private:

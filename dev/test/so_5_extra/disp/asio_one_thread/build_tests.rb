@@ -16,11 +16,11 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/multifile_hello/prj.ut.rb" )
 	required_prj( "#{path}/multifile_hello/prj_s.ut.rb" )
 
-#	required_prj( "#{path}/stats/prj.ut.rb" )
-#	required_prj( "#{path}/stats/prj_s.ut.rb" )
+	required_prj( "#{path}/stats/prj.ut.rb" )
+	required_prj( "#{path}/stats/prj_s.ut.rb" )
 
-#	required_prj( "#{path}/stats_wt_activity/prj.ut.rb" )
-#	required_prj( "#{path}/stats_wt_activity/prj_s.ut.rb" )
+	required_prj( "#{path}/stats_wt_activity/prj.ut.rb" )
+	required_prj( "#{path}/stats_wt_activity/prj_s.ut.rb" )
 
 #	required_prj( "#{path}/custom_thread/prj.ut.rb" )
 #	required_prj( "#{path}/custom_thread/prj_s.ut.rb" )
