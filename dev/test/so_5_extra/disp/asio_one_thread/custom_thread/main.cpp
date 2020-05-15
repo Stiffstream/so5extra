@@ -7,6 +7,12 @@
 
 #include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
+struct custom_thread_init_params
+{
+	int m_priority;
+	std::size_t m_stack_size;
+};
+
 class custom_thread_type 
 {
 	std::thread m_thread;
@@ -17,6 +23,16 @@ public :
 
 	template< typename F >
 	custom_thread_type( F && f ) : m_thread( std::forward<F>(f) ) {}
+
+	template< typename F >
+	custom_thread_type( F && f, custom_thread_init_params params )
+	{
+		std::cout << "*** priority: " << params.m_priority
+				<< ", stack_size: " << params.m_stack_size
+				<< std::endl;
+
+		m_thread = std::thread{ std::forward<F>(f) };
+	}
 
 	custom_thread_type & operator=( const custom_thread_type & ) = delete;
 	custom_thread_type & operator=( custom_thread_type && ) = delete;
@@ -88,6 +104,39 @@ TEST_CASE( "simplest agent must handle so_evt_start and so_evt_finish" )
 								env,
 								"asio_ot",
 								std::move(params) );
+
+						env.introduce_coop(
+								disp.binder(),
+								[&]( so_5::coop_t & coop )
+								{
+									coop.make_agent< a_test_case_t >(
+											std::ref(scenario) );
+								} );
+					} );
+
+			REQUIRE( scenario == "start();hello();finish();" );
+		},
+		5 );
+}
+
+TEST_CASE( "simplest agent must handle so_evt_start and so_evt_finish "
+		"+ custom thread init params" )
+{
+	run_with_time_limit( [] {
+			std::string scenario;
+
+			asio::io_context io_svc;
+			so_5::launch( [&](so_5::environment_t & env) {
+						namespace asio_ot = so_5::extra::disp::asio_one_thread;
+
+						asio_ot::disp_params_t params;
+						params.use_external_io_context( io_svc );
+
+						auto disp = asio_ot::make_dispatcher<custom_traits>(
+								env,
+								"asio_ot",
+								std::move(params),
+								custom_thread_init_params{ -2, 10240u } );
 
 						env.introduce_coop(
 								disp.binder(),

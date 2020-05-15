@@ -450,11 +450,14 @@ class work_thread_template_t
 			,	m_env( env )
 			{}
 
+		//FIXME: document this!
+		template< typename... Thread_Init_Args >
 		void
-		start()
+		start( Thread_Init_Args && ...thread_init_args )
 			{
 				this->m_thread = std::make_unique< Thread_Type >(
-						[this]() { body(); } );
+						[this]() { body(); },
+						std::forward<Thread_Init_Args>(thread_init_args)... );
 			}
 
 		void
@@ -613,10 +616,12 @@ class dispatcher_template_t final : public actual_disp_binder_t
 		friend class disp_data_source_t;
 
 	public:
+		template< typename... Thread_Init_Args >
 		dispatcher_template_t(
 			outliving_reference_t< environment_t > env,
 			const std::string_view name_base,
-			disp_params_t params )
+			disp_params_t params,
+			Thread_Init_Args && ...thread_init_args )
 			:	m_work_thread{ env.get(), params.io_context() }
 			,	m_data_source{
 					outliving_mutable(env.get().stats_repository()),
@@ -624,7 +629,8 @@ class dispatcher_template_t final : public actual_disp_binder_t
 					outliving_mutable(*this)
 				}
 			{
-				m_work_thread.start();
+				m_work_thread.start(
+						std::forward<Thread_Init_Args>(thread_init_args)... );
 			}
 
 		~dispatcher_template_t() noexcept override
@@ -753,6 +759,58 @@ class dispatcher_handle_maker_t
 			}
 	};
 
+//FIXME: document this!
+template<
+	typename Traits, 
+	typename... Thread_Init_Args >
+[[nodiscard]]
+dispatcher_handle_t
+create_dispatcher(
+	//! SObjectizer environment to work in.
+	environment_t & env,
+	//! Short name for this instance to be used in thread activity stats.
+	//! Can be empty string. In this case name will be generated automatically.
+	const std::string_view data_sources_name_base,
+	//! Parameters for this dispatcher instance.
+	disp_params_t params,
+	//! Parameters for initialization of a custom thread.
+	Thread_Init_Args && ...thread_init_args )
+	{
+		using namespace so_5::disp::reuse;
+
+		const auto io_svc_ptr = params.io_context();
+		if( !io_svc_ptr )
+			SO_5_THROW_EXCEPTION(
+					errors::rc_io_context_is_not_set,
+					"io_context is not set in disp_params" );
+
+		using thread_type = typename Traits::thread_type;
+
+		using dispatcher_no_activity_tracking_t =
+				dispatcher_template_t<
+						work_thread_no_activity_tracking_t< thread_type > >;
+
+		using dispatcher_with_activity_tracking_t =
+				dispatcher_template_t<
+						work_thread_with_activity_tracking_t< thread_type > >;
+
+		using so_5::stats::activity_tracking_stuff::create_appropriate_disp;
+		actual_disp_binder_shptr_t binder =
+				create_appropriate_disp<
+						// Type of result pointer.
+						impl::actual_disp_binder_t,
+						// Actual type of dispatcher without thread activity tracking.
+						dispatcher_no_activity_tracking_t,
+						// Actual type of dispatcher with thread activity tracking.
+						dispatcher_with_activity_tracking_t >(
+					outliving_mutable(env),
+					data_sources_name_base,
+					std::move(params),
+					std::forward<Thread_Init_Args>(thread_init_args)... );
+
+		return dispatcher_handle_maker_t::make( std::move(binder) );
+	}
+
 } /* namespace impl */
 
 //
@@ -868,38 +926,33 @@ make_dispatcher(
 	//! Parameters for this dispatcher instance.
 	disp_params_t params )
 	{
-		using namespace so_5::disp::reuse;
+		return impl::create_dispatcher< Traits >(
+				env,
+				data_sources_name_base,
+				std::move(params) );
+	}
 
-		const auto io_svc_ptr = params.io_context();
-		if( !io_svc_ptr )
-			SO_5_THROW_EXCEPTION(
-					errors::rc_io_context_is_not_set,
-					"io_context is not set in disp_params" );
-
-		using thread_type = typename Traits::thread_type;
-
-		using dispatcher_no_activity_tracking_t =
-				impl::dispatcher_template_t<
-						impl::work_thread_no_activity_tracking_t< thread_type > >;
-
-		using dispatcher_with_activity_tracking_t =
-				impl::dispatcher_template_t<
-						impl::work_thread_with_activity_tracking_t< thread_type > >;
-
-		using so_5::stats::activity_tracking_stuff::create_appropriate_disp;
-		impl::actual_disp_binder_shptr_t binder =
-				create_appropriate_disp<
-						// Type of result pointer.
-						impl::actual_disp_binder_t,
-						// Actual type of dispatcher without thread activity tracking.
-						dispatcher_no_activity_tracking_t,
-						// Actual type of dispatcher with thread activity tracking.
-						dispatcher_with_activity_tracking_t >(
-					outliving_mutable(env),
-					data_sources_name_base,
-					std::move(params) );
-
-		return impl::dispatcher_handle_maker_t::make( std::move(binder) );
+//FIXME: document this!
+template<
+	typename Traits,
+	typename... Thread_Init_Args >
+dispatcher_handle_t
+make_dispatcher(
+	//! SObjectizer environment to work in.
+	environment_t & env,
+	//! Short name for this instance to be used in thread activity stats.
+	//! Can be empty string. In this case name will be generated automatically.
+	const std::string_view data_sources_name_base,
+	//! Parameters for this dispatcher instance.
+	disp_params_t params,
+	//! Parameters for initialization of a custom thread.
+	Thread_Init_Args && ...thread_init_args )
+	{
+		return impl::create_dispatcher< Traits >(
+				env,
+				data_sources_name_base,
+				std::move(params),
+				std::forward<Thread_Init_Args>(thread_init_args)... );
 	}
 
 } /* namespace asio_one_thread */
