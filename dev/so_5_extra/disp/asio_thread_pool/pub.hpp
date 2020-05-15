@@ -243,6 +243,7 @@ class [[nodiscard]] dispatcher_handle_t
 			{}
 
 		//! Is this handle empty?
+		[[nodiscard]]
 		bool
 		empty() const noexcept { return !m_dispatcher; }
 
@@ -343,9 +344,11 @@ class [[nodiscard]] dispatcher_handle_t
 			}
 
 		//! Is this handle empty?
+		[[nodiscard]]
 		operator bool() const noexcept { return empty(); }
 
 		//! Does this handle contain a reference to dispatcher?
+		[[nodiscard]]
 		bool
 		operator!() const noexcept { return !empty(); }
 
@@ -1466,7 +1469,7 @@ struct default_traits_t
  * asio_tp::disp_params_t params;
  * params.use_own_io_context(); // Asio IoContext object will be created here.
  * 		// This object will be accessible later via
- * 		// private_dispatcher_t::io_context() method.
+ * 		// dispatcher_handle_t::io_context() method.
  * auto disp = asio_tp::make_dispatcher(
  * 	env,
  * 	"my_asio_tp",

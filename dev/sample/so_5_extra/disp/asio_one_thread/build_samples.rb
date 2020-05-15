@@ -6,4 +6,7 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/resolve_n/prj.rb" )
 	required_prj( "#{path}/resolve_n/prj_s.rb" )
+
+	required_prj( "#{path}/ping_pong/prj.rb" )
+	required_prj( "#{path}/ping_pong/prj_s.rb" )
 }

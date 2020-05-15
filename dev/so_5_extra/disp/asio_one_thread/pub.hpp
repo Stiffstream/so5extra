@@ -48,7 +48,11 @@ const int rc_io_context_is_not_set =
 
 } /* namespace errors */
 
-//FIXME: document this!
+/*!
+ * \brief An alias for shared-pointer to io_context object.
+ *
+ * \since v.1.4.1
+ */
 using io_context_shptr_t = std::shared_ptr< asio::io_context >;
 
 //
@@ -152,7 +156,13 @@ namespace impl {
 //
 // actual_disp_binder_t
 //
-//FIXME: document this!
+/*!
+ * \brief An actual interace of disp_binder for asio_one_thread dispatcher.
+ *
+ * That binder should allow to get a reference to io_context objects.
+ *
+ * \since v.1.4.1
+ */
 class actual_disp_binder_t
 	:	public disp_binder_t
 	{
@@ -165,6 +175,11 @@ class actual_disp_binder_t
 //
 // actual_disp_binder_shptr_t
 //
+/*!
+ * \brief An alias for shared-pointer to actual_disp_binder.
+ *
+ * \since v.1.4.1
+ */
 using actual_disp_binder_shptr_t =
 		std::shared_ptr< actual_disp_binder_t >;
 
@@ -195,6 +210,7 @@ class [[nodiscard]] dispatcher_handle_t
 			{}
 
 		//! Is this handle empty?
+		[[nodiscard]]
 		bool
 		empty() const noexcept { return !m_binder; }
 
@@ -241,9 +257,11 @@ class [[nodiscard]] dispatcher_handle_t
 			}
 
 		//! Is this handle empty?
+		[[nodiscard]]
 		operator bool() const noexcept { return empty(); }
 
 		//! Does this handle contain a reference to dispatcher?
+		[[nodiscard]]
 		bool
 		operator!() const noexcept { return !empty(); }
 
@@ -267,6 +285,12 @@ using demands_counter_t = std::atomic< std::size_t >;
 
 namespace work_thread_details {
 
+/*!
+ * \brief A type of holder of data common to all worker thread
+ * implementations.
+ *
+ * \since v.1.4.1
+ */
 template< typename Thread_Type >
 struct common_data_t
 	{
@@ -293,8 +317,24 @@ struct common_data_t
 
 		common_data_t( io_context_shptr_t io_context )
 			: m_io_context( std::move(io_context) ) {}
+
+		[[nodiscard]]
+		asio::io_context &
+		io_context() const noexcept { return *(this->m_io_context); }
+
+		[[nodiscard]]
+		demands_counter_t &
+		demands_counter() noexcept { return this->m_demands_counter; }
 	};
 
+/*!
+ * \brief Base class for implementation of worker thread without
+ * thread activity tracking.
+ *
+ * Methods work_started() and work_finished() are empty.
+ *
+ * \brief v.1.4.1
+ */
 template< typename Thread_Type >
 class no_activity_tracking_impl_t : protected common_data_t< Thread_Type >
 	{
@@ -305,14 +345,9 @@ class no_activity_tracking_impl_t : protected common_data_t< Thread_Type >
 			:	base_type_t( std::move(io_context) )
 			{}
 
-		//FIXME: is it really needed?
-		[[nodiscard]]
-		asio::io_context &
-		io_context() const noexcept { return *(this->m_io_context); }
+		using base_type_t::io_context;
 
-		[[nodiscard]]
-		demands_counter_t &
-		demands_counter() noexcept { return this->m_demands_counter; }
+		using base_type_t::demands_counter;
 
 	protected :
 		void
@@ -322,6 +357,18 @@ class no_activity_tracking_impl_t : protected common_data_t< Thread_Type >
 		work_finished() { /* Nothing to do. */ }
 	};
 
+/*!
+ * \brief Base class for implementation of worker thread with
+ * thread activity tracking.
+ *
+ * Methods work_started() and work_finished() perform actial activity
+ * tracking.
+ *
+ * This class also provides public method take_activity_stats() to
+ * retrive activity statistics.
+ *
+ * \brief v.1.4.1
+ */
 template< typename Thread_Type >
 class with_activity_tracking_impl_t : protected common_data_t< Thread_Type >
 	{
@@ -332,16 +379,9 @@ class with_activity_tracking_impl_t : protected common_data_t< Thread_Type >
 			:	base_type_t( std::move(io_context) )
 			{}
 
-//FIXME: the repetition of methods io_context and demands_counter is not good.
+		using base_type_t::io_context;
 
-		//FIXME: is it really needed?
-		[[nodiscard]]
-		asio::io_context &
-		io_context() const noexcept { return *(this->m_io_context); }
-
-		[[nodiscard]]
-		demands_counter_t &
-		demands_counter() noexcept { return this->m_demands_counter; }
+		using base_type_t::demands_counter;
 
 		[[nodiscard]]
 		so_5::stats::work_thread_activity_stats_t
@@ -372,6 +412,19 @@ class with_activity_tracking_impl_t : protected common_data_t< Thread_Type >
 //
 // work_thread_template_t
 //
+/*!
+ * \brief An implementation of worker thread in form of the template class.
+ *
+ * Work_Thread parameter is expected to be
+ * work_thread_details::no_activity_tracking_impl_t or
+ * work_thread_details::with_activity_tracking_impl_t.
+ *
+ * This class is also play a role of event_queue. It's because there
+ * is no real event-queue to be controlled by this class. All
+ * demands are delegated to io_context object.
+ *
+ * \since v.1.4.1
+ */
 template<
 	typename Thread_Type,
 	template<class> class Work_Thread >
@@ -430,6 +483,7 @@ class work_thread_template_t
 		void
 		push( execution_demand_t demand ) override
 			{
+				// Demand count statistics should be updated.
 				++(this->demands_counter());
 
 				// If posting a demand fails the count of demands
@@ -488,6 +542,7 @@ class work_thread_template_t
 		void
 		handle_demand( execution_demand_t demand ) noexcept
 			{
+				// Demand count statistics should be updated.
 				--(this->demands_counter());
 
 				this->work_started();
@@ -544,7 +599,14 @@ send_thread_activity_stats(
 //
 // dispatcher_template_t
 //
-//FIXME: document this!
+/*!
+ * \brief An implementation of the dispatcher in the form of template class.
+ *
+ * This dispatcher launches worker thread in the constructor and
+ * stops and joins it in the destructor.
+ *
+ * \since v.1.4.1
+ */
 template< typename Work_Thread >
 class dispatcher_template_t final : public actual_disp_binder_t
 	{
@@ -613,7 +675,7 @@ class dispatcher_template_t final : public actual_disp_binder_t
 		 * \brief Data source for run-time monitoring of whole dispatcher.
 		 *
 		 * \since
-		 * v.5.5.8
+		 * v.1.4.1
 		 */
 		class disp_data_source_t : public stats::source_t
 			{
@@ -675,6 +737,11 @@ class dispatcher_template_t final : public actual_disp_binder_t
 //
 // dispatcher_handle_maker_t
 //
+/*!
+ * \brief A factory class for creation of dispatcher_handle instances.
+ *
+ * \since v.1.4.1
+ */
 class dispatcher_handle_maker_t
 	{
 	public :
@@ -707,11 +774,98 @@ struct default_traits_t
 // make_dispatcher
 //
 //FIXME: document this!
+/*!
+ * \brief A function for creation an instance of %asio_one_thread dispatcher.
+ *
+ * Usage examples:
+ * \code
+ * // Dispatcher which uses own Asio IoContext and default traits.
+ * namespace asio_disp = so_5::extra::disp::asio_one_thread;
+ * asio_disp::disp_params_t params;
+ * params.use_own_io_context(); // Asio IoContext object will be created here.
+ * 		// This object will be accessible later via
+ * 		// dispatcher_handle_t::io_context() method.
+ * auto disp = asio_disp::make_dispatcher(
+ * 	env,
+ * 	"my_asio_disp",
+ * 	std::move(disp_params) );
+ * \endcode
+ *
+ * \code
+ * // Dispatcher which uses external Asio IoContext and default traits.
+ * asio::io_context & io_svc = ...;
+ * namespace asio_disp = so_5::extra::disp::asio_one_thread;
+ * asio_disp::disp_params_t params;
+ * params.use_external_io_context( io_svc );
+ * auto disp = asio_disp::make_dispatcher(
+ * 	env,
+ * 	"my_asio_disp",
+ * 	std::move(disp_params) );
+ * \endcode
+ *
+ * \code
+ * // Dispatcher which uses own Asio IoContext and custom traits.
+ * struct my_traits
+ * {
+ * 	using thread_type = my_custom_thread_type;
+ * };
+ * namespace asio_disp = so_5::extra::disp::asio_one_thread;
+ * asio_disp::disp_params_t params;
+ * params.use_own_io_context();
+ * auto disp = asio_disp::make_dispatcher< my_traits >(
+ * 	env,
+ * 	"my_asio_tp",
+ * 	std::move(disp_params) );
+ * \endcode
+ *
+ * \par Requirements for traits type
+ * Traits type must define a type which looks like:
+ * \code
+ * struct traits
+ * {
+ * 	// Name of type to be used for thread class.
+ * 	using thread_type = ...;
+ * };
+ * \endcode
+ *
+ * \par Requirements for custom thread type
+ * By default std::thread is used as a class for working with threads.
+ * But user can specify its own custom thread type via \a Traits::thread_type
+ * parameter. A custom thread type must be a class which looks like:
+ * \code
+ * class custom_thread_type {
+ * public :
+ * 	// Must provide this constructor.
+ * 	// F -- is a type of functional object which can be converted
+ * 	// into std::function<void()>.
+ * 	template<typename F>
+ * 	custom_thread_type(F && f) {...}
+ *
+ * 	// Destructor must join thread if it is not joined yet.
+ * 	~custom_thread_type() noexcept {...}
+ *
+ * 	// The same semantic like std::thread::join.
+ * 	void join() noexcept {...}
+ * };
+ * \endcode
+ * This class doesn't need to be DefaultConstructible, CopyConstructible,
+ * MoveConstructible, Copyable or Moveable.
+ *
+ * \tparam Traits Type with traits for a dispatcher. For the requirements
+ * for \a Traits type see the section "Requirements for traits type" above.
+ *
+ * \since
+ * v.1.4.1
+ */
 template< typename Traits = default_traits_t >
 dispatcher_handle_t
 make_dispatcher(
+	//! SObjectizer environment to work in.
 	environment_t & env,
+	//! Short name for this instance to be used in thread activity stats.
+	//! Can be empty string. In this case name will be generated automatically.
 	const std::string_view data_sources_name_base,
+	//! Parameters for this dispatcher instance.
 	disp_params_t params )
 	{
 		using namespace so_5::disp::reuse;
@@ -755,3 +909,4 @@ make_dispatcher(
 } /* namespace extra */
 
 } /* namespace so_5 */
+
