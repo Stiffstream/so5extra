@@ -267,7 +267,6 @@ using demands_counter_t = std::atomic< std::size_t >;
 
 namespace work_thread_details {
 
-//FIXME: maybe some Traits type should be used here?
 template< typename Thread_Type >
 struct common_data_t
 	{
@@ -275,7 +274,12 @@ struct common_data_t
 		io_context_shptr_t m_io_context;
 
 		//! Thread object.
-		Thread_Type m_thread;
+		/*!
+		 * @note
+		 * Thread object is stored via unique_ptr becase custom thread
+		 * type can have deleted/disable move constructor/operator.
+		 */
+		std::unique_ptr< Thread_Type > m_thread;
 
 		//! ID of the work thread.
 		/*!
@@ -396,9 +400,8 @@ class work_thread_template_t
 		void
 		start()
 			{
-				//FIXME: is it a good requirement for custom thread types?
-				//FIXME: has asio_thread_pool dispatcher the same requirement?
-				this->m_thread = Thread_Type( [this]() { body(); } );
+				this->m_thread = std::make_unique< Thread_Type >(
+						[this]() { body(); } );
 			}
 
 		void
@@ -410,11 +413,14 @@ class work_thread_template_t
 		void
 		join()
 			{
-				so_5::impl::ensure_join_from_different_thread( this->m_thread_id );
-				this->m_thread.join();
+				if( this->m_thread )
+					{
+						so_5::impl::ensure_join_from_different_thread(
+								this->m_thread_id );
+						this->m_thread->join();
+					}
 			}
 
-		//FIXME: is this method really needed?
 		so_5::current_thread_id_t
 		thread_id() const
 			{
