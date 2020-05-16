@@ -9,4 +9,9 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/ping_pong/prj.rb" )
 	required_prj( "#{path}/ping_pong/prj_s.rb" )
+
+	if 'unix' == toolset.tag( 'target_os', 'undefined' )
+		required_prj( "#{path}/custom_pthread/prj.rb" )
+		required_prj( "#{path}/custom_pthread/prj_s.rb" )
+	end
 }

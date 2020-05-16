@@ -35,6 +35,12 @@
  */
 
 /*!
+ * \example disp/asio_one_thread/ping_pong/main.cpp
+ * \example disp/asio_one_thread/resolve_n/main.cpp
+ * \example disp/asio_one_thread/custom_pthread/main.cpp
+ */
+
+/*!
  * \example async_op/time_unlimited/simple/main.cpp
  */
 
