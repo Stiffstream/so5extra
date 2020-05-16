@@ -5,18 +5,19 @@ so5extra is a collection of various SObjectizer's extensions. so5extra is built 
 At the current moment so5extra contains the following components:
 
 * so_5::extra::async_op. Several implementation of *async operations*. Contains subcomponents so_5::extra::async_op::time_unlimited (async operations without a limit for execution time) and so_5::extra::async_op::time_limited (async operations with a time limit);
-* so_5::extra::disp::asio_thread_pool. A dispatcher which runs Asio's io_service::run() on a thread pool and schedules execution of event-handler via asio::post() facility.
+* so_5::extra::disp::asio_one_thread. A dispatcher which runs Asio's io_service::run() on a separate worker thread and schedules execution of event-handler via asio::post() facility;
+* so_5::extra::disp::asio_thread_pool. A dispatcher which runs Asio's io_service::run() on a thread pool and schedules execution of event-handler via asio::post() facility;
 * so_5::extra::env_infrastructures::asio::simple_mtsafe. An implementation of thread-safe single threaded environment infrastructure on top of Asio;
 * so_5::extra::env_infrastructures::asio::simple_not_mtsafe. An implementation of not-thread-safe single threaded environment infrastructure on top of Asio;
-* so_5::extra::enveloped_msg. A set of tools for working with enveloped messages.
+* so_5::extra::enveloped_msg. A set of tools for working with enveloped messages;
 * so_5::extra::mboxes::collecting_mbox. An implementation of mbox which collects messages of type T and sends bunches of collected messages to the target mbox;
 * so_5::extra::mboxes::broadcast::fixed_mbox. An implementation of mbox which broadcasts messages to a set of destination mboxes;
 * so_5::extra::mboxes::proxy. A proxy-mbox which delegates all calls to the underlying actual mbox. Such proxy simplifies development of custom mboxes.
 * so_5::extra::mboxes::retained_msg. An implementation of mbox which holds the last sent message and automatically resend it to every new subscriber for this message type;
 * so_5::extra::mboxes::round_robin. An implementation of *round-robin* mbox which performs delivery of messages by round-robin scheme;
 * so_5::extra::mchains::fixed_size. An implementation of fixed-size mchain which capacity is known at the compile-time;
-* so_5::extra::revocable_msg. A set of tools for sending messages/signals those can be revoked. 
-* so_5::extra::revocable_timer. A set of tools for sending delayed/periodic messages/signals those can be revoked.
+* so_5::extra::revocable_msg. A set of tools for sending messages/signals those can be revoked;
+* so_5::extra::revocable_timer. A set of tools for sending delayed/periodic messages/signals those can be revoked;
 * so_5::extra::shutdowner. A tool to simplify prevention of SObjectizer shutdown in cases where some agents require more time for graceful shutdown (like storing caches to disk and stuff like that);
 * so_5::extra::sync. A set of tools for performing synchronous interaction between agents (or threads if only mchains are used).
 

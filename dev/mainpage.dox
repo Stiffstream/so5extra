@@ -3,6 +3,11 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
+ * \subsection so_5_extra_v1_4_1 v.1.4.1
+ *
+ * New submodule so_5::extra::disp::asio_one_thread added with another
+ * Asio-base dispatcher that uses only one worker thread.
+ *
  * \subsection so_5_extra_v1_4_0 v.1.4.0
  *
  * License for so5extra library changed. Since v.1.4.0 so5extra is distributed
