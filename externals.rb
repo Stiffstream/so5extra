@@ -5,7 +5,7 @@ MxxRu::arch_externals :so5 do |e|
 end
 
 MxxRu::arch_externals :asio do |e|
-  e.url 'https://github.com/chriskohlhoff/asio/archive/asio-1-16-1.tar.gz'
+  e.url 'https://github.com/chriskohlhoff/asio/archive/asio-1-17-0.tar.gz'
 
   e.map_dir 'asio/include' => 'dev/asio'
 end
@@ -17,7 +17,7 @@ MxxRu::arch_externals :asio_mxxru do |e|
 end
 
 MxxRu::arch_externals :doctest do |e|
-  e.url 'https://github.com/onqtam/doctest/archive/2.3.7.tar.gz'
+  e.url 'https://github.com/onqtam/doctest/archive/2.4.0.tar.gz'
 
   e.map_file 'doctest/doctest.h' => 'dev/doctest/*'
 end
