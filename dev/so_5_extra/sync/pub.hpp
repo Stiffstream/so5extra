@@ -738,7 +738,10 @@ class request_reply_t final
 								typeid(request_reply_t).name() );
 					}
 
-				return *result;
+				if constexpr( is_reply_moveable )
+					return std::move(*result);
+				else
+					return *result;
 			}
 
 	public :
