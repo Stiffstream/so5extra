@@ -51,7 +51,7 @@ TEST_CASE( "send_to(mchain)" )
 					.envelope< msg_ns::just_envelope_t >()
 					.send_to( mchain );
 
-			close_retain_content( mchain );
+			close_retain_content( so_5::exceptions_enabled, mchain );
 
 			receive( from(mchain).handle_all(),
 					[&trace]( so_5::mhood_t<classical_message_t> cmd ) {

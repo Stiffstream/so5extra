@@ -8,6 +8,11 @@
 
 #include <so_5_extra/env_infrastructures/asio/impl/common.hpp>
 
+#include <so_5/version.hpp>
+#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 7u, 3u)
+#error "SObjectizer-5.7.3 is required"
+#endif
+
 #include <so_5/impl/st_env_infrastructure_reuse.hpp>
 #include <so_5/impl/internal_env_iface.hpp>
 #include <so_5/details/sync_helpers.hpp>
@@ -695,13 +700,13 @@ factory( ::asio::io_context & io_svc )
 				obj = new env_infrastructure_t< reusable::real_activity_tracker_t >(
 					outliving_mutable(io_svc),
 					env,
-					env_params.so5__giveout_coop_listener(),
+					env_params.so5_giveout_coop_listener(),
 					std::move(stats_distribution_mbox) );
 			else
 				obj = new env_infrastructure_t< reusable::fake_activity_tracker_t >(
 					outliving_mutable(io_svc),
 					env,
-					env_params.so5__giveout_coop_listener(),
+					env_params.so5_giveout_coop_listener(),
 					std::move(stats_distribution_mbox) );
 
 			return environment_infrastructure_unique_ptr_t(

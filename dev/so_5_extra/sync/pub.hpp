@@ -12,6 +12,11 @@
 
 #include <so_5_extra/mchains/fixed_size.hpp>
 
+#include <so_5/version.hpp>
+#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 7u, 3u)
+#error "SObjectizer-5.7.3 is required"
+#endif
+
 #include <so_5/send_functions.hpp>
 
 #include <so_5/details/always_false.hpp>
@@ -127,7 +132,10 @@ class reply_target_holder_t final
 						// Close the reply chain.
 						// If there is no reply but someone is waiting
 						// on that chain it will be awakened.
-						close_retain_content( ch );
+						// NOTE: because we're in the destructor then
+						// throwing exceptions from close_retain_content is
+						// prohibited.
+						close_retain_content( so_5::terminate_if_throws, ch );
 					}
 					void operator()( const mbox_t & ) const noexcept {
 						// Nothing to do.
