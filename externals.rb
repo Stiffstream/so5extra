@@ -17,7 +17,7 @@ MxxRu::arch_externals :asio_mxxru do |e|
 end
 
 MxxRu::arch_externals :doctest do |e|
-  e.url 'https://github.com/onqtam/doctest/archive/2.4.0.tar.gz'
+  e.url 'https://github.com/onqtam/doctest/archive/2.4.7.tar.gz'
 
   e.map_file 'doctest/doctest.h' => 'dev/doctest/*'
 end
