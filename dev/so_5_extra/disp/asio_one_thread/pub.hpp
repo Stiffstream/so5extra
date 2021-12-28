@@ -13,8 +13,10 @@
 #include <so_5/disp_binder.hpp>
 #include <so_5/send_functions.hpp>
 
+#include <so_5/disp/reuse/actual_work_thread_factory_to_use.hpp>
 #include <so_5/disp/reuse/work_thread_activity_tracking.hpp>
 #include <so_5/disp/reuse/data_source_prefix_helpers.hpp>
+#include <so_5/disp/reuse/work_thread_factory_params.hpp>
 
 #include <so_5/stats/repository.hpp>
 #include <so_5/stats/messages.hpp>
@@ -63,9 +65,12 @@ using io_context_shptr_t = std::shared_ptr< asio::io_context >;
  */
 class disp_params_t
 	:	public ::so_5::disp::reuse::work_thread_activity_tracking_flag_mixin_t< disp_params_t >
+	,	public ::so_5::disp::reuse::work_thread_factory_mixin_t< disp_params_t >
 	{
 		using activity_tracking_mixin_t = ::so_5::disp::reuse::
 				work_thread_activity_tracking_flag_mixin_t< disp_params_t >;
+		using thread_factory_mixin_t = ::so_5::disp::reuse::
+				work_thread_factory_mixin_t< disp_params_t >;
 
 	public :
 		//! Default constructor.
@@ -80,6 +85,10 @@ class disp_params_t
 				swap(
 						static_cast< activity_tracking_mixin_t & >(a),
 						static_cast< activity_tracking_mixin_t & >(b) );
+
+				swap(
+						static_cast< thread_factory_mixin_t & >(a),
+						static_cast< thread_factory_mixin_t & >(b) );
 
 				swap( a.m_io_context, b.m_io_context );
 			}
@@ -291,19 +300,13 @@ namespace work_thread_details {
  *
  * \since v.1.4.1
  */
-template< typename Thread_Type >
 struct common_data_t
 	{
 		//! Asio's context to be used.
 		io_context_shptr_t m_io_context;
 
 		//! Thread object.
-		/*!
-		 * @note
-		 * Thread object is stored via unique_ptr becase custom thread
-		 * type can have deleted/disable move constructor/operator.
-		 */
-		std::unique_ptr< Thread_Type > m_thread;
+		::so_5::disp::work_thread_holder_t m_thread_holder;
 
 		//! ID of the work thread.
 		/*!
@@ -315,8 +318,12 @@ struct common_data_t
 		//! Counter of waiting demands.
 		demands_counter_t m_demands_counter{ 0u };
 
-		common_data_t( io_context_shptr_t io_context )
-			: m_io_context( std::move(io_context) ) {}
+		common_data_t(
+			io_context_shptr_t io_context,
+			::so_5::disp::work_thread_holder_t thread_holder )
+			: m_io_context( std::move(io_context) )
+			, m_thread_holder( std::move(thread_holder) )
+			{}
 
 		[[nodiscard]]
 		asio::io_context &
@@ -335,14 +342,16 @@ struct common_data_t
  *
  * \brief v.1.4.1
  */
-template< typename Thread_Type >
-class no_activity_tracking_impl_t : protected common_data_t< Thread_Type >
+class no_activity_tracking_impl_t : protected common_data_t
 	{
-		using base_type_t = common_data_t< Thread_Type >;
+		using base_type_t = common_data_t;
 
 	public :
-		no_activity_tracking_impl_t( io_context_shptr_t io_context )
-			:	base_type_t( std::move(io_context) )
+		no_activity_tracking_impl_t(
+			io_context_shptr_t io_context,
+			::so_5::disp::work_thread_holder_t thread_holder )
+			:	base_type_t(
+					std::move(io_context), std::move(thread_holder) )
 			{}
 
 		using base_type_t::io_context;
@@ -369,14 +378,16 @@ class no_activity_tracking_impl_t : protected common_data_t< Thread_Type >
  *
  * \brief v.1.4.1
  */
-template< typename Thread_Type >
-class with_activity_tracking_impl_t : protected common_data_t< Thread_Type >
+class with_activity_tracking_impl_t : protected common_data_t
 	{
-		using base_type_t = common_data_t< Thread_Type >;
+		using base_type_t = common_data_t;
 
 	public :
-		with_activity_tracking_impl_t( io_context_shptr_t io_context )
-			:	base_type_t( std::move(io_context) )
+		with_activity_tracking_impl_t(
+			io_context_shptr_t io_context,
+			::so_5::disp::work_thread_holder_t thread_holder )
+			:	base_type_t(
+					std::move(io_context), std::move(thread_holder) )
 			{}
 
 		using base_type_t::io_context;
@@ -425,14 +436,12 @@ class with_activity_tracking_impl_t : protected common_data_t< Thread_Type >
  *
  * \since v.1.4.1
  */
-template<
-	typename Thread_Type,
-	template<class> class Work_Thread >
+template< typename Work_Thread >
 class work_thread_template_t
-	:	public Work_Thread< Thread_Type >
+	:	public Work_Thread
 	,	public event_queue_t
 	{
-		using base_type_t = Work_Thread< Thread_Type >;
+		using base_type_t = Work_Thread;
 
 		//! SObjectizer Environment to work in.
 		/*!
@@ -445,32 +454,19 @@ class work_thread_template_t
 		//! Initializing constructor.
 		work_thread_template_t(
 			environment_t & env,
-			io_context_shptr_t io_context )
-			:	base_type_t( std::move(io_context) )
+			io_context_shptr_t io_context,
+			::so_5::disp::work_thread_holder_t thread_holder )
+			:	base_type_t(
+					std::move(io_context), std::move(thread_holder) )
 			,	m_env( env )
 			{}
 
 		//! Starts a new thread.
-		/*!
-		 * Passes all \a thread_init_args to the constructor of
-		 * of Thread_Type after the lambda-function with thread body.
-		 * It means that if there is a call:
-		 * \code
-		 * work_thread.start( 0, "my-thread", 0.1f );
-		 * \endcode
-		 * Then the actual call for Thread_Type's constructor will
-		 * look like:
-		 * \code
-		 * new Thread_Type( [this] {...}, 0, "my-thread", 0.1f );
-		 * \endcode
-		 */
-		template< typename... Thread_Init_Args >
 		void
-		start( Thread_Init_Args && ...thread_init_args )
+		start()
 			{
-				this->m_thread = std::make_unique< Thread_Type >(
-						[this]() { body(); },
-						std::forward<Thread_Init_Args>(thread_init_args)... );
+				this->m_thread_holder.unchecked_get().start(
+						[this]() { body(); } );
 			}
 
 		void
@@ -482,12 +478,9 @@ class work_thread_template_t
 		void
 		join()
 			{
-				if( this->m_thread )
-					{
-						so_5::impl::ensure_join_from_different_thread(
-								this->m_thread_id );
-						this->m_thread->join();
-					}
+				so_5::impl::ensure_join_from_different_thread(
+						this->m_thread_id );
+				this->m_thread_holder.unchecked_get().join();
 			}
 
 		so_5::current_thread_id_t
@@ -572,18 +565,15 @@ class work_thread_template_t
 //
 // work_thread_no_activity_tracking_t
 //
-template< typename Thread_Type >
 using work_thread_no_activity_tracking_t =
 	work_thread_template_t<
-			Thread_Type,
 			work_thread_details::no_activity_tracking_impl_t >;
 
-template< typename Thread_Type >
-void
+inline void
 send_thread_activity_stats(
 	const so_5::mbox_t &,
 	const so_5::stats::prefix_t &,
-	work_thread_no_activity_tracking_t< Thread_Type > & )
+	work_thread_no_activity_tracking_t & )
 	{
 		/* Nothing to do */
 	}
@@ -591,18 +581,15 @@ send_thread_activity_stats(
 //
 // work_thread_with_activity_tracking_t
 //
-template< typename Thread_Type >
 using work_thread_with_activity_tracking_t =
 	work_thread_template_t<
-			Thread_Type,
 			work_thread_details::with_activity_tracking_impl_t >;
 
-template< typename Thread_Type >
-void
+inline void
 send_thread_activity_stats(
 	const so_5::mbox_t & mbox,
 	const so_5::stats::prefix_t & prefix,
-	work_thread_with_activity_tracking_t< Thread_Type > & wt )
+	work_thread_with_activity_tracking_t & wt )
 	{
 		so_5::send< so_5::stats::messages::work_thread_activity >(
 				mbox,
@@ -629,21 +616,24 @@ class dispatcher_template_t final : public actual_disp_binder_t
 		friend class disp_data_source_t;
 
 	public:
-		template< typename... Thread_Init_Args >
 		dispatcher_template_t(
 			outliving_reference_t< environment_t > env,
 			const std::string_view name_base,
-			disp_params_t params,
-			Thread_Init_Args && ...thread_init_args )
-			:	m_work_thread{ env.get(), params.io_context() }
+			disp_params_t params )
+			:	m_work_thread{
+					env.get(),
+					params.io_context(),
+					::so_5::disp::reuse::acquire_work_thread(
+							params,
+							env.get() )
+				}
 			,	m_data_source{
 					outliving_mutable(env.get().stats_repository()),
 					name_base,
 					outliving_mutable(*this)
 				}
 			{
-				m_work_thread.start(
-						std::forward<Thread_Init_Args>(thread_init_args)... );
+				m_work_thread.start();
 			}
 
 		~dispatcher_template_t() noexcept override
@@ -808,15 +798,13 @@ create_dispatcher(
 					errors::rc_io_context_is_not_set,
 					"io_context is not set in disp_params" );
 
-		using thread_type = typename Traits::thread_type;
-
 		using dispatcher_no_activity_tracking_t =
 				dispatcher_template_t<
-						work_thread_no_activity_tracking_t< thread_type > >;
+						work_thread_no_activity_tracking_t >;
 
 		using dispatcher_with_activity_tracking_t =
 				dispatcher_template_t<
-						work_thread_with_activity_tracking_t< thread_type > >;
+						work_thread_with_activity_tracking_t >;
 
 		using so_5::stats::activity_tracking_stuff::create_appropriate_disp;
 		actual_disp_binder_shptr_t binder =
