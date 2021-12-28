@@ -10,11 +10,15 @@
 
 #include <pthread.h>
 
-// Custom implementation of std::thread-like class.
-class my_pthread_t
+// Custom implementation of worker thread.
+class my_pthread_t final : public so_5::disp::abstract_work_thread_t
 {
 	pthread_t m_thread;
-	std::function<void()> m_func;
+	body_func_t m_func; // Type body_func_t is inherited.
+
+	const std::size_t m_stack_size;
+	const int m_priority;
+
 	bool m_joined{ false };
 
 	static void * thread_body( void * arg )
@@ -33,18 +37,23 @@ public :
 	my_pthread_t( const my_pthread_t & ) = delete;
 	my_pthread_t( my_pthread_t &&r ) = delete;
 
-	template<typename F>
 	my_pthread_t(
-		F && f,
 		stack_size_t stack_size,
 		priority_t priority )
-		:	m_func( std::move(f) )
+		:	m_stack_size{ stack_size.v }
+		,	m_priority{ priority.v }
+	{}
+
+	void start( body_func_t thread_body ) override
 	{
+		// Grab the actual body of worker thread.
+		m_func = std::move(thread_body);
+
 		// Prepare attributes for a new thread.
 		// Doesn't check errors for simplicity.
 		pthread_attr_t attr;
 		pthread_attr_init( &attr );
-		pthread_attr_setstacksize( &attr, stack_size.v );
+		pthread_attr_setstacksize( &attr, m_stack_size );
 		pthread_attr_setinheritsched( &attr, PTHREAD_EXPLICIT_SCHED );
 
 		struct sched_param schedp;
@@ -52,7 +61,7 @@ public :
 		// use getschedparam function.
 		pthread_attr_getschedparam( &attr, &schedp );
 		// Now we can change only the priority.
-		schedp.sched_priority = priority.v;
+		schedp.sched_priority = m_priority;
 		pthread_attr_setschedparam( &attr, &schedp );
 
 		const auto rc = pthread_create(
@@ -68,12 +77,7 @@ public :
 					std::error_code(errno, std::generic_category()) );
 	}
 
-	~my_pthread_t()
-	{
-		join();
-	}
-
-	void join() noexcept
+	void join() override
 	{
 		if( !m_joined )
 		{
@@ -83,11 +87,37 @@ public :
 	}
 };
 
-// Definition of traits to be used with asio_thread_pool.
-struct my_disp_traits
+// Factory for custom worker thread.
+class my_pthread_factory_t final
+	:	public so_5::disp::abstract_work_thread_factory_t
 {
-	// Actual type of thread to be used.
-	using thread_type = my_pthread_t;
+public:
+	using stack_size_t = my_pthread_t::stack_size_t;
+	using priority_t = my_pthread_t::priority_t;
+
+private:
+	const stack_size_t m_stack_size;
+	const priority_t m_priority;
+
+public:
+	my_pthread_factory_t(
+		stack_size_t stack_size,
+		priority_t priority )
+		:	m_stack_size{ stack_size }
+		,	m_priority{ priority }
+	{}
+
+	so_5::disp::abstract_work_thread_t &
+	acquire( so_5::environment_t & /*env*/ ) override
+	{
+		return *(new my_pthread_t{ m_stack_size, m_priority });
+	}
+
+	void
+	release( so_5::disp::abstract_work_thread_t & thread ) noexcept override
+	{
+		delete &thread;
+	}
 };
 
 // Type of agent to be used in example.
@@ -130,14 +160,17 @@ int main()
 
 		// Create dispatcher instance.
 		// That instance will use external io_context object.
-		auto disp = asio_disp::make_dispatcher< my_disp_traits >(
+		auto disp = asio_disp::make_dispatcher(
 				env,
 				"asio_disp",
-				asio_disp::disp_params_t{}.use_own_io_context(),
-				// Those parameters will be passed to the constructor
-				// of my_pthread_t.
-				my_pthread_t::stack_size_t{ 4096u },
-				my_pthread_t::priority_t{ 2 } );
+				asio_disp::disp_params_t{}
+					.use_own_io_context()
+					.work_thread_factory(
+						std::make_shared< my_pthread_factory_t >(
+							// Those parameters will be used for worker thread.
+							my_pthread_t::stack_size_t{ 4096u },
+							my_pthread_t::priority_t{ 2 } ) )
+			);
 
 		// Create hello-agent that will be bound to asio_one_thread dispatcher.
 		env.introduce_coop(
