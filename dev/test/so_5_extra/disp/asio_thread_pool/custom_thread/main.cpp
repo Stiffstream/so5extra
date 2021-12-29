@@ -7,26 +7,64 @@
 
 #include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
-class custom_thread_type 
+class custom_thread_type final
+	:	public so_5::disp::abstract_work_thread_t
 {
 	std::thread m_thread;
 public :
-	custom_thread_type() = delete;
-	custom_thread_type( const custom_thread_type & ) = delete;
-	custom_thread_type( custom_thread_type && ) = delete;
+	custom_thread_type() = default;
 
-	template< typename F >
-	custom_thread_type( F && f ) : m_thread( std::forward<F>(f) ) {}
+	void start( body_func_t thread_body ) override
+	{
+		m_thread = std::thread{ [tb = std::move(thread_body)]() {
+				tb();
+			}
+		};
+	}
 
-	custom_thread_type & operator=( const custom_thread_type & ) = delete;
-	custom_thread_type & operator=( custom_thread_type && ) = delete;
+	void join() override { m_thread.join(); }
+};
 
-	void join() { m_thread.join(); }
+class custom_thread_factory final
+	:	public so_5::disp::abstract_work_thread_factory_t
+{
+	std::atomic<unsigned int> m_acquired{};
+	std::atomic<unsigned int> m_released{};
+
+public:
+	custom_thread_factory() = default;
+
+	so_5::disp::abstract_work_thread_t &
+	acquire( so_5::environment_t & /*env*/ ) override
+	{
+		++m_acquired;
+		return *(new custom_thread_type{});
+	}
+
+	void
+	release( so_5::disp::abstract_work_thread_t & thread ) noexcept override
+	{
+		++m_released;
+		delete &thread;
+	}
+
+	[[nodiscard]]
+	unsigned int
+	acquired()
+	{
+		return m_acquired.load( std::memory_order_acquire );
+	}
+
+	[[nodiscard]]
+	unsigned int
+	released()
+	{
+		return m_released.load( std::memory_order_acquire );
+	}
 };
 
 struct custom_traits
 {
-	using thread_type = custom_thread_type;
 };
 
 class a_test_case_t final : public so_5::agent_t
@@ -79,11 +117,14 @@ TEST_CASE( "simplest agent must handle so_evt_start and so_evt_finish" )
 
 			asio::io_context io_svc;
 			asio::io_context::strand actor_strand{ io_svc };
+			auto factory = std::make_shared< custom_thread_factory >();
 			so_5::launch( [&](so_5::environment_t & env) {
 						namespace asio_tp = so_5::extra::disp::asio_thread_pool;
 
 						asio_tp::disp_params_t params;
 						params.use_external_io_context( io_svc );
+						params.thread_count( 3 );
+						params.work_thread_factory( factory );
 
 						auto disp = asio_tp::make_dispatcher<custom_traits>(
 								env,
@@ -100,6 +141,8 @@ TEST_CASE( "simplest agent must handle so_evt_start and so_evt_finish" )
 					} );
 
 			REQUIRE( scenario == "start();hello();finish();" );
+			REQUIRE( 3u == factory->acquired() );
+			REQUIRE( 3u == factory->released() );
 		},
 		5 );
 }

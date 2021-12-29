@@ -13,8 +13,10 @@
 #include <so_5/disp_binder.hpp>
 #include <so_5/send_functions.hpp>
 
+#include <so_5/disp/reuse/actual_work_thread_factory_to_use.hpp>
 #include <so_5/disp/reuse/work_thread_activity_tracking.hpp>
 #include <so_5/disp/reuse/data_source_prefix_helpers.hpp>
+#include <so_5/disp/reuse/work_thread_factory_params.hpp>
 
 #include <so_5/stats/repository.hpp>
 #include <so_5/stats/messages.hpp>
@@ -58,9 +60,12 @@ const int rc_io_context_is_not_set =
  */
 class disp_params_t
 	:	public ::so_5::disp::reuse::work_thread_activity_tracking_flag_mixin_t< disp_params_t >
+	,	public ::so_5::disp::reuse::work_thread_factory_mixin_t< disp_params_t >
 	{
 		using activity_tracking_mixin_t = ::so_5::disp::reuse::
 				work_thread_activity_tracking_flag_mixin_t< disp_params_t >;
+		using thread_factory_mixin_t = ::so_5::disp::reuse::
+				work_thread_factory_mixin_t< disp_params_t >;
 
 	public :
 		//! Default constructor.
@@ -75,6 +80,10 @@ class disp_params_t
 				swap(
 						static_cast< activity_tracking_mixin_t & >(a),
 						static_cast< activity_tracking_mixin_t & >(b) );
+
+				swap(
+						static_cast< thread_factory_mixin_t & >(a),
+						static_cast< thread_factory_mixin_t & >(b) );
 
 				swap( a.m_thread_count, b.m_thread_count );
 				swap( a.m_io_context, b.m_io_context );
@@ -905,9 +914,15 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 
 	public:
 		basic_dispatcher_skeleton_t(
+			::so_5::environment_t & env,
 			disp_params_t params )
 			:	m_thread_count( params.thread_count() )
 			,	m_io_context( params.io_context() )
+			,	m_thread_factory(
+					::so_5::disp::reuse::actual_work_thread_factory_to_use(
+							params,
+							env )
+				)
 			{
 			}
 
@@ -990,6 +1005,7 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 		/*!
 		 * \brief Get the count of work threads to be created.
 		 */
+		[[nodiscard]]
 		std::size_t
 		thread_count() const noexcept { return m_thread_count; }
 
@@ -997,9 +1013,18 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 		 * \brief Get access to actual data source instance for that
 		 * dispatcher.
 		 */
+		[[nodiscard]]
 		virtual disp_data_source_t &
 		data_source() noexcept = 0;
 
+		/*!
+		 * \brief Get access to thread factory to be used for that dispatcher.
+		 *
+		 * \since v.1.5.0
+		 */
+		[[nodiscard]]
+		::so_5::disp::abstract_work_thread_factory_shptr_t
+		thread_factory() const noexcept { return m_thread_factory; }
 
 #if defined(__clang__)
 #pragma clang diagnostic push
@@ -1102,6 +1127,13 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 		//! IO Service to work with.
 		const std::shared_ptr< ::asio::io_context > m_io_context;
 
+		/*!
+		 * \brief Thread factory to be used with this dispatcher.
+		 *
+		 * \since v.1.5.0
+		 */
+		const ::so_5::disp::abstract_work_thread_factory_shptr_t m_thread_factory;
+
 		//! Count of agents bound to that dispatcher.
 		std::atomic< std::size_t > m_agents_bound{ 0u };
 
@@ -1144,8 +1176,9 @@ class dispatcher_skeleton_without_thread_activity_tracking_t
 	{
 	public :
 		dispatcher_skeleton_without_thread_activity_tracking_t(
+			environment_t & env,
 			disp_params_t params )
-			:	basic_dispatcher_skeleton_t( std::move(params) )
+			:	basic_dispatcher_skeleton_t( env, std::move(params) )
 			{}
 
 	protected :
@@ -1265,8 +1298,9 @@ class dispatcher_skeleton_with_thread_activity_tracking_t
 
 	public :
 		dispatcher_skeleton_with_thread_activity_tracking_t(
+			environment_t & env,
 			disp_params_t params )
-			:	basic_dispatcher_skeleton_t( params )
+			:	basic_dispatcher_skeleton_t( env, params )
 			,	m_actual_data_source( *this, params.thread_count() )
 			{}
 
@@ -1329,7 +1363,7 @@ class dispatcher_template_t final : public Basic_Skeleton
 			std::string_view data_sources_name_base,
 			//! Parameters for the dispatcher.
 			disp_params_t params )
-			:	Basic_Skeleton{ std::move(params) }
+			:	Basic_Skeleton{ env.get(), std::move(params) }
 			{
 				this->start( env.get(), data_sources_name_base );
 			}
@@ -1341,13 +1375,11 @@ class dispatcher_template_t final : public Basic_Skeleton
 			}
 
 	private:
-		//! An alias for actual thread type.
-		using thread_t = typename Traits::thread_type;
-		//! An alias for unique_ptr to thread.
-		using thread_unique_ptr_t = std::unique_ptr< thread_t >;
+		//! An alias for thread_holder.
+		using thread_holder_t = ::so_5::disp::work_thread_holder_t;
 
 		//! Working threads.
-		std::vector< thread_unique_ptr_t > m_threads;
+		std::vector< thread_holder_t > m_threads;
 
 		virtual void
 		launch_work_threads(
@@ -1371,8 +1403,8 @@ class dispatcher_template_t final : public Basic_Skeleton
 							for( auto & t : m_threads )
 								if( t )
 									{
-										t->join();
-										t.reset();
+										t.unchecked_get().join();
+										t = thread_holder_t{};
 									}
 								else
 									// No more started threads.
@@ -1386,22 +1418,28 @@ class dispatcher_template_t final : public Basic_Skeleton
 			{
 				for( auto & t : m_threads )
 					{
-						t->join();
-						t.reset();
+						t.unchecked_get().join();
+						t = thread_holder_t{};
 					}
 			}
 
-		thread_unique_ptr_t
+		thread_holder_t
 		make_work_thread(
 			environment_t & env,
 			std::size_t index )
 			{
 				Basic_Skeleton * self = this;
-				return std::make_unique< thread_t >(
+				thread_holder_t work_thread{
+						this->thread_factory()->acquire( env ),
+						this->thread_factory()
+					};
+				work_thread.unchecked_get().start(
 					[&env, io_svc = &this->io_context(), self, index]()
 					{
 						Basic_Skeleton::run_work_thread( env, *io_svc, *self, index );
 					} );
+
+				return work_thread;
 			}
 	};
 
@@ -1447,13 +1485,16 @@ default_thread_pool_size()
 /*!
  * \brief Default traits of %asio_thread_pool dispatcher.
  *
+ * \note
+ * This type is empty in v.1.5.0.
+ * It is left empty intentionally to have a possibility to extend it later, in
+ * some future version.
+ *
  * \since
  * v.1.0.2
  */
 struct default_traits_t
 	{
-		//! Type of thread.
-		using thread_type = std::thread;
 	};
 
 //
@@ -1485,54 +1526,14 @@ struct default_traits_t
  * 	env,
  * 	"my_asio_tp",
  * 	std::move(disp_params) );
- *
- *
- * // Dispatcher which uses own Asio IoContext and custom traits.
- * struct my_traits
- * {
- * 	using thread_type = my_custom_thread_type;
- * };
- * namespace asio_tp = so_5::extra::disp::asio_thread_pool;
- * asio_tp::disp_params_t params;
- * params.use_own_io_context();
- * auto disp = asio_tp::make_dispatcher< my_traits >(
- * 	env,
- * 	"my_asio_tp",
- * 	std::move(disp_params) );
  * \endcode
  *
  * \par Requirements for traits type
- * Traits type must define a type which looks like:
- * \code
- * struct traits
- * {
- * 	// Name of type to be used for thread class.
- * 	using thread_type = ...;
- * };
- * \endcode
- *
- * \par Requirements for custom thread type
- * By default std::thread is used as a class for working with threads.
- * But user can specify its own custom thread type via \a Traits::thread_type
- * parameter. A custom thread type must be a class which looks like:
- * \code
- * class custom_thread_type {
- * public :
- * 	// Must provide this constructor.
- * 	// F -- is a type of functional object which can be converted
- * 	// into std::function<void()>.
- * 	template<typename F>
- * 	custom_thread_type(F && f) {...}
- *
- * 	// Destructor must join thread if it is not joined yet.
- * 	~custom_thread_type() noexcept {...}
- *
- * 	// The same semantic like std::thread::join.
- * 	void join() noexcept {...}
- * };
- * \endcode
- * This class doesn't need to be DefaultConstructible, CopyConstructible,
- * MoveConstructible, Copyable or Moveable.
+ * The Traits-type is empty in v.1.5.0. There was a possibitily to specify
+ * a custom thread type in previous versions of so_5_extra, but since v.1.5.0
+ * custom threads are supported via standard SObjectizer's mechanism based
+ * on `abstract_work_thread_t`/`abstract_work_thread_factory_t` interfaces.
+ * But the Traits-type might be extended by some content in future versions.
  *
  * \tparam Traits Type with traits for a dispatcher. For the requirements
  * for \a Traits type see the section "Requirements for traits type" above.
