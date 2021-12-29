@@ -831,13 +831,16 @@ create_dispatcher(
 /*!
  * \brief Default traits of %asio_one_thread dispatcher.
  *
+ * \note
+ * This type is empty in v.1.5.0.
+ * It is left empty intentionally to have a possibility to extend it later, in
+ * some future version.
+ *
  * \since
  * v.1.4.1
  */
 struct default_traits_t
 	{
-		//! Type of thread.
-		using thread_type = std::thread;
 	};
 
 //
@@ -872,53 +875,12 @@ struct default_traits_t
  * 	std::move(disp_params) );
  * \endcode
  *
- * \code
- * // Dispatcher which uses own Asio IoContext and custom traits.
- * struct my_traits
- * {
- * 	using thread_type = my_custom_thread_type;
- * };
- * namespace asio_disp = so_5::extra::disp::asio_one_thread;
- * asio_disp::disp_params_t params;
- * params.use_own_io_context();
- * auto disp = asio_disp::make_dispatcher< my_traits >(
- * 	env,
- * 	"my_asio_tp",
- * 	std::move(disp_params) );
- * \endcode
- *
  * \par Requirements for traits type
- * Traits type must define a type which looks like:
- * \code
- * struct traits
- * {
- * 	// Name of type to be used for thread class.
- * 	using thread_type = ...;
- * };
- * \endcode
- *
- * \par Requirements for custom thread type
- * By default std::thread is used as a class for working with threads.
- * But user can specify its own custom thread type via \a Traits::thread_type
- * parameter. A custom thread type must be a class which looks like:
- * \code
- * class custom_thread_type {
- * public :
- * 	// Must provide this constructor.
- * 	// F -- is a type of functional object which can be converted
- * 	// into std::function<void()>.
- * 	template<typename F>
- * 	custom_thread_type(F && f) {...}
- *
- * 	// Destructor must join thread if it is not joined yet.
- * 	~custom_thread_type() noexcept {...}
- *
- * 	// The same semantic like std::thread::join.
- * 	void join() noexcept {...}
- * };
- * \endcode
- * This class doesn't need to be DefaultConstructible, CopyConstructible,
- * MoveConstructible, Copyable or Moveable.
+ * The Traits-type is empty in v.1.5.0. There was a possibitily to specify
+ * a custom thread type in previous versions of so_5_extra, but since v.1.5.0
+ * custom threads are supported via standard SObjectizer's mechanism based
+ * on `abstract_work_thread_t`/`abstract_work_thread_factory_t` interfaces.
+ * But the Traits-type might be extended by some content in future versions.
  *
  * \tparam Traits Type with traits for a dispatcher. For the requirements
  * for \a Traits type see the section "Requirements for traits type" above.
@@ -941,106 +903,6 @@ make_dispatcher(
 				env,
 				data_sources_name_base,
 				std::move(params) );
-	}
-
-/*!
- * \brief A function for creation an instance of %asio_one_thread dispatcher
- * with a set of arguments for custom thread object's constructor.
- *
- * Usage example:
- * \code
- * // Dispatcher which uses own Asio IoContext and custom traits.
- * class my_custom_thread_type
- * {
- * 	...
- * public:
- * 	template< typename F >
- * 	my_custom_thread_type(
- * 		F && body,
- * 		int priority,
- * 		std::string instance_name,
- * 		std::size_t stack_size )
- * 	{...}
- *
- * 	...
- * };
- * struct my_traits
- * {
- * 	using thread_type = my_custom_thread_type;
- * };
- * namespace asio_disp = so_5::extra::disp::asio_one_thread;
- * asio_disp::disp_params_t params;
- * params.use_own_io_context();
- * auto disp = asio_disp::make_dispatcher< my_traits >(
- * 	env,
- * 	"my_asio_tp",
- * 	std::move(disp_params),
- * 	// Those parameters will be passed to the constructor
- * 	// of my_custom_thread_type.
- * 	2, "my-asio-one-thread"s, 8192u);
- * \endcode
- *
- * \par Requirements for traits type
- * Traits type must define a type which looks like:
- * \code
- * struct traits
- * {
- * 	// Name of type to be used for thread class.
- * 	using thread_type = ...;
- * };
- * \endcode
- *
- * \par Requirements for custom thread type
- * A custom thread type must be a class which looks like:
- * \code
- * class custom_thread_type {
- * public :
- * 	// Must provide this constructor.
- * 	// F -- is a type of functional object which can be converted
- * 	// into std::function<void()>.
- * 	template<
- * 		typename F,
- * 		typename... Init_Args>
- * 	custom_thread_type(F && f, Init_Args && ...init_args) {...}
- *
- * 	// Destructor must join thread if it is not joined yet.
- * 	~custom_thread_type() noexcept {...}
- *
- * 	// The same semantic like std::thread::join.
- * 	void join() noexcept {...}
- * };
- * \endcode
- * This class doesn't need to be DefaultConstructible, CopyConstructible,
- * MoveConstructible, Copyable or Moveable.
- *
- * \tparam Traits Type with traits for a dispatcher. For the requirements
- * for \a Traits type see the section "Requirements for traits type" above.
- * \tparam Thread_Init_Args Types of parameters to be passed to the
- * constructor of Traits::thread_type.
- *
- * \since
- * v.1.4.1
- */
-template<
-	typename Traits,
-	typename... Thread_Init_Args >
-dispatcher_handle_t
-make_dispatcher(
-	//! SObjectizer environment to work in.
-	environment_t & env,
-	//! Short name for this instance to be used in thread activity stats.
-	//! Can be empty string. In this case name will be generated automatically.
-	const std::string_view data_sources_name_base,
-	//! Parameters for this dispatcher instance.
-	disp_params_t params,
-	//! Parameters for initialization of a custom thread.
-	Thread_Init_Args && ...thread_init_args )
-	{
-		return impl::create_dispatcher< Traits >(
-				env,
-				data_sources_name_base,
-				std::move(params),
-				std::forward<Thread_Init_Args>(thread_init_args)... );
 	}
 
 } /* namespace asio_one_thread */
