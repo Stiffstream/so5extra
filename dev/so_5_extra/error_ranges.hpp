@@ -77,6 +77,13 @@ const int sync_errors = 20900;
  */
 const int asio_one_thread_errors = 21000;
 
+//! Starting point for errors of mboxes::unique_subscribers submodule.
+/*!
+ * \since
+ * v.1.4.1
+ */
+const int mboxes_unique_subscribers_errors = 21100;
+
 } /* namespace errors */
 
 } /* namespace extra */
