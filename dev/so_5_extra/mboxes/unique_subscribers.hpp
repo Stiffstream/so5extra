@@ -370,6 +370,31 @@ class actual_mbox_t final
 // mbox_template_t
 //
 //FIXME: document this!
+/*!
+ * \brief A template that defines properties for unique_subscribers mbox.
+ *
+ * Usage examples:
+ *
+ * Create a mbox with std::mutex as Lock_Type (this mbox can safely be
+ * used in multi-threaded environments):
+ * \code
+ * so_5::environment_t & env = ...;
+ * auto mbox = so_5::extra::mboxes::unique_subscribers::mbox_template_t<>::make(env);
+ * \endcode
+ *
+ * Create a mbox with so_5::null_mutex_t as Lock_Type (this mbox can only
+ * be used in single-threaded environments):
+ * \code
+ * so_5::environment_t & env = ...;
+ * auto mbox = so_5::extra::mboxes::unique_subscribers::mbox_template_t<so_5::null_mutex_t>::make(env);
+ * \endcode
+ *
+ * \tparam Lock_Type type of lock to be used for thread safety. It can be
+ * std::mutex or so_5::null_mutex_t (or any other type which can be used
+ * with std::lock_quard).
+ *
+ * \since v.1.5.0
+ */
 template<
 	typename Lock_Type = std::mutex >
 class mbox_template_t final

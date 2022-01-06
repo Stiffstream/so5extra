@@ -3,6 +3,19 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
+ * \subsection so_5_extra_v1_5_0 v.1.5.0
+ *
+ * Traits-type for asio_one_thread and asio_thread_pool dispatchers is empty
+ * now. This is a breaking change for those who use asio_one_thread and/or
+ * asio_thread_pool dispatchers with custom thread type. Since v.1.5.0 so5extra
+ * utilizes the standard SObjectizer's mechanism based on
+ * abstract_work_thread_t/abstract_work_thread_factory_t interfaces. It means
+ * that a user has to create an instance of a custom thread factory, then pass
+ * this factory to the parameters of a dispatcher (or to the parameters of the
+ * whole SObjectizer Environment).
+ *
+ * New type of mbox is introduced: so_5::extra::mboxes::unique_subscribers.
+ *
  * \subsection so_5_extra_v1_4_2 v.1.4.2
  *
  * No new features, just adaptation to SObjectizer-5.7.3. Some new features

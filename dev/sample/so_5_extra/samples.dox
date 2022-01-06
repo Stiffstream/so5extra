@@ -62,5 +62,9 @@
  * \example sync/mchains/main.cpp
  */
 
+/*!
+ * \example mboxes/unique_subscribers/simple/main.cpp
+ */
+
 // vim:ft=cpp
 
