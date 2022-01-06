@@ -223,8 +223,9 @@ int main()
 		so_5::launch( []( so_5::environment_t & env ) {
 				env.introduce_coop( []( so_5::coop_t & coop ) {
 						// Mbox to be used for exchanging the data.
-						auto processing_mbox = so_5::extra::mboxes::unique_subscribers::
-								mbox_template_t<>::make( coop.environment() );
+						auto processing_mbox =
+								so_5::extra::mboxes::unique_subscribers::make_mbox(
+										coop.environment() );
 
 						// Fill the coop with manager and workers.
 						coop.make_agent< processing_manager_t >( processing_mbox );

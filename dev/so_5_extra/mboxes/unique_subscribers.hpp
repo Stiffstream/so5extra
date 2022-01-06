@@ -367,11 +367,11 @@ class actual_mbox_t final
 } /* namespace details */
 
 //
-// mbox_template_t
+// make_mbox
 //
-//FIXME: document this!
 /*!
- * \brief A template that defines properties for unique_subscribers mbox.
+ * \brief Factory function for creation of a new instance of unique_subscribers
+ * mbox.
  *
  * Usage examples:
  *
@@ -379,14 +379,14 @@ class actual_mbox_t final
  * used in multi-threaded environments):
  * \code
  * so_5::environment_t & env = ...;
- * auto mbox = so_5::extra::mboxes::unique_subscribers::mbox_template_t<>::make(env);
+ * auto mbox = so_5::extra::mboxes::unique_subscribers::make_mbox(env);
  * \endcode
  *
  * Create a mbox with so_5::null_mutex_t as Lock_Type (this mbox can only
  * be used in single-threaded environments):
  * \code
  * so_5::environment_t & env = ...;
- * auto mbox = so_5::extra::mboxes::unique_subscribers::mbox_template_t<so_5::null_mutex_t>::make(env);
+ * auto mbox = so_5::extra::mboxes::unique_subscribers::make_mbox<so_5::null_mutex_t>(env);
  * \endcode
  *
  * \tparam Lock_Type type of lock to be used for thread safety. It can be
@@ -397,45 +397,40 @@ class actual_mbox_t final
  */
 template<
 	typename Lock_Type = std::mutex >
-class mbox_template_t final
+[[nodiscard]]
+mbox_t
+make_mbox( so_5::environment_t & env )
 	{
-	public :
-		//FIXME: document this!
-		[[nodiscard]]
-		static mbox_t
-		make( so_5::environment_t & env )
-			{
-				return env.make_custom_mbox(
-						[&]( const mbox_creation_data_t & data ) {
-							mbox_t result;
+		return env.make_custom_mbox(
+				[&]( const mbox_creation_data_t & data ) {
+					mbox_t result;
 
-							if( data.m_tracer.get().is_msg_tracing_enabled() )
-								{
-									using T = details::actual_mbox_t<
-											Lock_Type,
-											::so_5::impl::msg_tracing_helpers::tracing_enabled_base >;
+					if( data.m_tracer.get().is_msg_tracing_enabled() )
+						{
+							using T = details::actual_mbox_t<
+									Lock_Type,
+									::so_5::impl::msg_tracing_helpers::tracing_enabled_base >;
 
-									result = mbox_t{ new T{
-											data.m_id,
-											data.m_env,
-											data.m_tracer.get()
-									} };
-								}
-							else
-								{
-									using T = details::actual_mbox_t<
-											Lock_Type,
-											::so_5::impl::msg_tracing_helpers::tracing_disabled_base >;
-									result = mbox_t{ new T{
-											data.m_id,
-											data.m_env
-									} };
-								}
+							result = mbox_t{ new T{
+									data.m_id,
+									data.m_env,
+									data.m_tracer.get()
+							} };
+						}
+					else
+						{
+							using T = details::actual_mbox_t<
+									Lock_Type,
+									::so_5::impl::msg_tracing_helpers::tracing_disabled_base >;
+							result = mbox_t{ new T{
+									data.m_id,
+									data.m_env
+							} };
+						}
 
-							return result;
-						} );
-			}
-	};
+					return result;
+				} );
+	}
 
 } /* namespace unique_subscribers */
 

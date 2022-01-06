@@ -113,7 +113,7 @@ TEST_CASE( "simple case" )
 {
 	run_with_time_limit( [] {
 			so_5::launch( [&](so_5::environment_t & env) {
-						auto test_mbox = mbox_ns::mbox_template_t< so_5::null_mutex_t >::make( env );
+						auto test_mbox = mbox_ns::make_mbox< so_5::null_mutex_t >( env );
 
 						env.register_agent_as_coop(
 								env.make_agent< first >( test_mbox ) );
