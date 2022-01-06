@@ -9,4 +9,5 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/retained_msg/build_tests.rb" )
 	required_prj( "#{path}/proxy/build_tests.rb" )
 	required_prj( "#{path}/broadcast/build_tests.rb" )
+	required_prj( "#{path}/unique_subscribers/build_tests.rb" )
 }
