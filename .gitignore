@@ -13,6 +13,7 @@
 /dev/*.log
 /dev/__*.?pp
 /dev/__*.vim
+/dev/__*.rb
 o/*
 cmake_build*
 *.sublime-project
