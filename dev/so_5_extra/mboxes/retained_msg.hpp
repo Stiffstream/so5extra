@@ -8,11 +8,18 @@
 
 #pragma once
 
+#include <so_5/version.hpp>
+
+#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 7u, 4u)
+#error "SObjectizer-5.7.4 of newest is required"
+#endif
+
 #include <so_5_extra/error_ranges.hpp>
 
 #include <so_5/impl/agent_ptr_compare.hpp>
 #include <so_5/impl/message_limit_internals.hpp>
 #include <so_5/impl/msg_tracing_helpers.hpp>
+#include <so_5/impl/local_mbox_basic_subscription_info.hpp>
 
 #include <so_5/details/sync_helpers.hpp>
 
@@ -98,141 +105,9 @@ using lock_t = typename Config_Type::lock_type;
 /*!
  * \brief An information block about one subscriber.
  *
- * \since
- * v.1.0.3
+ * \since v.1.0.3, v.1.5.1
  */
-class subscriber_info_t
-{
-	/*!
-	 * \brief Current status of the subscriber.
-	 */
-	enum class state_t
-	{
-		nothing,
-		only_subscriptions,
-		only_filter,
-		subscriptions_and_filter
-	};
-
-	//! Optional message limit for that subscriber.
-	const so_5::message_limit::control_block_t * m_limit;
-
-	/*!
-	 * \brief Delivery filter for that message for that subscriber.
-	 */
-	const delivery_filter_t * m_filter;
-
-	/*!
-	 * \brief Current state of the subscriber parameters.
-	 */
-	state_t m_state;
-
-public :
-	//! Constructor for the case when subscriber info is being
-	//! created during event subscription.
-	subscriber_info_t(
-		const so_5::message_limit::control_block_t * limit )
-		:	m_limit( limit )
-		,	m_filter( nullptr )
-		,	m_state( state_t::only_subscriptions )
-	{}
-
-	//! Constructor for the case when subscriber info is being
-	//! created during event subscription.
-	subscriber_info_t(
-		const delivery_filter_t * filter )
-		:	m_limit( nullptr )
-		,	m_filter( filter )
-		,	m_state( state_t::only_filter )
-	{}
-
-	bool
-	empty() const noexcept
-	{
-		return state_t::nothing == m_state;
-	}
-
-	const message_limit::control_block_t *
-	limit() const noexcept
-	{
-		return m_limit;
-	}
-
-	//! Set the message limit for the subscriber.
-	/*!
-	 * Setting the message limit means that there are subscriptions
-	 * for the agent.
-	 *
-	 * \note The message limit can be nullptr.
-	 */
-	void
-	set_limit( const message_limit::control_block_t * limit ) noexcept
-	{
-		m_limit = limit;
-
-		m_state = ( state_t::nothing == m_state ?
-				state_t::only_subscriptions :
-				state_t::subscriptions_and_filter );
-	}
-
-	//! Drop the message limit for the subscriber.
-	/*!
-	 * Dropping the message limit means that there is no more
-	 * subscription for the agent.
-	 */
-	void
-	drop_limit() noexcept
-	{
-		m_limit = nullptr;
-
-		m_state = ( state_t::only_subscriptions == m_state ?
-				state_t::nothing : state_t::only_filter );
-	}
-
-	//! Set the delivery filter for the subscriber.
-	void
-	set_filter( const delivery_filter_t & filter ) noexcept
-	{
-		m_filter = &filter;
-
-		m_state = ( state_t::nothing == m_state ?
-				state_t::only_filter :
-				state_t::subscriptions_and_filter );
-	}
-
-	//! Drop the delivery filter for the subscriber.
-	void
-	drop_filter() noexcept
-	{
-		m_filter = nullptr;
-
-		m_state = ( state_t::only_filter == m_state ?
-				state_t::nothing : state_t::only_subscriptions );
-	}
-
-	//! Must a message be delivered to the subscriber?
-	delivery_possibility_t
-	must_be_delivered(
-		agent_t & subscriber,
-		message_t & msg ) const noexcept
-	{
-		// For the case when there are actual subscriptions.
-		// We assume that will be in 99.9% cases.
-		auto need_deliver = delivery_possibility_t::must_be_delivered;
-
-		if( state_t::only_filter == m_state )
-			// Only filter, no actual subscriptions.
-			// No message delivery for that case.
-			need_deliver = delivery_possibility_t::no_subscription;
-		else if( state_t::subscriptions_and_filter == m_state )
-			// Delivery must be checked by delivery filter.
-			need_deliver = m_filter->check( subscriber, msg ) ?
-					delivery_possibility_t::must_be_delivered :
-					delivery_possibility_t::disabled_by_delivery_filter;
-
-		return need_deliver;
-	}
-};
+using subscriber_info_t = so_5::impl::local_mbox_details::basic_subscription_info_t;
 
 //
 // messages_table_item_t
@@ -576,7 +451,10 @@ class actual_mbox_t final
 				const auto delivery_status =
 						subscriber_info.must_be_delivered(
 								subscriber,
-								*(message.get()) );
+								message,
+								[]( const message_ref_t & msg ) -> message_t & {
+									return *msg;
+								} );
 
 				if( delivery_possibility_t::must_be_delivered == delivery_status )
 					{
