@@ -97,6 +97,14 @@ class subscriber_info_t
 			,	m_agent{ &agent }
 			{}
 
+		//! Constructor for case when agent and delivery filter are known.
+		subscriber_info_t(
+			agent_t & agent,
+			const so_5::delivery_filter_t & filter )
+			:	base_type_t{ &filter }
+			,	m_agent{ &agent }
+			{}
+
 		[[nodiscard]]
 		agent_t *
 		receiver() const noexcept
@@ -242,21 +250,32 @@ class actual_mbox_t final
 
 		void
 		set_delivery_filter(
-			const std::type_index & /*msg_type*/,
-			const delivery_filter_t & /*filter*/,
-			agent_t & /*subscriber*/ ) override
+			const std::type_index & msg_type,
+			const delivery_filter_t & filter,
+			agent_t & subscriber ) override
 			{
-				SO_5_THROW_EXCEPTION( errors::rc_delivery_filters_not_supported,
-						"delivery filters can't be used with "
-						"unique_subscribers mboxes" );
+				insert_or_modify_subscriber(
+						msg_type,
+						subscriber,
+						[&] {
+							return subscriber_info_t{ subscriber, filter };
+						},
+						[&]( subscriber_info_t & info ) {
+							info.set_filter( filter );
+						} );
 			}
 
 		void
 		drop_delivery_filter(
-			const std::type_index & /*msg_type*/,
-			agent_t & /*subscriber*/ ) noexcept override
+			const std::type_index & msg_type,
+			agent_t & subscriber ) noexcept override
 			{
-				// No nothing.
+				modify_and_remove_subscriber_if_needed(
+						msg_type,
+						subscriber,
+						[]( subscriber_info_t & info ) {
+							info.drop_filter();
+						} );
 			}
 
 		environment_t &
@@ -374,32 +393,46 @@ class actual_mbox_t final
 
 		void
 		do_deliver_message_to_subscriber(
-			const subscriber_info_t & agent_info,
+			const subscriber_info_t & subscriber_info,
 			typename Tracing_Base::deliver_op_tracer const & tracer,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
 			unsigned int overlimit_reaction_deep ) const
 			{
-				using namespace so_5::message_limit::impl;
+				const auto delivery_status =
+						subscriber_info.must_be_delivered(
+								*(subscriber_info.receiver()),
+								message,
+								[]( const message_ref_t & msg ) -> message_t & {
+									return *msg;
+								} );
 
-				try_to_deliver_to_agent(
-						this->m_id,
-						*(agent_info.receiver()),
-						agent_info.limit(),
-						msg_type,
-						message,
-						overlimit_reaction_deep,
-						tracer.overlimit_tracer(),
-						[&] {
-							tracer.push_to_queue( agent_info.receiver() );
+				if( delivery_possibility_t::must_be_delivered == delivery_status )
+					{
+						using namespace so_5::message_limit::impl;
 
-							agent_t::call_push_event(
-									*(agent_info.receiver()),
-									agent_info.limit(),
-									this->m_id,
-									msg_type,
-									message );
-						} );
+						try_to_deliver_to_agent(
+								this->m_id,
+								*(subscriber_info.receiver()),
+								subscriber_info.limit(),
+								msg_type,
+								message,
+								overlimit_reaction_deep,
+								tracer.overlimit_tracer(),
+								[&] {
+									tracer.push_to_queue( subscriber_info.receiver() );
+
+									agent_t::call_push_event(
+											*(subscriber_info.receiver()),
+											subscriber_info.limit(),
+											this->m_id,
+											msg_type,
+											message );
+								} );
+					}
+				else
+					tracer.message_rejected(
+							subscriber_info.receiver(), delivery_status );
 			}
 	};
 

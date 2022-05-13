@@ -12,4 +12,7 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/repeated_subscribe/prj.ut.rb" )
 	required_prj( "#{path}/repeated_subscribe/prj_s.ut.rb" )
+
+	required_prj( "#{path}/delivery_filter/prj.ut.rb" )
+	required_prj( "#{path}/delivery_filter/prj_s.ut.rb" )
 }
