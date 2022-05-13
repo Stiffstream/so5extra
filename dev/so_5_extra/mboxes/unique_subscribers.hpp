@@ -8,6 +8,12 @@
 
 #pragma once
 
+#include <so_5/version.hpp>
+
+#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 7u, 4u)
+#error "SObjectizer-5.7.4 of newest is required"
+#endif
+
 #include <so_5_extra/error_ranges.hpp>
 
 #include <so_5/details/sync_helpers.hpp>
@@ -17,6 +23,7 @@
 #include <so_5/impl/agent_ptr_compare.hpp>
 #include <so_5/impl/message_limit_internals.hpp>
 #include <so_5/impl/msg_tracing_helpers.hpp>
+#include <so_5/impl/local_mbox_basic_subscription_info.hpp>
 
 #include <so_5/details/invoke_noexcept_code.hpp>
 
@@ -67,14 +74,13 @@ namespace details {
 /*!
  * \brief Description of a subscriber.
  *
- * \note
- * It's assumed that the limit will be set only once and will not be
- * changed after that.
- *
- * \since v.1.5.0
+ * \since v.1.5.0, v.1.5.1
  */
-struct subscriber_info_t
+class subscriber_info_t
+	:	public so_5::impl::local_mbox_details::basic_subscription_info_t
 	{
+		using base_type_t = so_5::impl::local_mbox_details::basic_subscription_info_t;
+
 		//! Subscriber.
 		/*!
 		 * \attention
@@ -82,25 +88,21 @@ struct subscriber_info_t
 		 */
 		agent_t * m_agent;
 
-		//! Message limit for that subscriber.
-		/*!
-		 * \note
-		 * This pointer can be null. It means that there is no limit.
-		 */
-		const so_5::message_limit::control_block_t * m_limit;
-
-		//! Initializing constructor.
-		/*!
-		 * \attention
-		 * The constructor doesn't check the validity of \a agent parameter,
-		 * it's assumed that it can't be null.
-		 */
+	public:
+		//! Constructor for case when agent and limits are known.
 		subscriber_info_t(
-			agent_t * agent,
+			agent_t & agent,
 			const so_5::message_limit::control_block_t * limit )
-			:	m_agent{ agent }
-			,	m_limit{ limit }
+			:	base_type_t{ limit }
+			,	m_agent{ &agent }
 			{}
+
+		[[nodiscard]]
+		agent_t *
+		receiver() const noexcept
+		{
+			return m_agent;
+		}
 	};
 
 //
@@ -176,23 +178,32 @@ class actual_mbox_t final
 
 		void
 		subscribe_event_handler(
-			const std::type_index & type_wrapper,
+			const std::type_index & msg_type,
 			const so_5::message_limit::control_block_t * limit,
 			agent_t & subscriber ) override
 			{
-				try_insert_subscriber(
-						type_wrapper,
-						subscriber_info_t{ &subscriber, limit } );
+				insert_or_modify_subscriber(
+						msg_type,
+						subscriber,
+						[&] {
+							return subscriber_info_t{ subscriber, limit };
+						},
+						[&]( subscriber_info_t & info ) {
+							info.set_limit( limit );
+						} );
 			}
 
 		void
 		unsubscribe_event_handlers(
-			const std::type_index & type_wrapper,
+			const std::type_index & msg_type,
 			agent_t & subscriber ) override
 			{
-				remove_subscriber_if_needed(
-						type_wrapper,
-						&subscriber );
+				modify_and_remove_subscriber_if_needed(
+						msg_type,
+						subscriber,
+						[]( subscriber_info_t & info ) {
+							info.drop_limit();
+						} );
 			}
 
 		std::string
@@ -255,47 +266,81 @@ class actual_mbox_t final
 			}
 
 	private :
+		template< typename Info_Maker, typename Info_Changer >
 		void
-		try_insert_subscriber(
-			const std::type_index & type_wrapper,
-			subscriber_info_t new_subscriber_info )
+		insert_or_modify_subscriber(
+			const std::type_index & msg_type,
+			agent_t & subscriber,
+			Info_Maker maker,
+			Info_Changer changer )
 			{
 				this->lock_and_perform( [&] {
-					auto it = this->m_subscribers.find( type_wrapper );
+					auto it = this->m_subscribers.find( msg_type );
 					if( it == this->m_subscribers.end() )
-					{
-						// There isn't such message type yet.
-						m_subscribers.emplace( type_wrapper, new_subscriber_info );
-					}
+						{
+							// There isn't such message type yet.
+							m_subscribers.emplace( msg_type, maker() );
+						}
 					else
-					{
-						// We assume that if a subscription exists it is made by
-						// different agent (because the current subscriber won't
-						// make the same subscription again).
-						SO_5_THROW_EXCEPTION(
-								errors::rc_subscription_exists,
-								std::string{ "subscription is already exists "
-												"for message type '" }
-										+ type_wrapper.name()
-										+ "'" );
-					}
+						{
+							// If subscription or delivery filter is already set by
+							// a different agent then we can't continue.
+							if( it->second.receiver() != &subscriber )
+								SO_5_THROW_EXCEPTION(
+										errors::rc_subscription_exists,
+										std::string{ "subscription is already exists "
+														"for message type '" }
+												+ msg_type.name()
+												+ "'" );
+							else
+								changer( it->second );
+						}
+				} );
+			}
+
+		template< typename Info_Changer >
+		void
+		modify_and_remove_subscriber_if_needed(
+			const std::type_index & msg_type,
+			agent_t & subscriber,
+			Info_Changer changer )
+			{
+				this->lock_and_perform( [&] {
+					auto it = this->m_subscribers.find( msg_type );
+					if( it != this->m_subscribers.end() )
+						{
+							auto & subscriber_info = it->second;
+
+							// Skip all other actions if the subscription is
+							// made for a different agent.
+							if( &subscriber == subscriber_info.receiver() )
+								{
+									// Subscriber is found and must be modified.
+									changer( subscriber_info );
+
+									// If info about subscriber becomes empty after
+									// modification then subscriber info must be removed.
+									if( subscriber_info.empty() )
+										this->m_subscribers.erase( it );
+								}
+						}
 				} );
 			}
 
 		void
 		remove_subscriber_if_needed(
-			const std::type_index & type_wrapper,
+			const std::type_index & msg_type,
 			agent_t * subscriber )
 			{
 				this->lock_and_perform( [&] {
-					auto it = this->m_subscribers.find( type_wrapper );
+					auto it = this->m_subscribers.find( msg_type );
 					if( it != this->m_subscribers.end() )
 					{
 						auto & subscriber_info = it->second;
 
 						// Skip all other actions if the subscription is
 						// made for a different agent.
-						if( subscriber == subscriber_info.m_agent )
+						if( subscriber == subscriber_info.receiver() )
 						{
 							// Subscriber must be removed.
 							this->m_subscribers.erase( it );
@@ -339,18 +384,18 @@ class actual_mbox_t final
 
 				try_to_deliver_to_agent(
 						this->m_id,
-						*(agent_info.m_agent),
-						agent_info.m_limit,
+						*(agent_info.receiver()),
+						agent_info.limit(),
 						msg_type,
 						message,
 						overlimit_reaction_deep,
 						tracer.overlimit_tracer(),
 						[&] {
-							tracer.push_to_queue( agent_info.m_agent );
+							tracer.push_to_queue( agent_info.receiver() );
 
 							agent_t::call_push_event(
-									*(agent_info.m_agent),
-									agent_info.m_limit,
+									*(agent_info.receiver()),
+									agent_info.limit(),
 									this->m_id,
 									msg_type,
 									message );
