@@ -56,11 +56,12 @@ const int rc_subscription_exists =
 /*!
  * \brief An attempt to set a delivery filter.
  *
- * Delivery filters are not supported by unique_subscribers mbox at the moment.
+ * \deprecated Since v.1.5.1 delivery filters are supported by
+ * unique_subscribers mbox.
  *
- * \since
- * v.1.5.0
+ * \since v.1.5.0
  */
+[[deprecated]]
 const int rc_delivery_filters_not_supported =
 		so_5::extra::errors::mboxes_unique_subscribers_errors + 1;
 
