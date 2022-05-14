@@ -40,14 +40,14 @@ public :
 		st_wait_first.event(m_mbox, [this](mhood_t<data> cmd) {
 			update_scenario(*cmd);
 
-			this >>= st_wait_second;
+			st_wait_second.activate();
 			so_5::send<data>(m_mbox, 43);
 		});
 
 		st_wait_second.event(m_mbox, [this](mhood_t<data> cmd) {
 			update_scenario(*cmd);
 
-			this >>= st_wait_third;
+			st_wait_third.activate();
 			so_5::send<data>(m_mbox, 44);
 		});
 
