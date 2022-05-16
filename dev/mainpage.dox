@@ -3,6 +3,15 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
+ * \subsection so_5_extra_v1_5_0 v.1.5.1
+ *
+ * Switch to SObjectizer-5.7.4.
+ *
+ * so_5::extra::mboxes::unique_subscribers now support delivery filters.
+ *
+ * Note: so_5::extra::mboxes::round_robin doesn't support delivery filters
+ * because it seems that such support has no sense for that type of mbox.
+ *
  * \subsection so_5_extra_v1_5_0 v.1.5.0
  *
  * Traits-type for asio_one_thread and asio_thread_pool dispatchers is empty
