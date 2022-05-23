@@ -5,6 +5,8 @@
 
 #pragma once
 
+#include <so_5_extra/error_ranges.hpp>
+
 #include <so_5/impl/msg_tracing_helpers.hpp>
 #include <so_5/impl/message_limit_internals.hpp>
 
@@ -15,6 +17,19 @@ namespace extra {
 namespace mboxes {
 
 namespace round_robin {
+
+namespace errors {
+
+/*!
+ * \brief An attempt to set delivery filter to round_robin mbox.
+ *
+ * \since
+ * v.1.0.1
+ */
+const int rc_delivery_filter_cannot_be_used_on_round_robin_mbox =
+		so_5::extra::errors::mboxes_round_robin_errors;
+
+} /* namespace errors */
 
 namespace details {
 
@@ -291,9 +306,11 @@ class mbox_template_t
 			const delivery_filter_t & /*filter*/,
 			agent_t & /*subscriber*/ ) override
 			{
+				using namespace so_5::extra::mboxes::round_robin::errors;
+
 				SO_5_THROW_EXCEPTION(
-						rc_delivery_filter_cannot_be_used_on_mpsc_mbox,
-						"set_delivery_filter is called for MPSC-mbox" );
+						rc_delivery_filter_cannot_be_used_on_round_robin_mbox,
+						"set_delivery_filter is called for round_robin-mbox" );
 			}
 
 		void

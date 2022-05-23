@@ -84,6 +84,13 @@ const int asio_one_thread_errors = 21000;
  */
 const int mboxes_unique_subscribers_errors = 21100;
 
+//! Starting point for errors of mboxes::round_robin submodule.
+/*!
+ * \since
+ * v.1.5.1.1
+ */
+const int mboxes_round_robin_errors = 21200;
+
 } /* namespace errors */
 
 } /* namespace extra */
