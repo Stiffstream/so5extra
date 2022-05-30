@@ -37,12 +37,16 @@ namespace retained_msg {
 
 namespace errors {
 
+//FIXME: has to be removed in v.1.6.0.
 /*!
  * \brief An attempt perform service request via retained message mbox.
+ *
+ * \deprecated There is no more such thing as service_request.
  *
  * \since
  * v.1.0.3
  */
+[[deprecated]]
 const int rc_service_request_via_retained_msg_mbox =
 		so_5::extra::errors::retained_msg_mbox_errors;
 
