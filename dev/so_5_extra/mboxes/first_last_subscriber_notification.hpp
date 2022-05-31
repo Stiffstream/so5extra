@@ -190,7 +190,24 @@ class actual_mbox_t final
 			Tracing_Args &&... args )
 			:	Tracing_Base{ std::forward< Tracing_Args >(args)... }
 			,	m_data{ env, id, std::move(notification_mbox), mbox_type }
-			{}
+			{
+				// Use of mutable message type for MPMC mbox should be prohibited.
+				if constexpr( is_mutable_message< Msg_Type >::value )
+					{
+						switch( mbox_type )
+							{
+							case mbox_type_t::multi_producer_multi_consumer:
+								SO_5_THROW_EXCEPTION(
+										so_5::rc_mutable_msg_cannot_be_delivered_via_mpmc_mbox,
+										"an attempt to make MPMC mbox for mutable message, "
+										"msg_type=" + std::string(typeid(Msg_Type).name()) );
+							break;
+
+							case mbox_type_t::multi_producer_single_consumer:
+							break;
+							}
+					}
+			}
 
 		mbox_id_t
 		id() const override
@@ -247,15 +264,15 @@ class actual_mbox_t final
 				s << "<mbox:type=FIRST_LAST_SUBSCR_NOTIFY";
 
 				switch( this->m_data.m_mbox_type )
-				{
-				case mbox_type_t::multi_producer_multi_consumer:
-					s << "(MPMC)";
-				break;
+					{
+					case mbox_type_t::multi_producer_multi_consumer:
+						s << "(MPMC)";
+					break;
 
-				case mbox_type_t::multi_producer_single_consumer:
-					s << "(MPSC)";
-				break;
-				}
+					case mbox_type_t::multi_producer_single_consumer:
+						s << "(MPSC)";
+					break;
+					}
 
 				s << ":id=" << this->m_data.m_id << ">";
 
@@ -284,9 +301,12 @@ class actual_mbox_t final
 						"deliver_message",
 						msg_type, message, overlimit_reaction_deep };
 
-				//FIXME: mbox_type should be taken into account here.
-				ensure_immutable_message( msg_type, message );
-
+				// NOTE: we don't check for message mutability because
+				// it's impossible to create MPMC mbox for mutable message.
+				// If MPMC mbox was created for immutable message, but a user
+				// tries to send a mutable message then it will be a message
+				// of a different type and the corresponding exception will
+				// be thrown earlier.
 				do_deliver_message_impl(
 						tracer,
 						msg_type,
@@ -516,25 +536,6 @@ class actual_mbox_t final
 				else
 					tracer.message_rejected(
 							std::addressof(subscriber), delivery_status );
-			}
-
-		/*!
-		 * \brief Ensures that message is an immutable message.
-		 *
-		 * Checks mutability flag and throws an exception if message is
-		 * a mutable one.
-		 */
-		void
-		ensure_immutable_message(
-			const std::type_index & msg_type,
-			const message_ref_t & what ) const
-			{
-				if( message_mutability_t::immutable_message !=
-						message_mutability( what ) )
-					SO_5_THROW_EXCEPTION(
-							so_5::rc_mutable_msg_cannot_be_delivered_via_mpmc_mbox,
-							"an attempt to deliver mutable message via MPMC mbox"
-							", msg_type=" + std::string(msg_type.name()) );
 			}
 	};
 
