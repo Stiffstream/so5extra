@@ -91,6 +91,13 @@ const int mboxes_unique_subscribers_errors = 21100;
  */
 const int mboxes_round_robin_errors = 21200;
 
+//! Starting point for errors of mboxes::first_last_subscriber_notification
+//! submodule.
+/*!
+ * \since v.1.5.2
+ */
+const int mboxes_first_last_subscriber_notification_errors = 21300;
+
 } /* namespace errors */
 
 } /* namespace extra */

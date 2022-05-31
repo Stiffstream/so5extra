@@ -58,7 +58,7 @@ namespace details {
 /*!
  * \brief A helper type which is a collection of type parameters.
  *
- * This type is used to simplify code of last_msg_mbox internals.
+ * This type is used to simplify code of retained_msg_mbox internals.
  * Instead of writting something like:
  * \code
  * template< typename Traits >
