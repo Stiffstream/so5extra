@@ -66,5 +66,10 @@
  * \example mboxes/unique_subscribers/simple/main.cpp
  */
 
+/*!
+ * \example mboxes/first_last_subscriber_notification/simple/main.cpp
+ */
+
+
 // vim:ft=cpp
 
