@@ -53,6 +53,19 @@ namespace errors {
 const int rc_different_message_type =
 		so_5::extra::errors::mboxes_first_last_subscriber_notification_errors;
 
+/*!
+ * \brief An attempt to add a new subscriber for MPSC mbox when another
+ * subscriber already exists.
+ *
+ * When an instance of first_last_subscriber_notification_mbox is created as
+ * MPSC mbox then only one subscriber can be added. An attempt to add another
+ * subscriber will lead to this error.
+ *
+ * \since v.1.5.2
+ */
+const int rc_subscriber_already_exists_for_mpsc_mbox =
+		so_5::extra::errors::mboxes_first_last_subscriber_notification_errors + 1;
+
 } /* namespace errors */
 
 /*!
@@ -374,16 +387,16 @@ class actual_mbox_t final
 		ensure_expected_msg_type(
 			const std::type_index & msg_type,
 			std::string_view error_description )
-		{
-			if( msg_type != typeid(Msg_Type) )
-				SO_5_THROW_EXCEPTION(
-						errors::rc_different_message_type,
-						//FIXME: we have to create std::string object because
-						//so_5::exception_t::raise expects std::string.
-						//This should be fixed after resolving:
-						//https://github.com/Stiffstream/sobjectizer/issues/46
-						std::string{ error_description } );
-		}
+			{
+				if( msg_type != typeid(Msg_Type) )
+					SO_5_THROW_EXCEPTION(
+							errors::rc_different_message_type,
+							//FIXME: we have to create std::string object because
+							//so_5::exception_t::raise expects std::string.
+							//This should be fixed after resolving:
+							//https://github.com/Stiffstream/sobjectizer/issues/46
+							std::string{ error_description } );
+			}
 
 		template<
 			typename Info_Maker,
@@ -400,9 +413,14 @@ class actual_mbox_t final
 
 				auto it_subscriber = this->m_data.m_subscribers.find( &subscriber );
 				if( it_subscriber == this->m_data.m_subscribers.end() )
-					// There is no subscriber yet. It must be added.
-					this->m_data.m_subscribers.emplace(
-							&subscriber, maker() );
+					{
+						// There is no subscriber yet. It must be added if
+						// it's possible.
+						ensure_new_item_can_be_added_to_subscribers();
+
+						this->m_data.m_subscribers.emplace(
+								&subscriber, maker() );
+					}
 				else
 					// Subscriber is known. It must be updated.
 					changer( it_subscriber->second );
@@ -536,6 +554,27 @@ class actual_mbox_t final
 				else
 					tracer.message_rejected(
 							std::addressof(subscriber), delivery_status );
+			}
+
+		void
+		ensure_new_item_can_be_added_to_subscribers()
+			{
+				// If this mbox is MPSC mbox then a new item can be
+				// added to subscribers container only if that container
+				// is empty.
+				// This is true even if new item will hold only delivery_filter,
+				// but not a subscription. It's because there is no sense
+				// to have a delivery_filter for MPSC mbox without having
+				// a subscription.
+				if( (mbox_type_t::multi_producer_single_consumer ==
+							this->m_data.m_mbox_type) &&
+						!this->m_data.m_subscribers.empty() )
+					{
+						SO_5_THROW_EXCEPTION(
+								errors::rc_subscriber_already_exists_for_mpsc_mbox,
+								"subscriber already exists for MPSC mbox, new "
+								"subscriber can't be added" );
+					}
 			}
 	};
 
