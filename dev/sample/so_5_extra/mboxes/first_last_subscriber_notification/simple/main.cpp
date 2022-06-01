@@ -10,11 +10,13 @@
 
 #include <sstream>
 
+// Short aliases for necessary namespaces from so5extra.
 namespace notifications_ns = so_5::extra::mboxes::first_last_subscriber_notification;
 namespace timer_ns = so_5::extra::revocable_timer;
 
 using namespace std::chrono_literals;
 
+// Message to be used for data distribution.
 struct msg_acquired_data final : public so_5::message_t
 {
 	const std::string m_data;
@@ -24,16 +26,15 @@ struct msg_acquired_data final : public so_5::message_t
 	{}
 };
 
+// Agent that consumes data.
 class data_consumer final : public so_5::agent_t
 {
-	struct msg_start final : public so_5::signal_t {};
-	struct msg_finish final : public so_5::signal_t {};
+	struct msg_done final : public so_5::signal_t {};
 
 	const std::string m_name;
 
 	const so_5::mbox_t m_data_mbox;
 
-	const std::chrono::milliseconds m_start_delay;
 	const std::chrono::milliseconds m_work_duration;
 
 public:
@@ -41,26 +42,25 @@ public:
 		context_t ctx,
 		std::string name,
 		so_5::mbox_t data_mbox,
-		std::chrono::milliseconds start_delay,
 		std::chrono::milliseconds work_duration )
 		:	so_5::agent_t{ std::move(ctx) }
 		,	m_name{ std::move(name) }
 		,	m_data_mbox{ std::move(data_mbox) }
-		,	m_start_delay{ start_delay }
 		,	m_work_duration{ work_duration }
 	{}
 
 	void so_define_agent() override
 	{
-		so_subscribe_self()
-			.event( &data_consumer::evt_start )
-			.event( &data_consumer::evt_finish )
-			;
+		so_subscribe_self().event( &data_consumer::evt_done );
+
+		so_subscribe( m_data_mbox ).event( &data_consumer::evt_data );
 	}
 
 	void so_evt_start() override
 	{
-		so_5::send_delayed< msg_start >( *this, m_start_delay );
+		std::cout << "[" << m_name << "] work started" << std::endl;
+
+		so_5::send_delayed< msg_done >( *this, m_work_duration );
 	}
 
 	void so_evt_finish() override
@@ -69,16 +69,7 @@ public:
 	}
 
 private:
-	void evt_start( mhood_t<msg_start> )
-	{
-		std::cout << "[" << m_name << "] work started" << std::endl;
-
-		so_subscribe( m_data_mbox ).event( &data_consumer::evt_data );
-
-		so_5::send_delayed< msg_finish >( *this, m_work_duration );
-	}
-
-	void evt_finish( mhood_t<msg_finish> )
+	void evt_done( mhood_t<msg_done> )
 	{
 		so_deregister_agent_coop_normally();
 	}
@@ -192,49 +183,49 @@ int main()
 					return mbox;
 				}();
 
+			std::this_thread::sleep_for( 50ms );
 			env.register_agent_as_coop(
 					env.make_agent< data_consumer >(
 							"first",
 							data_mbox,
-							50ms,
 							250ms ) );
 
+			std::this_thread::sleep_for( 50ms );
 			env.register_agent_as_coop(
 					env.make_agent< data_consumer >(
 							"second",
 							data_mbox,
-							100ms,
 							200ms ) );
 
+			std::this_thread::sleep_for( 400ms );
 			env.register_agent_as_coop(
 					env.make_agent< data_consumer >(
 							"third",
 							data_mbox,
-							500ms,
 							150ms ) );
 
+			std::this_thread::sleep_for( 300ms );
 			env.register_agent_as_coop(
 					env.make_agent< data_consumer >(
 							"fourth",
 							data_mbox,
-							700ms,
 							300ms ) );
 
+			std::this_thread::sleep_for( 400ms );
 			env.register_agent_as_coop(
 					env.make_agent< data_consumer >(
 							"fifth",
 							data_mbox,
-							1200ms,
 							300ms ) );
 
+			std::this_thread::sleep_for( 100ms );
 			env.register_agent_as_coop(
 					env.make_agent< data_consumer >(
 							"sixth",
 							data_mbox,
-							1300ms,
 							300ms ) );
 
-			std::this_thread::sleep_for( 1800ms );
+			std::this_thread::sleep_for( 200ms );
 			env.stop();
 		} );
 }
