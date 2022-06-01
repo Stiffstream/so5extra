@@ -71,12 +71,73 @@ const int rc_subscriber_already_exists_for_mpsc_mbox =
 /*!
  * \brief Signal to be sent when the first subscriber arrives.
  *
+ * Usage example:
+ * \code
+ * namespace mbox_ns = so_5::extra::mboxes::first_last_subscriber_notification;
+ *
+ * class my_producer final : public so_5::agent_t
+ * {
+ * public:
+ * 	// Message with published data.
+ * 	struct msg_data final : public so_5::message_t {...};
+ *
+ * private:
+ * 	state_t st_no_consumers{ this };
+ * 	state_t st_consumers_waiting{ this };
+ * 	...
+ * 	const so_5::mbox_t publishing_mbox_;
+ * 	...
+ * public:
+ * 	my_producer( context_t ctx )
+ * 		:	so_5::agent_t{ std::move(ctx) }
+ * 		// New mbox for publishing produced data has to be created.
+ * 		,	publishing_mbox_{ mbox_ns::make<msg_data>(
+ * 				so_environment(),
+ * 				// agent's direct mbox as the target for notifications.
+ * 				so_direct_mbox(),
+ * 				so_5::mbox_type_t::multi_producer_multi_consumer )
+ * 			}
+ * 	{...}
+ *
+ * 	void so_define_agent() override
+ * 	{
+ * 		st_consumers_waiting
+ * 			.on_enter{ turn_data_acquisition_on(); }
+ * 			.on_exit{ turn_data_acquisition_off(); }
+ * 			.event( &my_producer::evt_last_subscriber )
+ * 			;
+ *
+ * 		st_no_consumers
+ * 			.event( &my_producer::evt_first_subscriber )
+ * 			;
+ * 		...
+ *
+ * 		st_no_consumers.activate();
+ * 	}
+ *
+ * 	...
+ * private:
+ * 	void evt_first_subscriber( mhood_t< msg_first_subscriber > )
+ * 	{
+ * 		st_consumers_waiting.activate();
+ * 	}
+ *
+ * 	void evt_last_subscriber( mhood_t< msg_last_subscriber > )
+ * 	{
+ * 		st_no_consumers.activate();
+ * 	}
+ * 	...
+ * };
+ * \endcode
+ *
  * \since v.1.5.2
  */
 struct msg_first_subscriber final : public so_5::signal_t {};
 
 /*!
  * \brief Signal to be sent when the last subscriber gone.
+ *
+ * See msg_first_subscriber for usage example.
  *
  * \since v.1.5.2
  */
@@ -583,9 +644,51 @@ class actual_mbox_t final
 //
 // make_mbox
 //
-//FIXME: document this!
 /*!
  * \brief Create an instance of first_last_subscriber_notification mbox.
+ *
+ * Usage examples:
+ *
+ * Create a MPMC mbox with std::mutex as Lock_Type (this mbox can safely be
+ * used in multi-threaded environments):
+ * \code
+ * namespace mbox_ns = so_5::extra::mboxes::first_last_subscriber_notification;
+ * so_5::environment_t & env = ...;
+ * auto notification_mbox = env.create_mbox();
+ * auto mbox = mbox_ns::make_mbox<my_message>(
+ * 		env,
+ * 		notification_mbox,
+ * 		so_5::mbox_type_t::multi_producer_multi_consumer);
+ * \endcode
+ *
+ * Create a MPSC mbox with std::mutex as Lock_Type (this mbox can safely be
+ * used in multi-threaded environments):
+ * \code
+ * namespace mbox_ns = so_5::extra::mboxes::first_last_subscriber_notification;
+ * so_5::environment_t & env = ...;
+ * auto notification_mbox = env.create_mbox();
+ * auto mbox = mbox_ns::make_mbox<my_message>(
+ * 		env,
+ * 		notification_mbox,
+ * 		so_5::mbox_type_t::multi_producer_single_consumer);
+ * \endcode
+ *
+ * Create a MPMC mbox with so_5::null_mutex_t as Lock_Type (this mbox can only
+ * be used in single-threaded environments):
+ * \code
+ * namespace mbox_ns = so_5::extra::mboxes::first_last_subscriber_notification;
+ * so_5::environment_t & env = ...;
+ * auto notification_mbox = env.create_mbox();
+ * auto mbox = mbox_ns::make_mbox<my_message, so_5::null_mutex_t>(
+ * 		env,
+ * 		notification_mbox,
+ * 		so_5::mbox_type_t::multi_producer_multi_consumer);
+ * \endcode
+ *
+ * \attention
+ * This type of mbox terminates the whole application if an attempt
+ * to send a notification (in form of msg_first_subscriber and msg_last_subscriber
+ * signals) throws.
  *
  * \tparam Msg_Type type of message to be used with a new mbox.
  *
