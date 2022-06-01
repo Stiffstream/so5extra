@@ -26,7 +26,7 @@ public:
 	}
 
 	void
-	so_define_agent()
+	so_define_agent() override
 	{
 		so_set_delivery_filter( m_test_mbox,
 				[]( const msg_dummy & ) { return true; } );
@@ -37,7 +37,7 @@ public:
 	}
 
 	void
-	so_evt_start()
+	so_evt_start() override
 	{
 		so_5::send< msg_finish >( *this );
 	}
