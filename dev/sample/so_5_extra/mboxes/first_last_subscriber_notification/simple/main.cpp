@@ -29,12 +29,16 @@ struct msg_acquired_data final : public so_5::message_t
 // Agent that consumes data.
 class data_consumer final : public so_5::agent_t
 {
+	// Signal to be used to deregister the consumer.
 	struct msg_done final : public so_5::signal_t {};
 
+	// Name to be use by the consumer.
 	const std::string m_name;
 
+	// Mbox for msg_acquired_data messages.
 	const so_5::mbox_t m_data_mbox;
 
+	// How long the consumer should work.
 	const std::chrono::milliseconds m_work_duration;
 
 public:
@@ -60,6 +64,7 @@ public:
 	{
 		std::cout << "[" << m_name << "] work started" << std::endl;
 
+		// Limit the lifetime of the agent.
 		so_5::send_delayed< msg_done >( *this, m_work_duration );
 	}
 
@@ -71,6 +76,9 @@ public:
 private:
 	void evt_done( mhood_t<msg_done> )
 	{
+		// The agent has to be deregistered.
+		// Subscription to msg_acquired_data from m_data_mbox will be
+		// removed automatically.
 		so_deregister_agent_coop_normally();
 	}
 
@@ -81,32 +89,46 @@ private:
 	}
 };
 
+// Producer that produces data, but only when there is a subscriber.
+//
+// Also creates and owns the mbox for msg_acquired_data messages.
 class data_producer final : public so_5::agent_t
 {
+	// Periodic signal to be used for data producing.
+	// This signal will be generated only when
+	// the agent is in st_consumers_connected state.
 	struct msg_acquire final : public so_5::signal_t {};
 
+	// State in that the producer does nothing.
 	state_t st_wait_consumers{ this, "wait_consumers" };
+	// State in that the producer periodically generates data.
 	state_t st_consumers_connected{ this, "consumers_connected" };
 
+	// Mbox for msg_acquired_data messages.
 	const so_5::mbox_t m_data_mbox;
 
+	// Timer to be used for periodic msg_acquire signals.
 	timer_ns::timer_id_t m_acquisition_timer;
 
+	// Counters to identify every portion of data.
 	int m_session{};
 	int m_data_index{};
 
 public:
-	data_producer(
-		context_t ctx )
+	data_producer( context_t ctx )
 		:	so_5::agent_t{ std::move(ctx) }
 		,	m_data_mbox{
+				// Make mbox for msg_acquired_data.
 				notifications_ns::make_mbox< msg_acquired_data >(
 						so_environment(),
+						// Use the direct mbox for first/last subscriber notifications.
 						so_direct_mbox(),
+						// It should be a MPMC mbox.
 						so_5::mbox_type_t::multi_producer_multi_consumer )
 			}
 	{}
 
+	// Getter for msg_acquired_data's mbox.
 	[[nodiscard]]
 	const so_5::mbox_t &
 	data_mbox() const noexcept
@@ -133,6 +155,7 @@ public:
 private:
 	void on_enter_st_consumers_connected()
 	{
+		// Initiate periodic signal for data producing.
 		m_acquisition_timer = timer_ns::send_periodic< msg_acquire >(
 				*this,
 				// No initial delay.
@@ -148,6 +171,7 @@ private:
 
 	void on_exit_st_consumers_connected()
 	{
+		// Timer for periodic signals has to be stopped.
 		m_acquisition_timer.revoke();
 
 		std::cout << "*** data acquisition stopped ***" << std::endl;
@@ -155,11 +179,15 @@ private:
 
 	void evt_first_consumer( mhood_t<notifications_ns::msg_first_subscriber> )
 	{
+		// Because we have at least one consumer we should switch
+		// to the appropriate state and start producing data.
 		st_consumers_connected.activate();
 	}
 
 	void evt_last_consumer( mhood_t<notifications_ns::msg_last_subscriber> )
 	{
+		// There are no more consumers. We have to wait new consumers
+		// in a different state.
 		st_wait_consumers.activate();
 	}
 
@@ -176,6 +204,7 @@ private:
 int main()
 {
 	so_5::launch( []( so_5::environment_t & env ) {
+			// Create data_producer instance and get data-mbox from it.
 			const so_5::mbox_t data_mbox = [&]() {
 					auto agent = env.make_agent< data_producer >();
 					so_5::mbox_t mbox = agent->data_mbox();
@@ -183,6 +212,7 @@ int main()
 					return mbox;
 				}();
 
+			// Now consumers have to be introduced.
 			std::this_thread::sleep_for( 50ms );
 			env.register_agent_as_coop(
 					env.make_agent< data_consumer >(
