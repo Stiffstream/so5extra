@@ -19,10 +19,9 @@ public:
 	main_agent( context_t ctx )
 		:	so_5::agent_t{ std::move(ctx) }
 		,	m_test_mbox{
-				mbox_ns::make_mbox< dummy >(
+				mbox_ns::make_multi_consumer_mbox< dummy >(
 						so_environment(),
-						so_direct_mbox(),
-						so_5::mbox_type_t::multi_producer_multi_consumer )
+						so_direct_mbox() )
 			}
 	{}
 

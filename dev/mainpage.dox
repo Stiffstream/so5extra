@@ -3,7 +3,11 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
- * \subsection so_5_extra_v1_5_0 v.1.5.1
+ * \subsection so_5_extra_v1_5_2 v.1.5.2
+ *
+ * New type of mbox is introduced: so_5::extra::mboxes::first_last_subscriber_notification.
+ *
+ * \subsection so_5_extra_v1_5_1 v.1.5.1
  *
  * Switch to SObjectizer-5.7.4.
  *

@@ -701,6 +701,7 @@ class actual_mbox_t final
 template<
 	typename Msg_Type,
 	typename Lock_Type = std::mutex >
+[[nodiscard]]
 mbox_t
 make_mbox(
 	//! SObjectizer Environment to work in.
@@ -747,6 +748,92 @@ make_mbox(
 					return result;
 				} );
 	}
+
+//
+// make_multi_consumer_mbox
+//
+/*!
+ * \brief Create an instance of first_last_subscriber_notification MPMC mbox.
+ *
+ * Usage examples:
+ *
+ * Create a MPMC mbox with std::mutex as Lock_Type (this mbox can safely be
+ * used in multi-threaded environments):
+ * \code
+ * namespace mbox_ns = so_5::extra::mboxes::first_last_subscriber_notification;
+ * so_5::environment_t & env = ...;
+ * auto notification_mbox = env.create_mbox();
+ * auto mbox = mbox_ns::make_multi_consumer_mbox<my_message>(
+ * 		env,
+ * 		notification_mbox);
+ * \endcode
+ *
+ * \note
+ * It's just a thin wrapper around make_mbox() template function.
+ *
+ * \sa make_mbox
+ *
+ * \since v.1.5.2
+ */
+template<
+	typename Msg_Type,
+	typename Lock_Type = std::mutex >
+[[nodiscard]]
+mbox_t
+make_multi_consumer_mbox(
+	//! SObjectizer Environment to work in.
+	environment_t & env,
+	//! Mbox for notifications about the first/last subscriber.
+	mbox_t notification_mbox )
+{
+	return make_mbox< Msg_Type, Lock_Type >(
+			env,
+			std::move(notification_mbox),
+			mbox_type_t::multi_producer_multi_consumer );
+}
+
+//
+// make_single_consumer_mbox
+//
+/*!
+ * \brief Create an instance of first_last_subscriber_notification MPSC mbox.
+ *
+ * Usage examples:
+ *
+ * Create a MPSC mbox with std::mutex as Lock_Type (this mbox can safely be
+ * used in multi-threaded environments):
+ * \code
+ * namespace mbox_ns = so_5::extra::mboxes::first_last_subscriber_notification;
+ * so_5::environment_t & env = ...;
+ * auto notification_mbox = env.create_mbox();
+ * auto mbox = mbox_ns::make_single_consumer_mbox<my_message>(
+ * 		env,
+ * 		notification_mbox);
+ * \endcode
+ *
+ * \note
+ * It's just a thin wrapper around make_mbox() template function.
+ *
+ * \sa make_mbox
+ *
+ * \since v.1.5.2
+ */
+template<
+	typename Msg_Type,
+	typename Lock_Type = std::mutex >
+[[nodiscard]]
+mbox_t
+make_single_consumer_mbox(
+	//! SObjectizer Environment to work in.
+	environment_t & env,
+	//! Mbox for notifications about the first/last subscriber.
+	mbox_t notification_mbox )
+{
+	return make_mbox< Msg_Type, Lock_Type >(
+			env,
+			std::move(notification_mbox),
+			mbox_type_t::multi_producer_single_consumer );
+}
 
 } /* namespace first_last_subscriber_notification */
 

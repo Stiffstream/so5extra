@@ -119,12 +119,11 @@ public:
 		:	so_5::agent_t{ std::move(ctx) }
 		,	m_data_mbox{
 				// Make mbox for msg_acquired_data.
-				notifications_ns::make_mbox< msg_acquired_data >(
+				// It should be a MPMC mbox.
+				notifications_ns::make_multi_consumer_mbox< msg_acquired_data >(
 						so_environment(),
 						// Use the direct mbox for first/last subscriber notifications.
-						so_direct_mbox(),
-						// It should be a MPMC mbox.
-						so_5::mbox_type_t::multi_producer_multi_consumer )
+						so_direct_mbox() )
 			}
 	{}
 
