@@ -98,6 +98,12 @@ const int mboxes_round_robin_errors = 21200;
  */
 const int mboxes_first_last_subscriber_notification_errors = 21300;
 
+//! Starting point for errors of mboxes::composite submodule.
+/*!
+ * \since v.1.5.2
+ */
+const int mboxes_composite_errors = 21400;
+
 } /* namespace errors */
 
 } /* namespace extra */
