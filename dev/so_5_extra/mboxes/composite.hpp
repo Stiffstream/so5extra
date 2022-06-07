@@ -275,6 +275,12 @@ class deliver_message_t
 		void
 		operator()( const delegate_to_if_not_found_case_t & c ) const
 			{
+				using namespace ::so_5::impl::msg_tracing_helpers::details;
+
+				m_tracer.make_trace(
+						"delegate_to_default_destination",
+						mbox_as_msg_destination{ *(c.dest()) } );
+
 				c.dest()->do_deliver_message(
 						m_msg_type,
 						m_msg,
@@ -285,7 +291,7 @@ class deliver_message_t
 		operator()( const throw_if_not_found_case_t & ) const
 			{
 				m_tracer.make_trace(
-						"no destination for message type found, throw an exception" );
+						"no_destination.throw_exception" );
 				SO_5_THROW_EXCEPTION(
 						errors::rc_no_sink_for_message_type,
 						"no destination for this message type, "
@@ -296,7 +302,7 @@ class deliver_message_t
 		operator()( const drop_if_not_found_case_t & ) const
 			{
 				m_tracer.make_trace(
-						"no destination for message type found, drop the message" );
+						"no_destination.drop_message" );
 			}
 	};
 
@@ -533,9 +539,21 @@ class actual_mbox_t final
 			{
 				ensure_immutable_message( msg_type, message );
 
+				typename Tracing_Base::deliver_op_tracer tracer{
+						*this, // as Tracing_base
+						*this, // as abstract_message_box_t
+						"deliver_message",
+						msg_type, message, overlimit_reaction_deep };
+
 				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
 				if( opt_sink )
 					{
+						using namespace ::so_5::impl::msg_tracing_helpers::details;
+
+						tracer.make_trace(
+								"delegate_to_destination",
+								mbox_as_msg_destination{ *( (*opt_sink)->m_dest ) } );
+
 						(*opt_sink)->m_dest->do_deliver_message(
 								msg_type,
 								message,
@@ -543,12 +561,6 @@ class actual_mbox_t final
 					}
 				else
 					{
-						typename Tracing_Base::deliver_op_tracer tracer{
-								*this, // as Tracing_base
-								*this, // as abstract_message_box_t
-								"deliver_message",
-								msg_type, message, overlimit_reaction_deep };
-
 						using handler_t = unknown_msg_type_handlers::deliver_message_t<
 								typename Tracing_Base::deliver_op_tracer >;
 
