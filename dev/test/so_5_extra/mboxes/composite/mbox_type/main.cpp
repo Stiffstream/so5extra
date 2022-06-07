@@ -27,8 +27,7 @@ class mpmc_mbox_case final : public so_5::agent_t
 		const so_5::mbox_t & mpsc_mbox,
 		const so_5::mbox_t & mpmc_mbox )
 	{
-		auto builder = composite_ns::builder(
-				so_5::mbox_type_t::multi_producer_multi_consumer,
+		auto builder = composite_ns::multi_consumer_builder(
 				composite_ns::throw_if_not_found() )
 			.add< msg_first >( mpsc_mbox )
 			.add< msg_second >( mpmc_mbox );
@@ -91,27 +90,12 @@ class mpsc_mbox_case final : public so_5::agent_t
 		const so_5::mbox_t & mpsc_mbox,
 		const so_5::mbox_t & mpmc_mbox )
 	{
-		auto builder = composite_ns::builder(
-				so_5::mbox_type_t::multi_producer_single_consumer,
+		auto builder = composite_ns::single_consumer_builder(
 				composite_ns::throw_if_not_found() )
 			.add< msg_first >( mpsc_mbox );
 
-		try
-		{
-			builder.add< msg_second >( mpmc_mbox );
-			throw std::runtime_error{ "an exception has to be throw by "
-					"builder.add<msg_second>(mpmc_mbox)" };
-		}
-		catch( const so_5::exception_t & ex )
-		{
-			std::cout << "*** exception caught: " << ex.what() << std::endl;
-			if( so_5::extra::mboxes::composite::errors::
-					rc_mpmc_sink_can_be_used_with_mpsc_composite != ex.error_code() )
-				throw std::runtime_error{
-						"unexpected exception caught, error_code=" +
-								std::to_string( ex.error_code() )
-					};
-		}
+		// MPMC mbox can be added as a sink for immutable message.
+		builder.add< msg_second >( mpmc_mbox );
 
 		builder.add< so_5::mutable_msg< msg_first > >( mpsc_mbox );
 

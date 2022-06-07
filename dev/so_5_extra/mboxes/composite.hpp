@@ -718,25 +718,23 @@ class mbox_builder_t
 							case mbox_type_t::multi_producer_multi_consumer:
 								SO_5_THROW_EXCEPTION(
 										so_5::rc_mutable_msg_cannot_be_delivered_via_mpmc_mbox,
-										"an attempt to make MPMC mbox for mutable message, "
+										"mutable message can't handled with MPMC composite, "
 										"msg_type=" + std::string(typeid(Msg_Type).name()) );
 							break;
 
 							case mbox_type_t::multi_producer_single_consumer:
 							break;
 							}
-					}
 
-				// MPMC mbox can't be added as a sink to MPSC composite.
-				if( ( mbox_type_t::multi_producer_single_consumer ==
-							m_mbox_type ) &&
-						( mbox_type_t::multi_producer_multi_consumer ==
-						  dest_mbox->type() ) )
-					{
-						SO_5_THROW_EXCEPTION(
-								errors::rc_mpmc_sink_can_be_used_with_mpsc_composite,
-								"MPMC mbox can't be added as a sink to MPSC composite, "
-								"msg_type=" + std::string(typeid(Msg_Type).name()) );
+						if( mbox_type_t::multi_producer_multi_consumer ==
+							  dest_mbox->type() )
+							{
+								SO_5_THROW_EXCEPTION(
+										errors::rc_mpmc_sink_can_be_used_with_mpsc_composite,
+										"MPMC mbox can't be added as a sink to MPSC "
+										"composite and mutable message, "
+										"msg_type=" + std::string(typeid(Msg_Type).name()) );
+							}
 					}
 
 				const auto [it, is_inserted] = m_sinks.emplace(
@@ -845,6 +843,34 @@ builder(
 	type_not_found_reaction_t unknown_type_reaction )
 	{
 		return { mbox_type, std::move(unknown_type_reaction) };
+	}
+
+//FIXME: document this!
+/*!
+ * \since v.1.5.2
+ */
+[[nodiscard]]
+inline mbox_builder_t
+multi_consumer_builder(
+	type_not_found_reaction_t unknown_type_reaction )
+	{
+		return builder(
+				mbox_type_t::multi_producer_multi_consumer,
+				std::move(unknown_type_reaction) );
+	}
+
+//FIXME: document this!
+/*!
+ * \since v.1.5.2
+ */
+[[nodiscard]]
+inline mbox_builder_t
+single_consumer_builder(
+	type_not_found_reaction_t unknown_type_reaction )
+	{
+		return builder(
+				mbox_type_t::multi_producer_single_consumer,
+				std::move(unknown_type_reaction) );
 	}
 
 } /* namespace composite */
