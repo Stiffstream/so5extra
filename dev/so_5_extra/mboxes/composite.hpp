@@ -14,6 +14,7 @@
 #include <so_5/environment.hpp>
 #include <so_5/mbox.hpp>
 
+#include <algorithm>
 #include <map>
 #include <variant>
 #include <vector>
@@ -161,6 +162,223 @@ struct sink_t
  */
 using sink_container_t = std::vector< sink_t >;
 
+//FIXME: document this!
+/*!
+ * \since v.1.5.2
+ */
+inline const auto sink_compare =
+		[]( const sink_t & sink, const std::type_index & msg_type ) -> bool {
+			return sink.m_msg_type < msg_type;
+		};
+
+namespace unknown_msg_type_handlers
+{
+
+//FIXME: document this!
+class subscribe_event_t
+	{
+		const std::type_index & m_msg_type;
+		const so_5::message_limit::control_block_t * m_limit;
+		agent_t & m_subscriber;
+
+	public:
+		subscribe_event_t(
+			const std::type_index & msg_type,
+			const so_5::message_limit::control_block_t * limit,
+			agent_t & subscriber )
+			:	m_msg_type{ msg_type }
+			,	m_limit{ limit }
+			,	m_subscriber{ subscriber }
+			{}
+
+		void
+		operator()( const delegate_to_if_not_found_case_t & c ) const
+			{
+				c.dest()->subscribe_event_handler(
+						m_msg_type,
+						m_limit,
+						m_subscriber );
+			}
+
+		void
+		operator()( const throw_if_not_found_case_t & ) const
+			{
+				SO_5_THROW_EXCEPTION(
+						errors::rc_no_sink_for_message_type,
+						"no destination for this message type, "
+						"msg_type=" + std::string(m_msg_type.name()) );
+			}
+
+		void
+		operator()( const drop_if_not_found_case_t & ) const
+			{
+				// Nothing to do.
+			}
+	};
+
+//FIXME: document this!
+class unsubscribe_event_t
+	{
+		const std::type_index & m_msg_type;
+		agent_t & m_subscriber;
+
+	public:
+		unsubscribe_event_t(
+			const std::type_index & msg_type,
+			agent_t & subscriber )
+			:	m_msg_type{ msg_type }
+			,	m_subscriber{ subscriber }
+			{}
+
+		void
+		operator()( const delegate_to_if_not_found_case_t & c ) const
+			{
+				c.dest()->unsubscribe_event_handlers(
+						m_msg_type,
+						m_subscriber );
+			}
+
+		void
+		operator()( const throw_if_not_found_case_t & ) const
+			{
+				// Just ignore that case.
+			}
+
+		void
+		operator()( const drop_if_not_found_case_t & ) const
+			{
+				// Nothing to do.
+			}
+	};
+
+//FIXME: document this!
+template< typename Tracer >
+class deliver_message_t
+	{
+		Tracer & m_tracer;
+		const std::type_index & m_msg_type;
+		const message_ref_t & m_msg;
+		unsigned int m_overlimit_deep;
+
+	public:
+		deliver_message_t(
+			Tracer & tracer,
+			const std::type_index & msg_type,
+			const message_ref_t & msg,
+			unsigned int overlimit_deep )
+			:	m_tracer{ tracer }
+			,	m_msg_type{ msg_type }
+			,	m_msg{ msg }
+			,	m_overlimit_deep{ overlimit_deep }
+			{}
+
+		void
+		operator()( const delegate_to_if_not_found_case_t & c ) const
+			{
+				c.dest()->do_deliver_message(
+						m_msg_type,
+						m_msg,
+						m_overlimit_deep );
+			}
+
+		void
+		operator()( const throw_if_not_found_case_t & ) const
+			{
+				m_tracer.make_trace(
+						"no destination for message type found, throw an exception" );
+				SO_5_THROW_EXCEPTION(
+						errors::rc_no_sink_for_message_type,
+						"no destination for this message type, "
+						"msg_type=" + std::string(m_msg_type.name()) );
+			}
+
+		void
+		operator()( const drop_if_not_found_case_t & ) const
+			{
+				m_tracer.make_trace(
+						"no destination for message type found, drop the message" );
+			}
+	};
+
+//FIXME: document this!
+class set_delivery_filter_t
+	{
+		const std::type_index & m_msg_type;
+		const delivery_filter_t & m_filter;
+		agent_t & m_subscriber;
+
+	public:
+		set_delivery_filter_t(
+			const std::type_index & msg_type,
+			const delivery_filter_t & filter,
+			agent_t & subscriber )
+			:	m_msg_type{ msg_type }
+			,	m_filter{ filter }
+			,	m_subscriber{ subscriber }
+			{}
+
+		void
+		operator()( const delegate_to_if_not_found_case_t & c ) const
+			{
+				c.dest()->set_delivery_filter(
+						m_msg_type,
+						m_filter,
+						m_subscriber );
+			}
+
+		void
+		operator()( const throw_if_not_found_case_t & ) const
+			{
+				SO_5_THROW_EXCEPTION(
+						errors::rc_no_sink_for_message_type,
+						"no destination for this message type, "
+						"msg_type=" + std::string(m_msg_type.name()) );
+			}
+
+		void
+		operator()( const drop_if_not_found_case_t & ) const
+			{
+				// Nothing to do.
+			}
+	};
+
+//FIXME: document this!
+class drop_delivery_filter_t
+	{
+		const std::type_index & m_msg_type;
+		agent_t & m_subscriber;
+
+	public:
+		drop_delivery_filter_t(
+			const std::type_index & msg_type,
+			agent_t & subscriber ) noexcept
+			:	m_msg_type{ msg_type }
+			,	m_subscriber{ subscriber }
+			{}
+
+		void
+		operator()( const delegate_to_if_not_found_case_t & c ) const noexcept
+			{
+				c.dest()->drop_delivery_filter(
+						m_msg_type,
+						m_subscriber );
+			}
+
+		void
+		operator()( const throw_if_not_found_case_t & ) const noexcept
+			{
+				// Just ignore that case.
+			}
+
+		void
+		operator()( const drop_if_not_found_case_t & ) const noexcept
+			{
+				// Nothing to do.
+			}
+	};
+
+} /* namespace unknown_msg_type_handlers */
+
 /*!
  * \brief Mbox data that doesn't depend on template parameters.
  *
@@ -206,7 +424,6 @@ class actual_mbox_t final
 	:	public abstract_message_box_t
 	,	private Tracing_Base
 	{
-		//FIXME: friends have to be declated here!
 		friend class ::so_5::extra::mboxes::composite::mbox_builder_t;
 
 		/*!
@@ -235,19 +452,49 @@ class actual_mbox_t final
 
 		void
 		subscribe_event_handler(
-			const std::type_index & /*msg_type*/,
-			const so_5::message_limit::control_block_t * /*limit*/,
-			agent_t & /*subscriber*/ ) override
+			const std::type_index & msg_type,
+			const so_5::message_limit::control_block_t * limit,
+			agent_t & subscriber ) override
 			{
-//FIXME: implement this!
+				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
+				if( opt_sink )
+					{
+						(*opt_sink)->m_dest->subscribe_event_handler(
+								msg_type,
+								limit,
+								subscriber );
+					}
+				else
+					{
+						std::visit(
+								unknown_msg_type_handlers::subscribe_event_t{
+										msg_type,
+										limit,
+										subscriber },
+								this->m_data.m_unknown_type_reaction );
+					}
 			}
 
 		void
 		unsubscribe_event_handlers(
-			const std::type_index & /*msg_type*/,
-			agent_t & /*subscriber*/ ) override
+			const std::type_index & msg_type,
+			agent_t & subscriber ) override
 			{
-//FIXME: implement this!
+				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
+				if( opt_sink )
+					{
+						(*opt_sink)->m_dest->unsubscribe_event_handlers(
+								msg_type,
+								subscriber );
+					}
+				else
+					{
+						std::visit(
+								unknown_msg_type_handlers::unsubscribe_event_t{
+										msg_type,
+										subscriber },
+								this->m_data.m_unknown_type_reaction );
+					}
 			}
 
 		std::string
@@ -280,42 +527,86 @@ class actual_mbox_t final
 
 		void
 		do_deliver_message(
-			const std::type_index & /*msg_type*/,
-			const message_ref_t & /*message*/,
-			unsigned int /*overlimit_reaction_deep*/ ) override
+			const std::type_index & msg_type,
+			const message_ref_t & message,
+			unsigned int overlimit_reaction_deep ) override
 			{
-//FIXME: implement this!
-#if 0
-				//FIXME: mutability of message has to be checked!
-				typename Tracing_Base::deliver_op_tracer tracer{
-						*this, // as Tracing_base
-						*this, // as abstract_message_box_t
-						"deliver_message",
-						msg_type, message, overlimit_reaction_deep };
+				ensure_immutable_message( msg_type, message );
 
-				do_deliver_message_impl(
-						tracer,
-						msg_type,
-						message,
-						overlimit_reaction_deep );
-#endif
+				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
+				if( opt_sink )
+					{
+						(*opt_sink)->m_dest->do_deliver_message(
+								msg_type,
+								message,
+								overlimit_reaction_deep );
+					}
+				else
+					{
+						typename Tracing_Base::deliver_op_tracer tracer{
+								*this, // as Tracing_base
+								*this, // as abstract_message_box_t
+								"deliver_message",
+								msg_type, message, overlimit_reaction_deep };
+
+						using handler_t = unknown_msg_type_handlers::deliver_message_t<
+								typename Tracing_Base::deliver_op_tracer >;
+
+						std::visit(
+								handler_t{
+										tracer,
+										msg_type,
+										message,
+										overlimit_reaction_deep },
+								this->m_data.m_unknown_type_reaction );
+					}
 			}
 
 		void
 		set_delivery_filter(
-			const std::type_index & /*msg_type*/,
-			const delivery_filter_t & /*filter*/,
-			agent_t & /*subscriber*/ ) override
+			const std::type_index & msg_type,
+			const delivery_filter_t & filter,
+			agent_t & subscriber ) override
 			{
-//FIXME: implement this!
+				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
+				if( opt_sink )
+					{
+						(*opt_sink)->m_dest->set_delivery_filter(
+								msg_type,
+								filter,
+								subscriber );
+					}
+				else
+					{
+						std::visit(
+								unknown_msg_type_handlers::set_delivery_filter_t{
+										msg_type,
+										filter,
+										subscriber },
+								this->m_data.m_unknown_type_reaction );
+					}
 			}
 
 		void
 		drop_delivery_filter(
-			const std::type_index & /*msg_type*/,
-			agent_t & /*subscriber*/ ) noexcept override
+			const std::type_index & msg_type,
+			agent_t & subscriber ) noexcept override
 			{
-//FIXME: implement this!
+				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
+				if( opt_sink )
+					{
+						(*opt_sink)->m_dest->drop_delivery_filter(
+								msg_type,
+								subscriber );
+					}
+				else
+					{
+						std::visit(
+								unknown_msg_type_handlers::drop_delivery_filter_t{
+										msg_type,
+										subscriber },
+								this->m_data.m_unknown_type_reaction );
+					}
 			}
 
 		so_5::environment_t &
@@ -327,6 +618,44 @@ class actual_mbox_t final
 	private:
 		//! Mbox's data.
 		const mbox_data_t m_data;
+
+		//FIXME: document this!
+		[[nodiscard]]
+		std::optional< const sink_t * >
+		try_find_sink_for_msg_type( const std::type_index & msg_type ) const
+			{
+				const auto last = end( m_data.m_sinks );
+				const auto it = std::lower_bound(
+						begin( m_data.m_sinks ), last,
+						msg_type,
+						sink_compare );
+
+				if( !( it == last ) && !( sink_compare( *it, msg_type ) ) )
+					return { std::addressof( *it ) };
+				else
+					return std::nullopt;
+			}
+
+		/*!
+		 * \brief Ensures that message is an immutable message.
+		 *
+		 * Checks mutability flag and throws an exception if message is
+		 * a mutable one.
+		 */
+		void
+		ensure_immutable_message(
+			const std::type_index & msg_type,
+			const message_ref_t & what ) const
+			{
+				if( (mbox_type_t::multi_producer_multi_consumer ==
+						this->m_data.m_mbox_type) &&
+						(message_mutability_t::immutable_message !=
+								message_mutability( what )) )
+					SO_5_THROW_EXCEPTION(
+							so_5::rc_mutable_msg_cannot_be_delivered_via_mpmc_mbox,
+							"an attempt to deliver mutable message via MPMC mbox"
+							", msg_type=" + std::string(msg_type.name()) );
+			}
 	};
 
 } /* namespace impl */
