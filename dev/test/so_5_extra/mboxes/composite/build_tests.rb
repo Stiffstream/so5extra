@@ -9,4 +9,7 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/reaction/prj.ut.rb" )
 	required_prj( "#{path}/reaction/prj_s.ut.rb" )
+
+	required_prj( "#{path}/mbox_type/prj.ut.rb" )
+	required_prj( "#{path}/mbox_type/prj_s.ut.rb" )
 }

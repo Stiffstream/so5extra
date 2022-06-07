@@ -48,6 +48,17 @@ const int rc_no_sink_for_message_type =
 const int rc_message_type_already_has_sink =
 		so_5::extra::errors::mboxes_composite_errors + 1;
 
+/*!
+ * \brief An attempt to add MPMC sink to MPSC mbox.
+ *
+ * If composite mbox is created as MPSC mbox then a MPMC mbox can't be
+ * added as a destination.
+ *
+ * \since v.1.5.2
+ */
+const int rc_mpmc_sink_can_be_used_with_mpsc_composite =
+		so_5::extra::errors::mboxes_composite_errors + 2;
+
 } /* namespace errors */
 
 //FIXME: document this!
@@ -696,10 +707,10 @@ class mbox_builder_t
 
 		//FIXME: document this!
 		template< typename Msg_Type >
-		[[nodiscard]]
 		mbox_builder_t &
 		add( mbox_t dest_mbox ) &
 			{
+				// Use of mutable message type for MPMC mbox should be prohibited.
 				if constexpr( is_mutable_message< Msg_Type >::value )
 					{
 						switch( m_mbox_type )
@@ -714,6 +725,18 @@ class mbox_builder_t
 							case mbox_type_t::multi_producer_single_consumer:
 							break;
 							}
+					}
+
+				// MPMC mbox can't be added as a sink to MPSC composite.
+				if( ( mbox_type_t::multi_producer_single_consumer ==
+							m_mbox_type ) &&
+						( mbox_type_t::multi_producer_multi_consumer ==
+						  dest_mbox->type() ) )
+					{
+						SO_5_THROW_EXCEPTION(
+								errors::rc_mpmc_sink_can_be_used_with_mpsc_composite,
+								"MPMC mbox can't be added as a sink to MPSC composite, "
+								"msg_type=" + std::string(typeid(Msg_Type).name()) );
 					}
 
 				const auto [it, is_inserted] = m_sinks.emplace(
