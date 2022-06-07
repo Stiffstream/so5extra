@@ -642,7 +642,7 @@ class actual_mbox_t final
 						msg_type,
 						sink_compare );
 
-				if( !( it == last ) && !( sink_compare( *it, msg_type ) ) )
+				if( !( it == last ) && msg_type == it->m_msg_type )
 					return { std::addressof( *it ) };
 				else
 					return std::nullopt;
