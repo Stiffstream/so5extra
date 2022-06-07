@@ -18,10 +18,11 @@ TEST_CASE( "builder" )
 			so_5::launch( [](so_5::environment_t & env) {
 						auto first_mbox = env.create_mbox();
 
-						auto b = composite_ns::builder(
+						auto mb = composite_ns::builder(
 								so_5::mbox_type_t::multi_producer_multi_consumer,
 								composite_ns::drop_if_not_found() )
-							.add< msg_first >( first_mbox );
+							.add< msg_first >( first_mbox )
+							.make( env );
 					} );
 		},
 		5 );

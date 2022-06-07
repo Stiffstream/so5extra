@@ -9,6 +9,9 @@
 
 #include <so_5_extra/error_ranges.hpp>
 
+#include <so_5/impl/msg_tracing_helpers.hpp>
+
+#include <so_5/environment.hpp>
 #include <so_5/mbox.hpp>
 
 #include <map>
@@ -129,6 +132,9 @@ drop_if_not_found()
 		return { drop_if_not_found_case_t{} };
 	}
 
+// Forward declaration.
+class mbox_builder_t;
+
 namespace impl {
 
 //FIXME: document this!
@@ -141,6 +147,12 @@ struct sink_t
 		std::type_index m_msg_type;
 		//! The destination for messages for that type.
 		mbox_t m_dest;
+
+		//! Initializing constructor.
+		sink_t( std::type_index msg_type, mbox_t dest )
+			:	m_msg_type{ std::move(msg_type) }
+			,	m_dest{ std::move(dest) }
+			{}
 	};
 
 //FIXME: document this!
@@ -190,9 +202,12 @@ struct mbox_data_t
  * \since v.1.5.2
  */
 template< typename Tracing_Base >
-class actual_mbox_t final : public abstract_message_box_t
+class actual_mbox_t final
+	:	public abstract_message_box_t
+	,	private Tracing_Base
 	{
 		//FIXME: friends have to be declated here!
+		friend class ::so_5::extra::mboxes::composite::mbox_builder_t;
 
 		/*!
 		 * \brief Initializing constructor.
@@ -381,6 +396,47 @@ class mbox_builder_t
 				return std::move( add<Msg_Type>( std::move(dest_mbox) ) );
 			}
 
+		//FIXME: document this!
+		[[nodiscard]]
+		mbox_t
+		make( environment_t & env )
+			{
+				return env.make_custom_mbox(
+						[this]( const mbox_creation_data_t & data )
+						{
+							impl::mbox_data_t mbox_data{
+									data.m_env.get(),
+									data.m_id,
+									m_mbox_type,
+									std::move(m_unknown_type_reaction),
+									sinks_to_vector()
+								};
+							mbox_t result;
+
+							if( data.m_tracer.get().is_msg_tracing_enabled() )
+								{
+									using ::so_5::impl::msg_tracing_helpers::
+											tracing_enabled_base;
+									using T = impl::actual_mbox_t< tracing_enabled_base >;
+
+									result = mbox_t{ new T{
+											std::move(mbox_data),
+											data.m_tracer.get()
+										} };
+								}
+							else
+								{
+									using ::so_5::impl::msg_tracing_helpers::
+											tracing_disabled_base;
+									using T = impl::actual_mbox_t< tracing_disabled_base >;
+
+									result = mbox_t{ new T{ std::move(mbox_data) } };
+								}
+
+							return result;
+						} );
+			}
+
 	private:
 		/*!
 		 * \brief Type of container for holding sinks.
@@ -398,6 +454,20 @@ class mbox_builder_t
 
 		//! Container for registered sinks.
 		sink_map_t m_sinks;
+
+		[[nodiscard]]
+		impl::sink_container_t
+		sinks_to_vector() const
+			{
+				impl::sink_container_t result;
+				result.reserve( m_sinks.size() );
+
+				// Use the fact that items in std::map are ordered by keys.
+				for( const auto & [k, v] : m_sinks )
+					result.emplace_back( k, v );
+
+				return result;
+			}
 	};
 
 //FIXME: document this!
