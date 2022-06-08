@@ -59,6 +59,18 @@ const int rc_message_type_already_has_sink =
 const int rc_mpmc_sink_can_be_used_with_mpsc_composite =
 		so_5::extra::errors::mboxes_composite_errors + 2;
 
+/*!
+ * \brief An attempt to use nullptr as the default destination mbox.
+ *
+ * An attempt use null pointer to mbox as the default destination mbox.
+ * For example, an empty mbox_t instance is passed to
+ * redirect_to_if_not_found() function.
+ *
+ * \since v.1.5.2
+ */
+const int rc_null_as_default_destination_mbox =
+		so_5::extra::errors::mboxes_composite_errors + 3;
+
 } /* namespace errors */
 
 /*!
@@ -72,11 +84,22 @@ class redirect_to_if_not_found_case_t
 		//! Destination for message of unknown type.
 		mbox_t m_dest;
 
+		[[nodiscard]]
+		static mbox_t
+		ensure_not_null( mbox_t dest )
+			{
+				if( !dest )
+					SO_5_THROW_EXCEPTION(
+							errors::rc_null_as_default_destination_mbox,
+							"nullptr can't be used as the default destination mbox" );
+
+				return dest;
+			}
+
 	public:
 		//! Initializing constructor.
 		redirect_to_if_not_found_case_t( mbox_t dest )
-			//FIXME: should there be check that dest isn't null?
-			:	m_dest{ std::move(dest) }
+			:	m_dest{ ensure_not_null( std::move(dest) ) }
 			{}
 
 		//! Getter.
@@ -775,7 +798,6 @@ class actual_mbox_t final
 
 } /* namespace impl */
 
-//FIXME: document this!
 /*!
  * \brief Factory class for building an instance of composite mbox.
  *
