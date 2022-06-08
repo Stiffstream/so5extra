@@ -201,8 +201,12 @@ class mbox_builder_t;
 
 namespace impl {
 
-//FIXME: document this!
 /*!
+ * \brief Description of one sink.
+ *
+ * Contains info about message type and destination mbox for messages
+ * of that type.
+ *
  * \since v.1.5.2
  */
 struct sink_t
@@ -219,14 +223,16 @@ struct sink_t
 			{}
 	};
 
-//FIXME: document this!
 /*!
+ * \brief Type of container for holding sinks.
+ *
  * \since v.1.5.2
  */
 using sink_container_t = std::vector< sink_t >;
 
-//FIXME: document this!
 /*!
+ * \brief Comparator function object to be used with std::lower_bound.
+ *
  * \since v.1.5.2
  */
 inline const auto sink_compare =
@@ -237,7 +243,12 @@ inline const auto sink_compare =
 namespace unknown_msg_type_handlers
 {
 
-//FIXME: document this!
+/*!
+ * \brief Function object to be used with std::visit.
+ *
+ * Implement logic of so_5::abstract_message_box_t::subscribe_event_handler()
+ * in a case when message type is unknown.
+ */
 class subscribe_event_t
 	{
 		const std::type_index & m_msg_type;
@@ -279,7 +290,12 @@ class subscribe_event_t
 			}
 	};
 
-//FIXME: document this!
+/*!
+ * \brief Function object to be used with std::visit.
+ *
+ * Implement logic of so_5::abstract_message_box_t::unsubscribe_event_handlers()
+ * in a case when message type is unknown.
+ */
 class unsubscribe_event_t
 	{
 		const std::type_index & m_msg_type;
@@ -314,7 +330,12 @@ class unsubscribe_event_t
 			}
 	};
 
-//FIXME: document this!
+/*!
+ * \brief Function object to be used with std::visit.
+ *
+ * Implement logic of so_5::abstract_message_box_t::do_deliver_message()
+ * in a case when message type is unknown.
+ */
 template< typename Tracer >
 class deliver_message_t
 	{
@@ -369,7 +390,12 @@ class deliver_message_t
 			}
 	};
 
-//FIXME: document this!
+/*!
+ * \brief Function object to be used with std::visit.
+ *
+ * Implement logic of so_5::abstract_message_box_t::set_delivery_filter()
+ * in a case when message type is unknown.
+ */
 class set_delivery_filter_t
 	{
 		const std::type_index & m_msg_type;
@@ -411,7 +437,12 @@ class set_delivery_filter_t
 			}
 	};
 
-//FIXME: document this!
+/*!
+ * \brief Function object to be used with std::visit.
+ *
+ * Implement logic of so_5::abstract_message_box_t::drop_delivery_filter()
+ * in a case when message type is unknown.
+ */
 class drop_delivery_filter_t
 	{
 		const std::type_index & m_msg_type;
@@ -484,8 +515,13 @@ struct mbox_data_t
 			{}
 	};
 
-//FIXME: document this!
 /*!
+ * \brief Actual implementation of composite mbox.
+ *
+ * \note
+ * An instance of that class is immutable. It doesn't allow modification of its
+ * state. It makes the internals of actual_mbox_t thread safe.
+ *
  * \since v.1.5.2
  */
 template< typename Tracing_Base >
@@ -694,7 +730,11 @@ class actual_mbox_t final
 		//! Mbox's data.
 		const mbox_data_t m_data;
 
-		//FIXME: document this!
+		/*!
+		 * \brief Attempt to find a sink for specified message type.
+		 *
+		 * \return empty std::optional if \a msg_type is unknown.
+		 */
 		[[nodiscard]]
 		std::optional< const sink_t * >
 		try_find_sink_for_msg_type( const std::type_index & msg_type ) const
@@ -736,9 +776,72 @@ class actual_mbox_t final
 } /* namespace impl */
 
 //FIXME: document this!
+/*!
+ * \brief Factory class for building an instance of composite mbox.
+ *
+ * Usage example:
+ * \code
+ * using namespace so_5::extra::mboxes::composite;
+ *
+ * auto mbox = single_consumer_builder(throw_if_not_found())
+ * 	.add<msg_first>(first_mbox)
+ * 	.add< so_5::mutable_msg<msg_second> >(second_mbox)
+ * 	.make(env);
+ * \endcode
+ *
+ * \note
+ * This class is intended to be used in just one chain of add()..make() methods.
+ * It means that code like that:
+ * \code
+ * using namespace so_5::extra::mboxes::composite;
+ *
+ * // Simplest case without storing mbox_builder_t instance.
+ * auto mbox = single_consumer_builder(throw_if_not_found())
+ * 	.add<msg_first>(first_mbox)
+ * 	.add< so_5::mutable_msg<msg_second> >(second_mbox)
+ * 	.make(env);
+ *
+ * // More complex case with holding temporary mbox_builder_t instance.
+ * auto my_builder = multi_consumer_builder(drop_if_not_found());
+ * my_builder.add<msg_first>(first_mbox);
+ * if(some_condition)
+ * 	my_builder.add<msg_second>(second_mbox);
+ * if(third_mbox_present)
+ * 	my_builder.add<msg_third>(third_mbox);
+ * auto mbox = my_builder.make(env);
+ * \endcode
+ * Will work in all versions of so5extra. But multiple calls to make() for
+ * the same builder object are not guaranteed to be working. It's depend
+ * on the current implementation and the implementation can change in
+ * future versions of so5extra. It means that you have to avoid code
+ * like that:
+ * \code
+ * using namespace so_5::extra::mboxes::composite;
+ *
+ * // DO NOT DO THIS!
+ * // The behaviour can change in future versions of so5extra without prior notify.
+ * auto my_builder = multi_consumer_builder(redirect_to_if_not_found(default_dest));
+ *
+ * my_builder.add<msg_first>(first_mbox);
+ * auto one = my_builder.make(env); // (1)
+ *
+ * my_builder.add<msg_second>(second_mbox);
+ * auto two = my_builder.make(env);
+ * \endcode
+ * It's not guaranteed thet my_builder will be in a valid state after point (1).
+ *
+ * \attention
+ * An instance of mbox_builder_t isn't thread safe.
+ *
+ * \note
+ * This class has a private constructor and instance of builder can be
+ * obtained only with help from builder(), single_consumer_builder(), and
+ * multi_consumer_builder() functions.
+ *
+ * \since v.1.5.2
+ */
 class mbox_builder_t
 	{
-		//FIXME: friends have to be declared here!
 		friend mbox_builder_t
 		builder(
 			mbox_type_t mbox_type,
@@ -757,7 +860,58 @@ class mbox_builder_t
 	public:
 		~mbox_builder_t() noexcept = default;
 
-		//FIXME: document this!
+		/*!
+		 * \brief Add destination mbox for a message type.
+		 *
+		 * Usage example:
+		 * \code
+		 * using namespace so_5::extra::mboxes::composite;
+		 *
+		 * // A case with holding temporary mbox_builder_t instance.
+		 * auto my_builder = multi_consumer_builder(drop_if_not_found());
+		 * my_builder.add<msg_first>(first_mbox);
+		 * if(some_condition)
+		 * 	my_builder.add<msg_second>(second_mbox);
+		 * if(third_mbox_present)
+		 * 	my_builder.add<msg_third>(third_mbox);
+		 * auto result_mbox = my_builder.make(env);
+		 * \endcode
+		 *
+		 * If a type for mutable message has to be specified then
+		 * so_5::mutable_msg marker should be used:
+		 * \code
+		 * using namespace so_5::extra::mboxes::composite;
+		 *
+		 * auto my_builder = single_consumer_builder(drop_if_not_found());
+		 * my_builder.add< so_5::mutable_msg<msg_first> >(first_mbox);
+		 * \endcode
+		 *
+		 * Type of mutable message can't be used if:
+		 *
+		 * - composite mbox is MPMC mbox;
+		 * - the destination mbox is MPMC mbox;
+		 *
+		 * \note
+		 * If builder is created to produce a MPSC composite mbox then a MPMC
+		 * mbox can be added as the destination mbox, but for immutable message
+		 * only. For example:
+		 * \code
+		 * using namespace so_5::extra::mboxes::composite;
+		 *
+		 * auto mpmc_dest = env.create_mbox(); // It's MPMC mbox.
+		 *
+		 * auto result_mbox = single_consumer_builder(throw_if_not_found())
+		 * 	// This call is allowed because my_msg is immutable message.
+		 * 	.add< my_msg >( mpmc_dest )
+		 * 	...
+		 * \endcode
+		 *
+		 * \attention
+		 * An exception will be thrown if destination mbox is already registered
+		 * for Msg_Type.
+		 *
+		 * \tparam Msg_Type type of message to be redirected to specified mbox.
+		 */
 		template< typename Msg_Type >
 		mbox_builder_t &
 		add( mbox_t dest_mbox ) &
@@ -801,7 +955,56 @@ class mbox_builder_t
 				return *this;
 			}
 
-		//FIXME: document this!
+		/*!
+		 * \brief Add destination mbox for a message type.
+		 *
+		 * Usage example:
+		 * \code
+		 * using namespace so_5::extra::mboxes::composite;
+		 *
+		 * // Simplest case without storing mbox_builder_t instance.
+		 * auto result_mbox = single_consumer_builder(throw_if_not_found())
+		 * 	.add<msg_first>(first_mbox)
+		 * 	.add< so_5::mutable_msg<msg_second> >(second_mbox)
+		 * 	.make(env);
+		 * \endcode
+		 *
+		 * If a type for mutable message has to be specified then
+		 * so_5::mutable_msg marker should be used:
+		 * \code
+		 * using namespace so_5::extra::mboxes::composite;
+		 *
+		 * auto result_mbox = single_consumer_builder(throw_if_not_found())
+		 * 	.add< so_5::mutable_msg<message> >(dest_mbox)
+		 * 	...
+		 * \endcode
+		 *
+		 * Type of mutable message can't be used if:
+		 *
+		 * - composite mbox is MPMC mbox;
+		 * - the destination mbox is MPMC mbox;
+		 *
+		 * \note
+		 * If builder is created to produce a MPSC composite mbox then a MPMC
+		 * mbox can be added as the destination mbox, but for immutable message
+		 * only. For example:
+		 * \code
+		 * using namespace so_5::extra::mboxes::composite;
+		 *
+		 * auto mpmc_dest = env.create_mbox(); // It's MPMC mbox.
+		 *
+		 * auto result_mbox = single_consumer_builder(throw_if_not_found())
+		 * 	// This call is allowed because my_msg is immutable message.
+		 * 	.add< my_msg >( mpmc_dest )
+		 * 	...
+		 * \endcode
+		 *
+		 * \attention
+		 * An exception will be thrown if destination mbox is already registered
+		 * for Msg_Type.
+		 *
+		 * \tparam Msg_Type type of message to be redirected to specified mbox.
+		 */
 		template< typename Msg_Type >
 		[[nodiscard]]
 		mbox_builder_t &&
@@ -810,7 +1013,29 @@ class mbox_builder_t
 				return std::move( add<Msg_Type>( std::move(dest_mbox) ) );
 			}
 
-		//FIXME: document this!
+		/*!
+		 * \brief Make a composite mbox.
+		 *
+		 * The created mbox will be based on information added to builder
+		 * before calling make() method.
+		 *
+		 * Usage example:
+		 * \code
+		 * using namespace so_5::extra::mboxes::composite;
+		 *
+		 * // Simplest case without storing mbox_builder_t instance.
+		 * auto result_mbox = single_consumer_builder(throw_if_not_found())
+		 * 	.add<msg_first>(first_mbox)
+		 * 	.add< so_5::mutable_msg<msg_second> >(second_mbox)
+		 * 	.make(env);
+		 * \endcode
+		 *
+		 * It's guaranteed that the builder object will be in some correct
+		 * state after make() returns. It means that builder can be safely
+		 * deleted or can obtain a new value as the result of assignement.
+		 * But it isn't guaranteed ther the builder will hold values previously
+		 * stored to it by add() methods.
+		 */
 		[[nodiscard]]
 		mbox_t
 		make( environment_t & env )
@@ -869,6 +1094,11 @@ class mbox_builder_t
 		//! Container for registered sinks.
 		sink_map_t m_sinks;
 
+		/*!
+		 * \return A vector of sinks that should be passed to impl::actual_mbox_t
+		 * constructor. That vector is guaranteed to be sorted (it means that
+		 * binary search can be used for searching message types).
+		 */
 		[[nodiscard]]
 		impl::sink_container_t
 		sinks_to_vector() const
@@ -884,26 +1114,57 @@ class mbox_builder_t
 			}
 	};
 
-//FIXME: document this!
 /*!
+ * \brief Factory function for making mbox_builder.
+ *
+ * Usage example:
+ * \code
+ * using namespace so_5::extra::mboxes::composite;
+ *
+ * auto result_mbox = builder(
+ * 		so_5::mbox_type_t::multi_producer_multi_consumer,
+ * 		redirect_to_if_not_found(default_mbox))
+ * 	.add<msg_first>(first_mbox)
+ * 	.add<msg_second>(second_mbox)
+ * 	.add<msg_third>(third_mbox)
+ * 	.make(env);
+ * \endcode
+ *
  * \since v.1.5.2
  */
 [[nodiscard]]
 inline mbox_builder_t
 builder(
+	//! Type of new mbox: MPMC or MPSC.
 	mbox_type_t mbox_type,
+	//! What to do if message type is unknown.
 	type_not_found_reaction_t unknown_type_reaction )
 	{
 		return { mbox_type, std::move(unknown_type_reaction) };
 	}
 
-//FIXME: document this!
 /*!
+ * \brief Factory function for making mbox_builder that produces MPMC composite
+ * mbox.
+ *
+ * Usage example:
+ * \code
+ * using namespace so_5::extra::mboxes::composite;
+ *
+ * auto result_mbox = multi_consumer_builder(
+ * 		redirect_to_if_not_found(default_mbox))
+ * 	.add<msg_first>(first_mbox)
+ * 	.add<msg_second>(second_mbox)
+ * 	.add<msg_third>(third_mbox)
+ * 	.make(env);
+ * \endcode
+ *
  * \since v.1.5.2
  */
 [[nodiscard]]
 inline mbox_builder_t
 multi_consumer_builder(
+	//! What to do if message type is unknown.
 	type_not_found_reaction_t unknown_type_reaction )
 	{
 		return builder(
@@ -911,8 +1172,22 @@ multi_consumer_builder(
 				std::move(unknown_type_reaction) );
 	}
 
-//FIXME: document this!
 /*!
+ * \brief Factory function for making mbox_builder that produces MPSC composite
+ * mbox.
+ *
+ * Usage example:
+ * \code
+ * using namespace so_5::extra::mboxes::composite;
+ *
+ * auto result_mbox = single_consumer_builder(
+ * 		redirect_to_if_not_found(default_mbox))
+ * 	.add<msg_first>(first_mbox)
+ * 	.add< so_5::mutable_msg<msg_second> >(second_mbox)
+ * 	.add<msg_third>(third_mbox)
+ * 	.make(env);
+ * \endcode
+ *
  * \since v.1.5.2
  */
 [[nodiscard]]
