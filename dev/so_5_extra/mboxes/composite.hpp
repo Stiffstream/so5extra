@@ -61,19 +61,20 @@ const int rc_mpmc_sink_can_be_used_with_mpsc_composite =
 
 } /* namespace errors */
 
-//FIXME: document this!
 /*!
+ * \brief Description of a case when messages of unknown type have to be
+ * redirected to another mbox.
  *
  * \since v.1.5.2
  */
-class delegate_to_if_not_found_case_t
+class redirect_to_if_not_found_case_t
 	{
 		//! Destination for message of unknown type.
 		mbox_t m_dest;
 
 	public:
 		//! Initializing constructor.
-		delegate_to_if_not_found_case_t( mbox_t dest )
+		redirect_to_if_not_found_case_t( mbox_t dest )
 			//FIXME: should there be check that dest isn't null?
 			:	m_dest{ std::move(dest) }
 			{}
@@ -84,46 +85,83 @@ class delegate_to_if_not_found_case_t
 		dest() const noexcept { return m_dest; }
 	};
 
-//FIXME: document this!
 /*!
+ * \brief Description of a case when an exception has to be thrown if
+ * the type of a message is unknown.
+ *
+ * An exception will also be thrown on attempts to subscribe to and/or set
+ * delivery filter for unknown message type.
  *
  * \since v.1.5.2
  */
 struct throw_if_not_found_case_t
 	{};
 
-//FIXME: document this!
 /*!
+ * \brief Description of a case when a message of unknown type has to be dropped.
+ *
+ * Attempts to make subscriptions and/or set delivery filters for unknown
+ * message type will be silently ignored.
  *
  * \since v.1.5.2
  */
 struct drop_if_not_found_case_t
 	{};
 
-//FIXME: document this!
 /*!
+ * \brief Type that describes the reaction to a message of unknown type.
  *
  * \since v.1.5.2
  */
 using type_not_found_reaction_t = std::variant<
-		delegate_to_if_not_found_case_t,
+		redirect_to_if_not_found_case_t,
 		throw_if_not_found_case_t,
 		drop_if_not_found_case_t
 	>;
 
-//FIXME: document this!
 /*!
+ * \brief Helper function to set a reaction to unknown message type.
+ *
+ * Message of unknown type has to be redirected to specified mbox.
+ * Subscriptions and delivery filters for unknown type have also be
+ * handled by \a dest_mbox.
+ *
+ * Usage example:
+ * \code
+ * using namespace so_5::extra::mboxes::composite;
+ *
+ * auto mbox = multi_consumer_builder(redirect_to_if_not_found(default_mbox))
+ * 	.add<first_message>(first_mbox)
+ * 	.add<second_message>(second_mbox)
+ * 	.make(env);
+ * \endcode
+ *
  * \since v.1.5.2
  */
 [[nodiscard]]
 inline type_not_found_reaction_t
-delegate_to_if_not_found( const mbox_t & dest_mbox )
+redirect_to_if_not_found( const mbox_t & dest_mbox )
 	{
-		return { delegate_to_if_not_found_case_t{ dest_mbox } };
+		return { redirect_to_if_not_found_case_t{ dest_mbox } };
 	}
 
-//FIXME: document this!
 /*!
+ * \brief Helper function to set a reaction to unknown message type.
+ *
+ * Attempt to use unknown message type (e.g. sending of a message,
+ * subscription or settting delivery filter) should lead to raising
+ * an exception (an instance of so_5::exception_t will be thrown).
+ *
+ * Usage example:
+ * \code
+ * using namespace so_5::extra::mboxes::composite;
+ *
+ * auto mbox = multi_consumer_builder(throw_if_not_found(default_mbox))
+ * 	.add<first_message>(first_mbox)
+ * 	.add<second_message>(second_mbox)
+ * 	.make(env);
+ * \endcode
+ *
  * \since v.1.5.2
  */
 [[nodiscard]]
@@ -133,8 +171,22 @@ throw_if_not_found()
 		return { throw_if_not_found_case_t{} };
 	}
 
-//FIXME: document this!
 /*!
+ * \brief Helper function to set a reaction to unknown message type.
+ *
+ * Attempt to use unknown message type (e.g. sending of a message,
+ * subscription or settting delivery filter) should be silently ignored.
+ *
+ * Usage example:
+ * \code
+ * using namespace so_5::extra::mboxes::composite;
+ *
+ * auto mbox = multi_consumer_builder(drop_if_not_found(default_mbox))
+ * 	.add<first_message>(first_mbox)
+ * 	.add<second_message>(second_mbox)
+ * 	.make(env);
+ * \endcode
+ *
  * \since v.1.5.2
  */
 [[nodiscard]]
@@ -203,7 +255,7 @@ class subscribe_event_t
 			{}
 
 		void
-		operator()( const delegate_to_if_not_found_case_t & c ) const
+		operator()( const redirect_to_if_not_found_case_t & c ) const
 			{
 				c.dest()->subscribe_event_handler(
 						m_msg_type,
@@ -242,7 +294,7 @@ class unsubscribe_event_t
 			{}
 
 		void
-		operator()( const delegate_to_if_not_found_case_t & c ) const
+		operator()( const redirect_to_if_not_found_case_t & c ) const
 			{
 				c.dest()->unsubscribe_event_handlers(
 						m_msg_type,
@@ -284,12 +336,12 @@ class deliver_message_t
 			{}
 
 		void
-		operator()( const delegate_to_if_not_found_case_t & c ) const
+		operator()( const redirect_to_if_not_found_case_t & c ) const
 			{
 				using namespace ::so_5::impl::msg_tracing_helpers::details;
 
 				m_tracer.make_trace(
-						"delegate_to_default_destination",
+						"redirect_to_default_destination",
 						mbox_as_msg_destination{ *(c.dest()) } );
 
 				c.dest()->do_deliver_message(
@@ -335,7 +387,7 @@ class set_delivery_filter_t
 			{}
 
 		void
-		operator()( const delegate_to_if_not_found_case_t & c ) const
+		operator()( const redirect_to_if_not_found_case_t & c ) const
 			{
 				c.dest()->set_delivery_filter(
 						m_msg_type,
@@ -374,7 +426,7 @@ class drop_delivery_filter_t
 			{}
 
 		void
-		operator()( const delegate_to_if_not_found_case_t & c ) const noexcept
+		operator()( const redirect_to_if_not_found_case_t & c ) const noexcept
 			{
 				c.dest()->drop_delivery_filter(
 						m_msg_type,
@@ -562,7 +614,7 @@ class actual_mbox_t final
 						using namespace ::so_5::impl::msg_tracing_helpers::details;
 
 						tracer.make_trace(
-								"delegate_to_destination",
+								"redirect_to_destination",
 								mbox_as_msg_destination{ *( (*opt_sink)->m_dest ) } );
 
 						(*opt_sink)->m_dest->do_deliver_message(

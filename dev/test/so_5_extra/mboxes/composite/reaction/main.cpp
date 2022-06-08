@@ -15,7 +15,7 @@ struct msg_first final : public so_5::message_t
 struct msg_second final : public so_5::message_t
 {};
 
-class delegate_to_reaction final : public so_5::agent_t
+class redirect_to_reaction final : public so_5::agent_t
 {
 	const so_5::mbox_t m_second_mbox;
 	const so_5::mbox_t m_composite_mbox;
@@ -28,13 +28,13 @@ class delegate_to_reaction final : public so_5::agent_t
 	{
 		return composite_ns::builder(
 				so_5::mbox_type_t::multi_producer_multi_consumer,
-				composite_ns::delegate_to_if_not_found( second_mbox ) )
+				composite_ns::redirect_to_if_not_found( second_mbox ) )
 			.add< msg_first >( first_mbox )
 			.make( first_mbox->environment() );
 	}
 
 public:
-	delegate_to_reaction( context_t ctx )
+	redirect_to_reaction( context_t ctx )
 		:	so_5::agent_t{ std::move(ctx) }
 		,	m_second_mbox{ so_make_new_direct_mbox() }
 		,	m_composite_mbox{
@@ -205,12 +205,12 @@ public:
 	}
 };
 
-TEST_CASE( "delegate_to_if_not_found" )
+TEST_CASE( "redirect_to_if_not_found" )
 {
 	run_with_time_limit( [] {
 			so_5::launch( [](so_5::environment_t & env) {
 						env.register_agent_as_coop(
-								env.make_agent< delegate_to_reaction >() );
+								env.make_agent< redirect_to_reaction >() );
 					},
 					[](so_5::environment_params_t & params) {
 						params.message_delivery_tracer(
