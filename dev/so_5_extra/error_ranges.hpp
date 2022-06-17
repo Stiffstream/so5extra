@@ -104,6 +104,12 @@ const int mboxes_first_last_subscriber_notification_errors = 21300;
  */
 const int mboxes_composite_errors = 21400;
 
+//! Starting point for errors of mboxes::inflight_limit submodule.
+/*!
+ * \since v.1.5.2
+ */
+const int mboxes_inflight_limit_errors = 21500;
+
 } /* namespace errors */
 
 } /* namespace extra */
