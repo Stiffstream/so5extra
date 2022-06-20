@@ -11,6 +11,8 @@
 
 #include <so_5_extra/error_ranges.hpp>
 
+#include <so_5_extra/enveloped_msg/just_envelope.hpp>
+
 #include <so_5/impl/msg_tracing_helpers.hpp>
 
 #include <so_5/environment.hpp>
@@ -18,6 +20,43 @@
 #include <atomic>
 
 namespace so_5 {
+
+namespace extra::mboxes::inflight_limit {
+
+//FIXME: document this!
+using underlying_counter_t = unsigned int;
+
+} /* namespace extra::mboxes::inflight_limit */
+
+namespace impl::msg_tracing_helpers::details {
+
+// Special extension for inflight_limit specific data.
+namespace extra_inflight_limit_specifics {
+
+struct limit_info
+	{
+		so_5::extra::mboxes::inflight_limit::underlying_counter_t m_limit;
+		so_5::extra::mboxes::inflight_limit::underlying_counter_t m_current_number;
+	};
+
+} /* namespace extra_inflight_limit_specifics */
+
+inline void
+make_trace_to_1( std::ostream & s, extra_inflight_limit_specifics::limit_info info )
+	{
+		s << "[inflight_limit=" << info.m_limit << ",inflight_current="
+				<< info.m_current_number << "]";
+	}
+
+inline void
+fill_trace_data_1(
+	actual_trace_data_t & /*d*/,
+	extra_inflight_limit_specifics::limit_info /*info*/ )
+	{
+		// Nothing to do.
+	}
+
+} /* namespace impl::msg_tracing_helpers::details */
 
 namespace extra {
 
@@ -60,11 +99,70 @@ namespace impl {
 struct instances_counter_t
 	{
 		//! Counter of inflight instances.
-		std::atomic< unsigned int > m_instances{};
+		std::atomic< underlying_counter_t > m_instances{};
 	};
 
 //FIXME: document this!
 using instances_counter_shptr_t = std::shared_ptr< instances_counter_t >;
+
+//FIXME: document this!
+class counter_incrementer_t
+	{
+		instances_counter_t & m_counter;
+		const underlying_counter_t m_value;
+
+		bool m_should_decrement_in_destructor{ true };
+
+	public:
+		counter_incrementer_t(
+			outliving_reference_t< instances_counter_t > counter )
+			:	m_counter{ counter.get() }
+			,	m_value{ ++(m_counter.m_instances) }
+			{}
+
+		~counter_incrementer_t() noexcept
+			{
+				if( m_should_decrement_in_destructor )
+					(m_counter.m_instances)--;
+			}
+
+		void
+		do_not_decrement_in_destructor() noexcept
+			{
+				m_should_decrement_in_destructor = false;
+			}
+
+		[[nodiscard]]
+		underlying_counter_t
+		value() const noexcept
+			{
+				return m_value;
+			}
+	};
+
+//FIXME: document this!
+class special_envelope_t final : public so_5::extra::enveloped_msg::just_envelope_t
+	{
+		using base_type_t = so_5::extra::enveloped_msg::just_envelope_t;
+
+		instances_counter_shptr_t m_counter;
+
+	public:
+		//! Initializing constructor.
+		special_envelope_t(
+			message_ref_t payload,
+			instances_counter_shptr_t counter )
+			:	base_type_t{ std::move(payload) }
+			,	m_counter{ std::move(counter) }
+			{}
+
+		~special_envelope_t() noexcept override
+			{
+				// Counter should always be decremented because it was
+				// incremented before the creation of envelope instance.
+				(m_counter->m_instances)--;
+			}
+	};
 
 //FIXME: document this!
 /*!
@@ -88,7 +186,7 @@ class actual_mbox_t final
 		const std::type_index m_msg_type;
 
 		//! The limit of inflight messages.
-		const unsigned int m_limit;
+		const underlying_counter_t m_limit;
 
 		//! Counter for inflight instances.
 		instances_counter_shptr_t m_instances_counter;
@@ -124,7 +222,7 @@ class actual_mbox_t final
 			//! Type of a message for that mbox.
 			std::type_index msg_type,
 			//! The limit of inflight messages.
-			unsigned int limit,
+			underlying_counter_t limit,
 			//! Optional parameters for Tracing_Base's constructor.
 			Tracing_Args &&... args )
 			:	Tracing_Base{ std::forward< Tracing_Args >(args)... }
@@ -193,11 +291,46 @@ class actual_mbox_t final
 						//FIXME: is such message appropriate?
 						"do_deliver_message" );
 
-//FIXME: actual implementation has to be made.
-				m_underlying_mbox->do_deliver_message(
-						msg_type,
-						message,
-						overlimit_reaction_deep );
+				typename Tracing_Base::deliver_op_tracer tracer{
+						*this, // as Tracing_base
+						*this, // as abstract_message_box_t
+						"deliver_message",
+						msg_type, message, overlimit_reaction_deep };
+
+				// Step 1: increment the counter and check that the limit
+				// isn't exeeded yet.
+				counter_incrementer_t incrementer{ 
+						outliving_mutable( *m_instances_counter )
+					};
+				if( incrementer.value() <= m_limit )
+					{
+						// NOTE: if there will be an exception then the number
+						// of instance will be decremented by incrementer.
+						message_ref_t our_envelope{
+								std::make_unique< special_envelope_t >(
+										std::move(message),
+										m_instances_counter )
+							};
+
+						// incrementer shouldn't control the number of instances
+						// anymore.
+						incrementer.do_not_decrement_in_destructor();
+
+						// Our envelope object has to be sent.
+						m_underlying_mbox->do_deliver_message(
+								msg_type,
+								our_envelope,
+								overlimit_reaction_deep );
+					}
+				else
+					{
+						using namespace so_5::impl::msg_tracing_helpers::details::
+								extra_inflight_limit_specifics;
+
+						tracer.make_trace(
+								"too_many_inflight_messages",
+								limit_info{ m_limit, incrementer.value() } );
+					}
 			}
 
 		void
@@ -269,7 +402,7 @@ make_mbox(
 	//! Actual destination mbox.
 	mbox_t dest_mbox,
 	//! The limit of inflight messages.
-	unsigned int inflight_limit )
+	underlying_counter_t inflight_limit )
 	{
 		//FIXME: should we check dest_mbox for nullptr?
 		auto & env = dest_mbox->environment();
