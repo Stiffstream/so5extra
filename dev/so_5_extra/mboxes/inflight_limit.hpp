@@ -404,8 +404,30 @@ make_mbox(
 	//! The limit of inflight messages.
 	underlying_counter_t inflight_limit )
 	{
-		//FIXME: should we check dest_mbox for nullptr?
+		if( !dest_mbox )
+			SO_5_THROW_EXCEPTION(
+					errors::rc_nullptr_as_underlying_mbox,
+					"nullptr is used as dest_mbox" );
+
+		// Use of mutable message type for MPMC mbox should be prohibited.
+		if constexpr( is_mutable_message< Msg_Type >::value )
+			{
+				switch( dest_mbox->type() )
+					{
+					case mbox_type_t::multi_producer_multi_consumer:
+						SO_5_THROW_EXCEPTION(
+								so_5::rc_mutable_msg_cannot_be_delivered_via_mpmc_mbox,
+								"an attempt to make MPMC mbox for mutable message, "
+								"msg_type=" + std::string(typeid(Msg_Type).name()) );
+					break;
+
+					case mbox_type_t::multi_producer_single_consumer:
+					break;
+					}
+			}
+
 		auto & env = dest_mbox->environment();
+
 		return env.make_custom_mbox(
 				[&dest_mbox, inflight_limit]( const mbox_creation_data_t & data )
 				{
