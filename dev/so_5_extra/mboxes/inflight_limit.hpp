@@ -39,8 +39,6 @@ struct limit_info
 		so_5::extra::mboxes::inflight_limit::underlying_counter_t m_current_number;
 	};
 
-} /* namespace extra_inflight_limit_specifics */
-
 inline void
 make_trace_to_1( std::ostream & s, extra_inflight_limit_specifics::limit_info info )
 	{
@@ -55,6 +53,8 @@ fill_trace_data_1(
 	{
 		// Nothing to do.
 	}
+
+} /* namespace extra_inflight_limit_specifics */
 
 } /* namespace impl::msg_tracing_helpers::details */
 
