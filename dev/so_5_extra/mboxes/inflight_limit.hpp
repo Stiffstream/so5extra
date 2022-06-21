@@ -23,7 +23,11 @@ namespace so_5 {
 
 namespace extra::mboxes::inflight_limit {
 
-//FIXME: document this!
+/*!
+ * \brief Type to be used for limit and counter of inflight messages.
+ *
+ * \since v.1.5.2
+ */
 using underlying_counter_t = unsigned int;
 
 } /* namespace extra::mboxes::inflight_limit */
@@ -95,17 +99,50 @@ const int rc_nullptr_as_underlying_mbox =
 
 namespace impl {
 
-//FIXME: document this!
+/*!
+ * \brief Separate type for holding inflight message counter as a separate object.
+ *
+ * It's expected that an instance of instances_counter_t will be created in
+ * dynamic memory and shared between entities via shared_ptr.
+ *
+ * \since v.1.5.2
+ */
 struct instances_counter_t
 	{
 		//! Counter of inflight instances.
 		std::atomic< underlying_counter_t > m_instances{};
 	};
 
-//FIXME: document this!
+/*!
+ * \brief An alias for shared_ptr to instances_counter.
+ *
+ * \since v.1.5.2
+ */
 using instances_counter_shptr_t = std::shared_ptr< instances_counter_t >;
 
-//FIXME: document this!
+/*!
+ * \brief Helper class for incrementing/decrementing number of messages in
+ * RAII style.
+ *
+ * An instance always increments the counter in the constructor. The result
+ * value is stored inside counter_incrementer_t instance. That value is available
+ * via value() method.
+ *
+ * The destructor decrements the counter if there weren't a call to
+ * do_not_decrement_in_destructor().
+ *
+ * The intended usage scenario is:
+ * 
+ * - create an instance of counter_incrementer_t;
+ * - check the counter via value() method;
+ * - if limit wasn't exeeded then create an appropriate envelope for a message and
+ *   call do_not_decrement_in_destructor(). In such a case the envelope will
+ *   decrement the number of inflight messages;
+ * - if limit was exeeded then just stop the operation and the destructor of
+ *   counter_incrementer_t will decrement number of messages automatically.
+ *
+ * \since v.1.5.2
+ */
 class counter_incrementer_t
 	{
 		instances_counter_t & m_counter;
@@ -115,7 +152,7 @@ class counter_incrementer_t
 
 	public:
 		counter_incrementer_t(
-			outliving_reference_t< instances_counter_t > counter )
+			outliving_reference_t< instances_counter_t > counter ) noexcept
 			:	m_counter{ counter.get() }
 			,	m_value{ ++(m_counter.m_instances) }
 			{}
@@ -140,7 +177,16 @@ class counter_incrementer_t
 			}
 	};
 
-//FIXME: document this!
+/*!
+ * \brief Type of envelope to be used by inflight_limit_mbox.
+ *
+ * \attention
+ * The envelope expects that the number of messages is already incremented before
+ * the creation of the envelope. That number is always decremented in the
+ * destructor.
+ * 
+ * \since v.1.5.2
+ */
 class special_envelope_t final : public so_5::extra::enveloped_msg::just_envelope_t
 	{
 		using base_type_t = so_5::extra::enveloped_msg::just_envelope_t;
@@ -164,8 +210,26 @@ class special_envelope_t final : public so_5::extra::enveloped_msg::just_envelop
 			}
 	};
 
-//FIXME: document this!
+//! Ensure that underlying mbox is not nullptr.
 /*!
+ * \throw so_5::exception_t if \a mbox is nullptr.
+ */
+[[nodiscard]]
+inline so_5::mbox_t
+ensure_underlying_mbox_not_null(
+	so_5::mbox_t mbox )
+	{
+		if( !mbox )
+			SO_5_THROW_EXCEPTION(
+					errors::rc_nullptr_as_underlying_mbox,
+					"nullptr is used as underlying mbox" );
+
+		return mbox;
+	}
+
+/*!
+ * \brief Actual implementation of inflight_limit_mbox.
+ *
  * \tparam Tracing_Base base class with implementation of message
  * delivery tracing methods.
  *
@@ -190,23 +254,6 @@ class actual_mbox_t final
 
 		//! Counter for inflight instances.
 		instances_counter_shptr_t m_instances_counter;
-
-		//! Ensure that underlying mbox is not nullptr.
-		/*!
-		 * \throw so_5::exception_t if \a mbox is nullptr.
-		 */
-		[[nodiscard]]
-		so_5::mbox_t
-		ensure_underlying_mbox_not_null(
-			so_5::mbox_t mbox )
-			{
-				if( !mbox )
-					SO_5_THROW_EXCEPTION(
-							errors::rc_nullptr_as_underlying_mbox,
-							"nullptr is used as underlying mbox" );
-
-				return mbox;
-			}
 
 	public:
 		/*!
@@ -247,8 +294,7 @@ class actual_mbox_t final
 			{
 				ensure_expected_msg_type(
 						msg_type,
-						//FIXME: is such message appropriate?
-						"subscribe_event_handler" );
+						"an attempt to subscribe with different message type" );
 
 				m_underlying_mbox->subscribe_event_handler(
 						msg_type, limit, subscriber );
@@ -261,8 +307,7 @@ class actual_mbox_t final
 			{
 				ensure_expected_msg_type(
 						msg_type,
-						//FIXME: is such message appropriate?
-						"unsubscribe_event_handlers" );
+						"an attempt to drop subscription for different message type" );
 
 				m_underlying_mbox->unsubscribe_event_handlers(
 						msg_type, subscriber );
@@ -288,8 +333,7 @@ class actual_mbox_t final
 			{
 				ensure_expected_msg_type(
 						msg_type,
-						//FIXME: is such message appropriate?
-						"do_deliver_message" );
+						"an attempt to deliver message of a different message type" );
 
 				typename Tracing_Base::deliver_op_tracer tracer{
 						*this, // as Tracing_base
@@ -341,8 +385,8 @@ class actual_mbox_t final
 			{
 				ensure_expected_msg_type(
 						msg_type,
-						//FIXME: is such message appropriate?
-						"set_delivery_filter" );
+						"an attempt to set delivery_filter for different "
+						"message type" );
 
 				m_underlying_mbox->set_delivery_filter(
 						msg_type,
@@ -355,14 +399,14 @@ class actual_mbox_t final
 			const std::type_index & msg_type,
 			::so_5::agent_t & subscriber ) noexcept override
 			{
-				ensure_expected_msg_type(
-						msg_type,
-						//FIXME: is such message appropriate?
-						"drop_delivery_filter" );
-
-				m_underlying_mbox->drop_delivery_filter(
-						msg_type,
-						subscriber );
+				// Because drop_delivery_filter is noexcept we just ignore
+				// an errornous call with a different message type.
+				if( msg_type == m_msg_type )
+					{
+						m_underlying_mbox->drop_delivery_filter(
+								msg_type,
+								subscriber );
+					}
 			}
 
 		so_5::environment_t &
@@ -391,28 +435,23 @@ class actual_mbox_t final
 			}
 	};
 
-} /* namespace impl */
-
-//FIXME: document this!
-template<
-	typename Msg_Type >
-[[nodiscard]]
-mbox_t
-make_mbox(
-	//! Actual destination mbox.
-	mbox_t dest_mbox,
-	//! The limit of inflight messages.
-	underlying_counter_t inflight_limit )
+/*!
+ * \brief Check for compatibility between mbox type and message type.
+ *
+ * Throws if mutable message is used with MPMC mbox.
+ * 
+ * \since v.1.5.2
+ */
+template< typename Msg_Type >
+void
+ensure_valid_message_type_for_underlying_mbox(
+	//! NOTE: it's expected to be not-null.
+	const so_5::mbox_t & underlying_mbox )
 	{
-		if( !dest_mbox )
-			SO_5_THROW_EXCEPTION(
-					errors::rc_nullptr_as_underlying_mbox,
-					"nullptr is used as dest_mbox" );
-
 		// Use of mutable message type for MPMC mbox should be prohibited.
 		if constexpr( is_mutable_message< Msg_Type >::value )
 			{
-				switch( dest_mbox->type() )
+				switch( underlying_mbox->type() )
 					{
 					case mbox_type_t::multi_producer_multi_consumer:
 						SO_5_THROW_EXCEPTION(
@@ -425,11 +464,60 @@ make_mbox(
 					break;
 					}
 			}
+	}
 
-		auto & env = dest_mbox->environment();
+} /* namespace impl */
+
+/*!
+ * \brief Create an instance of inflight_limit_mbox.
+ *
+ * Usage example:
+ *
+ * \code
+ * namespace mbox_ns = so_5::extra::mboxes::inflight_limit;
+ *
+ * so_5::environment_t & env = ...;
+ *
+ * // Create an inflight_limit_mbox with underlying MPMC mbox for immutable message.
+ * auto my_mbox = mbox_ns::make_mbox<my_msg>(env.create_mbox(), 15u);
+ *
+ * // Create an inflight_limit_mbox with underlying MPSC mbox for mutable message.
+ * class demo_agent : public so_5::agent_t
+ * {
+ * 	const so_5::mbox_t my_mbox_;
+ * public:
+ * 	demo_agent(context_t ctx)
+ * 		:	so_5::agent_t{std::move(ctx)}
+ * 		,	my_mbox{ mbox_ns::make_mbox< so_5::mutable_msg<my_msg> >(so_direct_mbox(), 4u) }
+ * 	{...}
+ * 	...
+ * };
+ * \endcode
+ *
+ * \tparam Msg_Type type of message to be used with a new mbox.
+ *
+ * \since v.1.5.2
+ */
+template< typename Msg_Type >
+[[nodiscard]]
+mbox_t
+make_mbox(
+	//! Actual destination mbox.
+	mbox_t dest_mbox,
+	//! The limit of inflight messages.
+	underlying_counter_t inflight_limit )
+	{
+		auto underlying_mbox = impl::ensure_underlying_mbox_not_null(
+				std::move(dest_mbox) );
+
+		// Use of mutable message type for MPMC mbox should be prohibited.
+		impl::ensure_valid_message_type_for_underlying_mbox< Msg_Type >(
+				underlying_mbox );
+
+		auto & env = underlying_mbox->environment();
 
 		return env.make_custom_mbox(
-				[&dest_mbox, inflight_limit]( const mbox_creation_data_t & data )
+				[&underlying_mbox, inflight_limit]( const mbox_creation_data_t & data )
 				{
 					mbox_t result;
 
@@ -439,7 +527,7 @@ make_mbox(
 									::so_5::impl::msg_tracing_helpers::tracing_enabled_base >;
 
 							result = mbox_t{ new T{
-									std::move(dest_mbox),
+									std::move(underlying_mbox),
 									message_payload_type< Msg_Type >::subscription_type_index(),
 									inflight_limit,
 									data.m_tracer.get()
@@ -451,7 +539,7 @@ make_mbox(
 									::so_5::impl::msg_tracing_helpers::tracing_disabled_base >;
 
 							result = mbox_t{ new T{
-									std::move(dest_mbox),
+									std::move(underlying_mbox),
 									message_payload_type< Msg_Type >::subscription_type_index(),
 									inflight_limit
 								} };
