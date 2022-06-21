@@ -210,12 +210,34 @@ class special_envelope_t final : public so_5::extra::enveloped_msg::just_envelop
 			}
 	};
 
+/*!
+ * \brief Helper type that tells that underlying mbox isn't nullptr.
+ *
+ * \since v.1.5.2
+ */
+class not_null_underlying_mbox_t
+	{
+		friend not_null_underlying_mbox_t
+		ensure_underlying_mbox_not_null( so_5::mbox_t );
+
+		so_5::mbox_t m_value;
+
+		not_null_underlying_mbox_t( so_5::mbox_t value )
+			:	m_value{ std::move(value) }
+			{}
+
+	public:
+		[[nodiscard]]
+		const so_5::mbox_t &
+		value() const noexcept { return m_value; }
+	};
+
 //! Ensure that underlying mbox is not nullptr.
 /*!
  * \throw so_5::exception_t if \a mbox is nullptr.
  */
 [[nodiscard]]
-inline so_5::mbox_t
+inline not_null_underlying_mbox_t
 ensure_underlying_mbox_not_null(
 	so_5::mbox_t mbox )
 	{
@@ -224,7 +246,7 @@ ensure_underlying_mbox_not_null(
 					errors::rc_nullptr_as_underlying_mbox,
 					"nullptr is used as underlying mbox" );
 
-		return mbox;
+		return { std::move(mbox) };
 	}
 
 /*!
@@ -265,7 +287,7 @@ class actual_mbox_t final
 		template< typename... Tracing_Args >
 		actual_mbox_t(
 			//! Destination mbox.
-			so_5::mbox_t dest_mbox,
+			const not_null_underlying_mbox_t & dest_mbox,
 			//! Type of a message for that mbox.
 			std::type_index msg_type,
 			//! The limit of inflight messages.
@@ -273,8 +295,7 @@ class actual_mbox_t final
 			//! Optional parameters for Tracing_Base's constructor.
 			Tracing_Args &&... args )
 			:	Tracing_Base{ std::forward< Tracing_Args >(args)... }
-			,	m_underlying_mbox{
-					ensure_underlying_mbox_not_null( std::move(dest_mbox) ) }
+			,	m_underlying_mbox{ dest_mbox.value() }
 			,	m_msg_type{ std::move(msg_type) }
 			,	m_limit{ limit }
 			,	m_instances_counter{ std::make_shared< instances_counter_t >() }
@@ -507,14 +528,14 @@ make_mbox(
 	//! The limit of inflight messages.
 	underlying_counter_t inflight_limit )
 	{
-		auto underlying_mbox = impl::ensure_underlying_mbox_not_null(
+		const auto underlying_mbox = impl::ensure_underlying_mbox_not_null(
 				std::move(dest_mbox) );
 
 		// Use of mutable message type for MPMC mbox should be prohibited.
 		impl::ensure_valid_message_type_for_underlying_mbox< Msg_Type >(
-				underlying_mbox );
+				underlying_mbox.value() );
 
-		auto & env = underlying_mbox->environment();
+		auto & env = underlying_mbox.value()->environment();
 
 		return env.make_custom_mbox(
 				[&underlying_mbox, inflight_limit]( const mbox_creation_data_t & data )
@@ -527,7 +548,7 @@ make_mbox(
 									::so_5::impl::msg_tracing_helpers::tracing_enabled_base >;
 
 							result = mbox_t{ new T{
-									std::move(underlying_mbox),
+									underlying_mbox,
 									message_payload_type< Msg_Type >::subscription_type_index(),
 									inflight_limit,
 									data.m_tracer.get()
@@ -539,7 +560,7 @@ make_mbox(
 									::so_5::impl::msg_tracing_helpers::tracing_disabled_base >;
 
 							result = mbox_t{ new T{
-									std::move(underlying_mbox),
+									underlying_mbox,
 									message_payload_type< Msg_Type >::subscription_type_index(),
 									inflight_limit
 								} };
