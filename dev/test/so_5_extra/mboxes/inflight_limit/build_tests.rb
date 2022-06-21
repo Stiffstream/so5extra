@@ -12,5 +12,8 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/mutable_and_mpmc/prj.ut.rb" )
 	required_prj( "#{path}/mutable_and_mpmc/prj_s.ut.rb" )
+
+	required_prj( "#{path}/wrong_type/prj.ut.rb" )
+	required_prj( "#{path}/wrong_type/prj_s.ut.rb" )
 }
 
