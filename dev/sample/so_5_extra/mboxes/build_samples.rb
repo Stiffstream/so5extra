@@ -11,4 +11,5 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/unique_subscribers/build_samples.rb" )
 	required_prj( "#{path}/first_last_subscriber_notification/build_samples.rb" )
 	required_prj( "#{path}/composite/build_samples.rb" )
+	required_prj( "#{path}/inflight_limit/build_samples.rb" )
 }
