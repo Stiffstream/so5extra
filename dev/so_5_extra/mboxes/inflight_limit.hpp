@@ -135,10 +135,10 @@ using instances_counter_shptr_t = std::shared_ptr< instances_counter_t >;
  * 
  * - create an instance of counter_incrementer_t;
  * - check the counter via value() method;
- * - if limit wasn't exeeded then create an appropriate envelope for a message and
+ * - if limit wasn't exceeded then create an appropriate envelope for a message and
  *   call do_not_decrement_in_destructor(). In such a case the envelope will
  *   decrement the number of inflight messages;
- * - if limit was exeeded then just stop the operation and the destructor of
+ * - if limit was exceeded then just stop the operation and the destructor of
  *   counter_incrementer_t will decrement number of messages automatically.
  *
  * \since v.1.5.2
@@ -363,7 +363,7 @@ class actual_mbox_t final
 						msg_type, message, overlimit_reaction_deep };
 
 				// Step 1: increment the counter and check that the limit
-				// isn't exeeded yet.
+				// isn't exceeded yet.
 				counter_incrementer_t incrementer{ 
 						outliving_mutable( *m_instances_counter )
 					};

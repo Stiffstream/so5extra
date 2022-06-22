@@ -74,5 +74,9 @@
  * \example mboxes/composite/simple/main.cpp
  */
 
+/*!
+ * \example mboxes/inflight_limit/simple/main.cpp
+ */
+
 // vim:ft=cpp
 
