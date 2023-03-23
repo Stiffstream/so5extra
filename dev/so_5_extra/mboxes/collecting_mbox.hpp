@@ -651,9 +651,8 @@ class actual_mbox_t final
 
 		void
 		subscribe_event_handler(
-			const std::type_index & /*type_wrapper*/,
-			const so_5::message_limit::control_block_t * /*limit*/,
-			agent_t & /*subscriber*/ ) override
+			const std::type_index & /*msg_type*/,
+			abstract_message_sink_t & /*subscriber*/ ) override
 			{
 				SO_5_THROW_EXCEPTION(
 						errors::rc_subscribe_event_handler_be_used_on_collecting_mbox,
@@ -662,8 +661,8 @@ class actual_mbox_t final
 
 		void
 		unsubscribe_event_handlers(
-			const std::type_index & /*type_wrapper*/,
-			agent_t & /*subscriber*/ ) override
+			const std::type_index & /*msg_type*/,
+			abstract_message_sink_t & /*subscriber*/ ) override
 			{
 			}
 
@@ -684,6 +683,7 @@ class actual_mbox_t final
 
 		void
 		do_deliver_message(
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
 			unsigned int overlimit_reaction_deep ) override
@@ -694,16 +694,17 @@ class actual_mbox_t final
 						*this, // as Tracing_Base
 						*this, // as abstract_message_box_t
 						"collect_message",
+						delivery_mode,
 						msg_type, message, overlimit_reaction_deep };
 
-				collect_new_message( tracer, message );
+				collect_new_message( tracer, delivery_mode, message );
 			}
 
 		void
 		set_delivery_filter(
 			const std::type_index & /*msg_type*/,
 			const delivery_filter_t & /*filter*/,
-			agent_t & /*subscriber*/ ) override
+			abstract_message_sink_t & /*subscriber*/ ) override
 			{
 				SO_5_THROW_EXCEPTION(
 						errors::rc_delivery_filter_cannot_be_used_on_collecting_mbox,
@@ -713,7 +714,7 @@ class actual_mbox_t final
 		void
 		drop_delivery_filter(
 			const std::type_index & /*msg_type*/,
-			agent_t & /*subscriber*/ ) noexcept override
+			abstract_message_sink_t & /*subscriber*/ ) noexcept override
 			{
 				// Nothing to do.
 			}
@@ -747,6 +748,7 @@ class actual_mbox_t final
 		void
 		collect_new_message(
 			typename Tracing_Base::deliver_op_tracer const & tracer,
+			message_delivery_mode_t delivery_mode,
 			const message_ref_t & message )
 			{
 				this->lock_and_perform( [&] {
@@ -767,6 +769,7 @@ class actual_mbox_t final
 									mbox_as_msg_destination{ *(this->m_target) } );
 
 							this->m_target->do_deliver_message(
+									delivery_mode,
 									typeid(messages_collected_subscription_type),
 									std::move(msg_to_send),
 									1u );
