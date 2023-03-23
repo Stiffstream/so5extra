@@ -109,6 +109,7 @@ class payload_holder_t final
 				// This check should be performed by the target mbox itself.
 				so_5::send_functions_details::arg_to_mbox( to )->
 						do_deliver_message(
+								so_5::message_delivery_mode_t::ordinary,
 								m_data->m_msg_type,
 								m_data->m_message,
 								1u );
