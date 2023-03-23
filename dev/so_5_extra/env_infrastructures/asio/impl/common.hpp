@@ -204,18 +204,18 @@ class actual_timer_t : public timer_t
 			holder_smart_ptr_t holder )
 			:	m_holder( std::move(holder) )
 			{}
-		virtual ~actual_timer_t() override
+		~actual_timer_t() override
 			{
 				release();
 			}
 
-		virtual bool
+		bool
 		is_active() const noexcept override
 			{
-				return m_holder;
+				return static_cast<bool>(m_holder);
 			}
 
-		virtual void
+		void
 		release() noexcept override
 			{
 				if( m_holder )
