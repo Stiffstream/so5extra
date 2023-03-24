@@ -30,7 +30,7 @@ namespace composite {
 namespace errors {
 
 /*!
- * \brief An attempt to send message of a type for that there is no a sink.
+ * \brief An attempt to send message of a type for that there is no a target.
  *
  * \since v.1.5.2
  */
@@ -38,7 +38,7 @@ const int rc_no_sink_for_message_type =
 		so_5::extra::errors::mboxes_composite_errors;
 
 /*!
- * \brief An attempt to add another sink for a message type.
+ * \brief An attempt to add another target for a message type.
  *
  * Just one destination mbox can be specified for a message type.
  * An attempt to add another destination mbox will lead to this error code.
@@ -49,7 +49,7 @@ const int rc_message_type_already_has_sink =
 		so_5::extra::errors::mboxes_composite_errors + 1;
 
 /*!
- * \brief An attempt to add MPMC sink to MPSC mbox.
+ * \brief An attempt to add MPMC target to MPSC mbox.
  *
  * If composite mbox is created as MPSC mbox then a MPMC mbox can't be
  * added as a destination.
@@ -225,14 +225,14 @@ class mbox_builder_t;
 namespace impl {
 
 /*!
- * \brief Description of one sink.
+ * \brief Description of one target.
  *
  * Contains info about message type and destination mbox for messages
  * of that type.
  *
  * \since v.1.5.2
  */
-struct sink_t
+struct target_t
 	{
 		//! Type for that the destination has to be used.
 		std::type_index m_msg_type;
@@ -240,27 +240,27 @@ struct sink_t
 		mbox_t m_dest;
 
 		//! Initializing constructor.
-		sink_t( std::type_index msg_type, mbox_t dest )
+		target_t( std::type_index msg_type, mbox_t dest )
 			:	m_msg_type{ std::move(msg_type) }
 			,	m_dest{ std::move(dest) }
 			{}
 	};
 
 /*!
- * \brief Type of container for holding sinks.
+ * \brief Type of container for holding targets.
  *
  * \since v.1.5.2
  */
-using sink_container_t = std::vector< sink_t >;
+using target_container_t = std::vector< target_t >;
 
 /*!
  * \brief Comparator function object to be used with std::lower_bound.
  *
  * \since v.1.5.2
  */
-inline const auto sink_compare =
-		[]( const sink_t & sink, const std::type_index & msg_type ) -> bool {
-			return sink.m_msg_type < msg_type;
+inline const auto target_compare =
+		[]( const target_t & target, const std::type_index & msg_type ) -> bool {
+			return target.m_msg_type < msg_type;
 		};
 
 namespace unknown_msg_type_handlers
@@ -521,20 +521,20 @@ struct mbox_data_t
 		//! What to do with messages of unknown type.
 		type_not_found_reaction_t m_unknown_type_reaction;
 
-		//! Registered sinks.
-		sink_container_t m_sinks;
+		//! Registered targets.
+		target_container_t m_targets;
 
 		mbox_data_t(
 			environment_t & env,
 			mbox_id_t id,
 			mbox_type_t mbox_type,
 			type_not_found_reaction_t unknown_type_reaction,
-			sink_container_t sinks )
+			target_container_t targets )
 			:	m_env_ptr{ &env }
 			,	m_id{ id }
 			,	m_mbox_type{ mbox_type }
 			,	m_unknown_type_reaction{ std::move(unknown_type_reaction) }
-			,	m_sinks{ std::move(sinks) }
+			,	m_targets{ std::move(targets) }
 			{}
 	};
 
@@ -583,10 +583,10 @@ class actual_mbox_t final
 			const std::type_index & msg_type,
 			abstract_message_sink_t & subscriber ) override
 			{
-				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
-				if( opt_sink )
+				const auto opt_target = try_find_target_for_msg_type( msg_type );
+				if( opt_target )
 					{
-						(*opt_sink)->m_dest->subscribe_event_handler(
+						(*opt_target)->m_dest->subscribe_event_handler(
 								msg_type,
 								subscriber );
 					}
@@ -605,10 +605,10 @@ class actual_mbox_t final
 			const std::type_index & msg_type,
 			abstract_message_sink_t & subscriber ) override
 			{
-				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
-				if( opt_sink )
+				const auto opt_target = try_find_target_for_msg_type( msg_type );
+				if( opt_target )
 					{
-						(*opt_sink)->m_dest->unsubscribe_event_handlers(
+						(*opt_target)->m_dest->unsubscribe_event_handlers(
 								msg_type,
 								subscriber );
 					}
@@ -666,16 +666,16 @@ class actual_mbox_t final
 						delivery_mode,
 						msg_type, message, redirection_deep };
 
-				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
-				if( opt_sink )
+				const auto opt_target = try_find_target_for_msg_type( msg_type );
+				if( opt_target )
 					{
 						using namespace ::so_5::impl::msg_tracing_helpers::details;
 
 						tracer.make_trace(
 								"redirect_to_destination",
-								mbox_as_msg_destination{ *( (*opt_sink)->m_dest ) } );
+								mbox_as_msg_destination{ *( (*opt_target)->m_dest ) } );
 
-						(*opt_sink)->m_dest->do_deliver_message(
+						(*opt_target)->m_dest->do_deliver_message(
 								delivery_mode,
 								msg_type,
 								message,
@@ -703,10 +703,10 @@ class actual_mbox_t final
 			const delivery_filter_t & filter,
 			abstract_message_sink_t & subscriber ) override
 			{
-				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
-				if( opt_sink )
+				const auto opt_target = try_find_target_for_msg_type( msg_type );
+				if( opt_target )
 					{
-						(*opt_sink)->m_dest->set_delivery_filter(
+						(*opt_target)->m_dest->set_delivery_filter(
 								msg_type,
 								filter,
 								subscriber );
@@ -727,10 +727,10 @@ class actual_mbox_t final
 			const std::type_index & msg_type,
 			abstract_message_sink_t & subscriber ) noexcept override
 			{
-				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
-				if( opt_sink )
+				const auto opt_target = try_find_target_for_msg_type( msg_type );
+				if( opt_target )
 					{
-						(*opt_sink)->m_dest->drop_delivery_filter(
+						(*opt_target)->m_dest->drop_delivery_filter(
 								msg_type,
 								subscriber );
 					}
@@ -755,19 +755,19 @@ class actual_mbox_t final
 		const mbox_data_t m_data;
 
 		/*!
-		 * \brief Attempt to find a sink for specified message type.
+		 * \brief Attempt to find a target for specified message type.
 		 *
 		 * \return empty std::optional if \a msg_type is unknown.
 		 */
 		[[nodiscard]]
-		std::optional< const sink_t * >
-		try_find_sink_for_msg_type( const std::type_index & msg_type ) const
+		std::optional< const target_t * >
+		try_find_target_for_msg_type( const std::type_index & msg_type ) const
 			{
-				const auto last = end( m_data.m_sinks );
+				const auto last = end( m_data.m_targets );
 				const auto it = std::lower_bound(
-						begin( m_data.m_sinks ), last,
+						begin( m_data.m_targets ), last,
 						msg_type,
-						sink_compare );
+						target_compare );
 
 				if( !( it == last ) && msg_type == it->m_msg_type )
 					return { std::addressof( *it ) };
@@ -960,13 +960,13 @@ class mbox_builder_t
 							{
 								SO_5_THROW_EXCEPTION(
 										errors::rc_mpmc_sink_can_be_used_with_mpsc_composite,
-										"MPMC mbox can't be added as a sink to MPSC "
+										"MPMC mbox can't be added as a target to MPSC "
 										"composite and mutable message, "
 										"msg_type=" + std::string(typeid(Msg_Type).name()) );
 							}
 					}
 
-				const auto [it, is_inserted] = m_sinks.emplace(
+				const auto [it, is_inserted] = m_targets.emplace(
 						message_payload_type< Msg_Type >::subscription_type_index(),
 						std::move(dest_mbox) );
 				if( !is_inserted )
@@ -1071,7 +1071,7 @@ class mbox_builder_t
 									data.m_id,
 									m_mbox_type,
 									std::move(m_unknown_type_reaction),
-									sinks_to_vector()
+									targets_to_vector()
 								};
 							mbox_t result;
 
@@ -1101,12 +1101,12 @@ class mbox_builder_t
 
 	private:
 		/*!
-		 * \brief Type of container for holding sinks.
+		 * \brief Type of container for holding targets.
 		 *
 		 * \note
 		 * std::map is used to simplify the implementation.
 		 */
-		using sink_map_t = std::map< std::type_index, mbox_t >;
+		using target_map_t = std::map< std::type_index, mbox_t >;
 
 		//! Type of mbox to be created.
 		mbox_type_t m_mbox_type;
@@ -1114,23 +1114,23 @@ class mbox_builder_t
 		//! Reaction to unknown type of a message.
 		type_not_found_reaction_t m_unknown_type_reaction;
 
-		//! Container for registered sinks.
-		sink_map_t m_sinks;
+		//! Container for registered targets.
+		target_map_t m_targets;
 
 		/*!
-		 * \return A vector of sinks that should be passed to impl::actual_mbox_t
+		 * \return A vector of targets that should be passed to impl::actual_mbox_t
 		 * constructor. That vector is guaranteed to be sorted (it means that
 		 * binary search can be used for searching message types).
 		 */
 		[[nodiscard]]
-		impl::sink_container_t
-		sinks_to_vector() const
+		impl::target_container_t
+		targets_to_vector() const
 			{
-				impl::sink_container_t result;
-				result.reserve( m_sinks.size() );
+				impl::target_container_t result;
+				result.reserve( m_targets.size() );
 
 				// Use the fact that items in std::map are ordered by keys.
-				for( const auto & [k, v] : m_sinks )
+				for( const auto & [k, v] : m_targets )
 					result.emplace_back( k, v );
 
 				return result;
