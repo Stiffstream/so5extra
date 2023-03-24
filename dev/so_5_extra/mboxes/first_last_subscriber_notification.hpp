@@ -10,14 +10,13 @@
 
 #include <so_5/version.hpp>
 
-#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 7u, 4u)
-#error "SObjectizer-5.7.4 of newest is required"
+#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 8u, 0u)
+#error "SObjectizer-5.8.0 of newest is required"
 #endif
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/impl/agent_ptr_compare.hpp>
-#include <so_5/impl/message_limit_internals.hpp>
+#include <so_5/impl/message_sink_ptr_compare.hpp>
 #include <so_5/impl/msg_tracing_helpers.hpp>
 #include <so_5/impl/local_mbox_basic_subscription_info.hpp>
 
@@ -150,7 +149,8 @@ namespace details {
  *
  * \since v.1.5.2
  */
-using subscriber_info_t = so_5::impl::local_mbox_details::basic_subscription_info_t;
+using subscriber_info_t =
+		so_5::impl::local_mbox_details::subscription_info_without_sink_t;
 
 //
 // template_independent_mbox_data_t
@@ -165,19 +165,24 @@ using subscriber_info_t = so_5::impl::local_mbox_details::basic_subscription_inf
  */
 struct template_independent_mbox_data_t
 	{
-		//! A special coparator for agents with respect to
-		//! agent's priority.
-		struct agent_ptr_comparator_t
+		//! A special coparator for sinks with respect to
+		//! sink's priority.
+		struct sink_ptr_comparator_t
 			{
-				bool operator()( agent_t * a, agent_t * b ) const noexcept
+				bool operator()(
+					abstract_message_sink_t * a,
+					abstract_message_sink_t * b ) const noexcept
 				{
-					return ::so_5::impl::special_agent_ptr_compare( *a, *b );
+					return ::so_5::impl::special_message_sink_ptr_compare( a, b );
 				}
 			};
 
 		//! Type of subscribers map.
-		using subscribers_map_t =
-				std::map< agent_t *, subscriber_info_t, agent_ptr_comparator_t >;
+		using subscribers_map_t = std::map<
+				abstract_message_sink_t *,
+				subscriber_info_t,
+				sink_ptr_comparator_t
+			>;
 
 		//! SObjectizer Environment to work in.
 		environment_t & m_env;
@@ -292,8 +297,7 @@ class actual_mbox_t final
 		void
 		subscribe_event_handler(
 			const std::type_index & msg_type,
-			const so_5::message_limit::control_block_t * limit,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				ensure_expected_msg_type(
 						msg_type,
@@ -301,11 +305,13 @@ class actual_mbox_t final
 
 				insert_or_modify_subscriber(
 						subscriber,
-						[limit] {
-							return subscriber_info_t{ limit };
+						[] {
+							return subscriber_info_t{
+									subscriber_info_t::subscription_present_t{}
+								};
 						},
-						[limit]( subscriber_info_t & info ) {
-							info.set_limit( limit );
+						[]( subscriber_info_t & info ) {
+							info.subscription_defined();
 						},
 						[this]() {
 							this->m_data.m_subscriptions_count += 1u;
@@ -315,7 +321,7 @@ class actual_mbox_t final
 		void
 		unsubscribe_event_handlers(
 			const std::type_index & msg_type,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				ensure_expected_msg_type(
 						msg_type,
@@ -324,7 +330,7 @@ class actual_mbox_t final
 				modify_and_remove_subscriber_if_needed(
 						subscriber,
 						[]( subscriber_info_t & info ) {
-							info.drop_limit();
+							info.subscription_dropped();
 						},
 						[this]() {
 							this->m_data.m_subscriptions_count -= 1u;
@@ -361,9 +367,10 @@ class actual_mbox_t final
 
 		void
 		do_deliver_message(
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) override
+			unsigned int redirection_deep ) override
 			{
 				ensure_expected_msg_type(
 						msg_type,
@@ -373,7 +380,8 @@ class actual_mbox_t final
 						*this, // as Tracing_base
 						*this, // as abstract_message_box_t
 						"deliver_message",
-						msg_type, message, overlimit_reaction_deep };
+						delivery_mode,
+						msg_type, message, redirection_deep };
 
 				// NOTE: we don't check for message mutability because
 				// it's impossible to create MPMC mbox for mutable message.
@@ -383,16 +391,17 @@ class actual_mbox_t final
 				// be thrown earlier.
 				do_deliver_message_impl(
 						tracer,
+						delivery_mode,
 						msg_type,
 						message,
-						overlimit_reaction_deep );
+						redirection_deep );
 			}
 
 		void
 		set_delivery_filter(
 			const std::type_index & msg_type,
 			const delivery_filter_t & filter,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				ensure_expected_msg_type(
 						msg_type,
@@ -413,7 +422,7 @@ class actual_mbox_t final
 		void
 		drop_delivery_filter(
 			const std::type_index & msg_type,
-			agent_t & subscriber ) noexcept override
+			abstract_message_sink_t & subscriber ) noexcept override
 			{
 				ensure_expected_msg_type(
 						msg_type,
@@ -465,14 +474,15 @@ class actual_mbox_t final
 			typename Post_Action >
 		void
 		insert_or_modify_subscriber(
-			agent_t & subscriber,
+			abstract_message_sink_t & subscriber,
 			Info_Maker maker,
 			Info_Changer changer,
 			Post_Action post_action )
 			{
 				std::lock_guard< Lock_Type > lock( m_lock );
 
-				auto it_subscriber = this->m_data.m_subscribers.find( &subscriber );
+				auto it_subscriber = this->m_data.m_subscribers.find(
+						std::addressof(subscriber) );
 				if( it_subscriber == this->m_data.m_subscribers.end() )
 					{
 						// There is no subscriber yet. It must be added if
@@ -480,7 +490,7 @@ class actual_mbox_t final
 						ensure_new_item_can_be_added_to_subscribers();
 
 						this->m_data.m_subscribers.emplace(
-								&subscriber, maker() );
+								std::addressof(subscriber), maker() );
 					}
 				else
 					// Subscriber is known. It must be updated.
@@ -510,14 +520,14 @@ class actual_mbox_t final
 			typename Post_Action >
 		void
 		modify_and_remove_subscriber_if_needed(
-			agent_t & subscriber,
+			abstract_message_sink_t & subscriber,
 			Info_Changer changer,
 			Post_Action post_action )
 			{
 				std::lock_guard< Lock_Type > lock( m_lock );
 
 				auto it_subscriber = this->m_data.m_subscribers.find(
-						&subscriber );
+						std::addressof(subscriber) );
 				if( it_subscriber != this->m_data.m_subscribers.end() )
 					{
 						// Subscriber is found and must be modified.
@@ -552,9 +562,10 @@ class actual_mbox_t final
 		void
 		do_deliver_message_impl(
 			typename Tracing_Base::deliver_op_tracer const & tracer,
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep )
+			unsigned int redirection_deep )
 			{
 				std::lock_guard< Lock_Type > lock( m_lock );
 
@@ -565,21 +576,23 @@ class actual_mbox_t final
 								*(kv.first),
 								kv.second,
 								tracer,
+								delivery_mode,
 								msg_type,
 								message,
-								overlimit_reaction_deep );
+								redirection_deep );
 				else
 					tracer.no_subscribers();
 			}
 
 		void
 		do_deliver_message_to_subscriber(
-			agent_t & subscriber,
+			abstract_message_sink_t & subscriber,
 			const subscriber_info_t & subscriber_info,
 			typename Tracing_Base::deliver_op_tracer const & tracer,
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const
+			unsigned int redirection_deep ) const
 			{
 				const auto delivery_status =
 						subscriber_info.must_be_delivered(
@@ -593,24 +606,13 @@ class actual_mbox_t final
 					{
 						using namespace so_5::message_limit::impl;
 
-						try_to_deliver_to_agent(
-								this->m_data.m_id,
-								subscriber,
-								subscriber_info.limit(),
+						subscriber.push_event(
+								this->id(),
+								delivery_mode,
 								msg_type,
 								message,
-								overlimit_reaction_deep,
-								tracer.overlimit_tracer(),
-								[&] {
-									tracer.push_to_queue( std::addressof(subscriber) );
-
-									agent_t::call_push_event(
-											subscriber,
-											subscriber_info.limit(),
-											this->m_data.m_id,
-											msg_type,
-											message );
-								} );
+								redirection_deep,
+								tracer.overlimit_tracer() );
 					}
 				else
 					tracer.message_rejected(
