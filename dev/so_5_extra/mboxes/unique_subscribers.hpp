@@ -11,7 +11,7 @@
 #include <so_5/version.hpp>
 
 #if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 8u, 0u)
-#error "SObjectizer-5.7.4 of newest is required"
+#error "SObjectizer-5.8.0 of newest is required"
 #endif
 
 #include <so_5/unique_subscribers_mbox.hpp>
