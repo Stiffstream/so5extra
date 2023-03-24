@@ -10,14 +10,13 @@
 
 #include <so_5/version.hpp>
 
-#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 7u, 4u)
-#error "SObjectizer-5.7.4 of newest is required"
+#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 8u, 0u)
+#error "SObjectizer-5.8.0 of newest is required"
 #endif
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/impl/agent_ptr_compare.hpp>
-#include <so_5/impl/message_limit_internals.hpp>
+#include <so_5/impl/message_sink_ptr_compare.hpp>
 #include <so_5/impl/msg_tracing_helpers.hpp>
 #include <so_5/impl/local_mbox_basic_subscription_info.hpp>
 
@@ -37,19 +36,7 @@ namespace retained_msg {
 
 namespace errors {
 
-//FIXME: has to be removed in v.1.6.0.
-/*!
- * \brief An attempt perform service request via retained message mbox.
- *
- * \deprecated There is no more such thing as service_request.
- *
- * \since
- * v.1.0.3
- */
-[[deprecated]]
-const int rc_service_request_via_retained_msg_mbox =
-		so_5::extra::errors::retained_msg_mbox_errors;
-
+// Note: this namespace is empty for now.
 
 } /* namespace errors */
 
@@ -111,7 +98,8 @@ using lock_t = typename Config_Type::lock_type;
  *
  * \since v.1.0.3, v.1.5.1
  */
-using subscriber_info_t = so_5::impl::local_mbox_details::basic_subscription_info_t;
+using subscriber_info_t =
+		so_5::impl::local_mbox_details::subscription_info_without_sink_t;
 
 //
 // messages_table_item_t
@@ -130,19 +118,24 @@ using subscriber_info_t = so_5::impl::local_mbox_details::basic_subscription_inf
  */
 struct messages_table_item_t
 	{
-		//! A special coparator for agents with respect to
-		//! agent's priority.
-		struct agent_ptr_comparator_t
+		//! A special coparator for sinks with respect to
+		//! sinks's priority.
+		struct sink_ptr_comparator_t
 			{
-				bool operator()( agent_t * a, agent_t * b ) const noexcept
+				bool operator()(
+					abstract_message_sink_t * a,
+					abstract_message_sink_t * b ) const noexcept
 				{
-					return ::so_5::impl::special_agent_ptr_compare( *a, *b );
+					return ::so_5::impl::special_message_sink_ptr_compare( a, b );
 				}
 			};
 
 		//! Type of subscribers map.
-		using subscribers_map_t =
-				std::map< agent_t *, subscriber_info_t, agent_ptr_comparator_t >;
+		using subscribers_map_t = std::map<
+				abstract_message_sink_t *,
+				subscriber_info_t,
+				sink_ptr_comparator_t
+			>;
 
 		//! Subscribers.
 		/*!
@@ -244,30 +237,31 @@ class actual_mbox_t final
 		void
 		subscribe_event_handler(
 			const std::type_index & msg_type,
-			const so_5::message_limit::control_block_t * limit,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				insert_or_modify_subscriber(
 						msg_type,
 						subscriber,
 						[&] {
-							return subscriber_info_t{ limit };
+							return subscriber_info_t{
+									subscriber_info_t::subscription_present_t{}
+								};
 						},
 						[&]( subscriber_info_t & info ) {
-							info.set_limit( limit );
+							info.subscription_defined();
 						} );
 			}
 
 		void
 		unsubscribe_event_handlers(
 			const std::type_index & msg_type,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				modify_and_remove_subscriber_if_needed(
 						msg_type,
 						subscriber,
 						[]( subscriber_info_t & info ) {
-							info.drop_limit();
+							info.subscription_dropped();
 						} );
 			}
 
@@ -288,36 +282,39 @@ class actual_mbox_t final
 
 		void
 		do_deliver_message(
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) override
+			unsigned int redirection_deep ) override
 			{
 				typename Tracing_Base::deliver_op_tracer tracer{
 						*this, // as Tracing_base
 						*this, // as abstract_message_box_t
 						"deliver_message",
-						msg_type, message, overlimit_reaction_deep };
+						delivery_mode,
+						msg_type, message, redirection_deep };
 
 				ensure_immutable_message( msg_type, message );
 
 				do_deliver_message_impl(
 						tracer,
+						delivery_mode,
 						msg_type,
 						message,
-						overlimit_reaction_deep );
+						redirection_deep );
 			}
 
 		void
 		set_delivery_filter(
 			const std::type_index & msg_type,
 			const delivery_filter_t & filter,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				insert_or_modify_subscriber(
 						msg_type,
 						subscriber,
 						[&] {
-							return subscriber_info_t{ &filter };
+							return subscriber_info_t{ std::addressof( filter ) };
 						},
 						[&]( subscriber_info_t & info ) {
 							info.set_filter( filter );
@@ -327,7 +324,7 @@ class actual_mbox_t final
 		void
 		drop_delivery_filter(
 			const std::type_index & msg_type,
-			agent_t & subscriber ) noexcept override
+			abstract_message_sink_t & subscriber ) noexcept override
 			{
 				modify_and_remove_subscriber_if_needed(
 						msg_type,
@@ -354,7 +351,7 @@ class actual_mbox_t final
 		void
 		insert_or_modify_subscriber(
 			const std::type_index & msg_type,
-			agent_t & subscriber,
+			abstract_message_sink_t & subscriber,
 			Info_Maker maker,
 			Info_Changer changer )
 			{
@@ -364,11 +361,12 @@ class actual_mbox_t final
 				// created automatically.
 				auto & table_item = this->m_data.m_messages_table[ msg_type ];
 
-				auto it_subscriber = table_item.m_subscribers.find( &subscriber );
+				auto it_subscriber = table_item.m_subscribers.find(
+						std::addressof(subscriber) );
 				if( it_subscriber == table_item.m_subscribers.end() )
 					// There is no subscriber yet. It must be added.
 					it_subscriber = table_item.m_subscribers.emplace(
-							&subscriber, maker() ).first;
+							std::addressof(subscriber), maker() ).first;
 				else
 					// Subscriber is known. It must be updated.
 					changer( it_subscriber->second );
@@ -388,7 +386,7 @@ class actual_mbox_t final
 		void
 		modify_and_remove_subscriber_if_needed(
 			const std::type_index & msg_type,
-			agent_t & subscriber,
+			abstract_message_sink_t & subscriber,
 			Info_Changer changer )
 			{
 				std::lock_guard< lock_t<Config> > lock( m_lock );
@@ -399,7 +397,7 @@ class actual_mbox_t final
 						auto & table_item = it_table_item->second;
 
 						auto it_subscriber = table_item.m_subscribers.find(
-								&subscriber );
+								std::addressof(subscriber) );
 						if( it_subscriber != table_item.m_subscribers.end() )
 							{
 								// Subscriber is found and must be modified.
@@ -416,9 +414,10 @@ class actual_mbox_t final
 		void
 		do_deliver_message_impl(
 			typename Tracing_Base::deliver_op_tracer const & tracer,
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep )
+			unsigned int redirection_deep )
 			{
 				std::lock_guard< lock_t<Config> > lock( m_lock );
 
@@ -436,21 +435,23 @@ class actual_mbox_t final
 								*(kv.first),
 								kv.second,
 								tracer,
+								delivery_mode,
 								msg_type,
 								message,
-								overlimit_reaction_deep );
+								redirection_deep );
 				else
 					tracer.no_subscribers();
 			}
 
 		void
 		do_deliver_message_to_subscriber(
-			agent_t & subscriber,
+			abstract_message_sink_t & subscriber,
 			const subscriber_info_t & subscriber_info,
 			typename Tracing_Base::deliver_op_tracer const & tracer,
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) const
+			unsigned int redirection_deep ) const
 			{
 				const auto delivery_status =
 						subscriber_info.must_be_delivered(
@@ -464,24 +465,13 @@ class actual_mbox_t final
 					{
 						using namespace so_5::message_limit::impl;
 
-						try_to_deliver_to_agent(
-								this->m_data.m_id,
-								subscriber,
-								subscriber_info.limit(),
+						subscriber.push_event(
+								this->id(),
+								delivery_mode,
 								msg_type,
 								message,
-								overlimit_reaction_deep,
-								tracer.overlimit_tracer(),
-								[&] {
-									tracer.push_to_queue( std::addressof(subscriber) );
-
-									agent_t::call_push_event(
-											subscriber,
-											subscriber_info.limit(),
-											this->m_data.m_id,
-											msg_type,
-											message );
-								} );
+								redirection_deep,
+								tracer.overlimit_tracer() );
 					}
 				else
 					tracer.message_rejected(
@@ -497,28 +487,30 @@ class actual_mbox_t final
 		try_deliver_retained_message_to(
 			const std::type_index & msg_type,
 			const message_ref_t & retained_msg,
-			agent_t & subscriber,
+			abstract_message_sink_t & subscriber,
 			const subscriber_info_t & subscriber_info )
 			{
 				if( retained_msg )
 					{
-						const unsigned int overlimit_reaction_deep = 0;
+						const unsigned int redirection_deep = 0;
 
 						typename Tracing_Base::deliver_op_tracer tracer{
 								*this, // as Tracing_base
 								*this, // as abstract_message_box_t
 								"deliver_message_on_subscription",
+								message_delivery_mode_t::ordinary,
 								msg_type,
 								retained_msg,
-								overlimit_reaction_deep };
+								redirection_deep };
 
 						do_deliver_message_to_subscriber(
 								subscriber,
 								subscriber_info,
 								tracer,
+								message_delivery_mode_t::ordinary,
 								msg_type,
 								retained_msg,
-								overlimit_reaction_deep );
+								redirection_deep );
 					}
 			}
 
