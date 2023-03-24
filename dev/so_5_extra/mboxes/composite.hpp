@@ -275,16 +275,13 @@ namespace unknown_msg_type_handlers
 class subscribe_event_t
 	{
 		const std::type_index & m_msg_type;
-		const so_5::message_limit::control_block_t * m_limit;
-		agent_t & m_subscriber;
+		abstract_message_sink_t & m_subscriber;
 
 	public:
 		subscribe_event_t(
 			const std::type_index & msg_type,
-			const so_5::message_limit::control_block_t * limit,
-			agent_t & subscriber )
+			abstract_message_sink_t & subscriber )
 			:	m_msg_type{ msg_type }
-			,	m_limit{ limit }
 			,	m_subscriber{ subscriber }
 			{}
 
@@ -293,7 +290,6 @@ class subscribe_event_t
 			{
 				c.dest()->subscribe_event_handler(
 						m_msg_type,
-						m_limit,
 						m_subscriber );
 			}
 
@@ -322,12 +318,12 @@ class subscribe_event_t
 class unsubscribe_event_t
 	{
 		const std::type_index & m_msg_type;
-		agent_t & m_subscriber;
+		abstract_message_sink_t & m_subscriber;
 
 	public:
 		unsubscribe_event_t(
 			const std::type_index & msg_type,
-			agent_t & subscriber )
+			abstract_message_sink_t & subscriber )
 			:	m_msg_type{ msg_type }
 			,	m_subscriber{ subscriber }
 			{}
@@ -363,6 +359,7 @@ template< typename Tracer >
 class deliver_message_t
 	{
 		Tracer & m_tracer;
+		const message_delivery_mode_t m_delivery_mode;
 		const std::type_index & m_msg_type;
 		const message_ref_t & m_msg;
 		unsigned int m_overlimit_deep;
@@ -370,10 +367,12 @@ class deliver_message_t
 	public:
 		deliver_message_t(
 			Tracer & tracer,
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & msg,
 			unsigned int overlimit_deep )
 			:	m_tracer{ tracer }
+			,	m_delivery_mode{ delivery_mode }
 			,	m_msg_type{ msg_type }
 			,	m_msg{ msg }
 			,	m_overlimit_deep{ overlimit_deep }
@@ -389,6 +388,7 @@ class deliver_message_t
 						mbox_as_msg_destination{ *(c.dest()) } );
 
 				c.dest()->do_deliver_message(
+						m_delivery_mode,
 						m_msg_type,
 						m_msg,
 						m_overlimit_deep );
@@ -423,13 +423,13 @@ class set_delivery_filter_t
 	{
 		const std::type_index & m_msg_type;
 		const delivery_filter_t & m_filter;
-		agent_t & m_subscriber;
+		abstract_message_sink_t & m_subscriber;
 
 	public:
 		set_delivery_filter_t(
 			const std::type_index & msg_type,
 			const delivery_filter_t & filter,
-			agent_t & subscriber )
+			abstract_message_sink_t & subscriber )
 			:	m_msg_type{ msg_type }
 			,	m_filter{ filter }
 			,	m_subscriber{ subscriber }
@@ -469,12 +469,12 @@ class set_delivery_filter_t
 class drop_delivery_filter_t
 	{
 		const std::type_index & m_msg_type;
-		agent_t & m_subscriber;
+		abstract_message_sink_t & m_subscriber;
 
 	public:
 		drop_delivery_filter_t(
 			const std::type_index & msg_type,
-			agent_t & subscriber ) noexcept
+			abstract_message_sink_t & subscriber ) noexcept
 			:	m_msg_type{ msg_type }
 			,	m_subscriber{ subscriber }
 			{}
@@ -581,15 +581,13 @@ class actual_mbox_t final
 		void
 		subscribe_event_handler(
 			const std::type_index & msg_type,
-			const so_5::message_limit::control_block_t * limit,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
 				if( opt_sink )
 					{
 						(*opt_sink)->m_dest->subscribe_event_handler(
 								msg_type,
-								limit,
 								subscriber );
 					}
 				else
@@ -597,7 +595,6 @@ class actual_mbox_t final
 						std::visit(
 								unknown_msg_type_handlers::subscribe_event_t{
 										msg_type,
-										limit,
 										subscriber },
 								this->m_data.m_unknown_type_reaction );
 					}
@@ -606,7 +603,7 @@ class actual_mbox_t final
 		void
 		unsubscribe_event_handlers(
 			const std::type_index & msg_type,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
 				if( opt_sink )
@@ -655,9 +652,10 @@ class actual_mbox_t final
 
 		void
 		do_deliver_message(
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) override
+			unsigned int redirection_deep ) override
 			{
 				ensure_immutable_message( msg_type, message );
 
@@ -665,7 +663,8 @@ class actual_mbox_t final
 						*this, // as Tracing_base
 						*this, // as abstract_message_box_t
 						"deliver_message",
-						msg_type, message, overlimit_reaction_deep };
+						delivery_mode,
+						msg_type, message, redirection_deep };
 
 				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
 				if( opt_sink )
@@ -677,9 +676,10 @@ class actual_mbox_t final
 								mbox_as_msg_destination{ *( (*opt_sink)->m_dest ) } );
 
 						(*opt_sink)->m_dest->do_deliver_message(
+								delivery_mode,
 								msg_type,
 								message,
-								overlimit_reaction_deep );
+								redirection_deep );
 					}
 				else
 					{
@@ -689,9 +689,10 @@ class actual_mbox_t final
 						std::visit(
 								handler_t{
 										tracer,
+										delivery_mode,
 										msg_type,
 										message,
-										overlimit_reaction_deep },
+										redirection_deep },
 								this->m_data.m_unknown_type_reaction );
 					}
 			}
@@ -700,7 +701,7 @@ class actual_mbox_t final
 		set_delivery_filter(
 			const std::type_index & msg_type,
 			const delivery_filter_t & filter,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
 				if( opt_sink )
@@ -724,7 +725,7 @@ class actual_mbox_t final
 		void
 		drop_delivery_filter(
 			const std::type_index & msg_type,
-			agent_t & subscriber ) noexcept override
+			abstract_message_sink_t & subscriber ) noexcept override
 			{
 				const auto opt_sink = try_find_sink_for_msg_type( msg_type );
 				if( opt_sink )
