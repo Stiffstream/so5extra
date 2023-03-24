@@ -54,9 +54,10 @@ const int rc_nullptr_as_underlying_mbox =
  * 	std::size_t counter_{};
  * ...
  * 	void do_deliver_message(
+ * 			so_5::message_delivery_mode_t delivery_mode,
  * 			const std::type_index & msg_type,
  * 			const so_5::message_ref_t & message,
- * 			unsigned int overlimit_reaction_deep ) override {
+ * 			unsigned int redirection_deep ) override {
  * 		if(is_appropriate_message_type(msg_type))
  * 			++counter_;
  * 		... // Actual message delivery.
@@ -79,14 +80,15 @@ const int rc_nullptr_as_underlying_mbox =
  * 	my_mbox(so_5::mbox_t mbox) : mbox_{std::move(mbox)} {}
  * 	...
  * 	void do_deliver_message(
+ * 			so_5::message_delivery_mode_t delivery_mode,
  * 			const std::type_index & msg_type,
  * 			const so_5::message_ref_t & message,
- * 			unsigned int overlimit_reaction_deep ) override {
+ * 			unsigned int redirection_deep ) override {
  * 		if(is_appropriate_message_type(msg_type))
  * 			++counter_;
  * 		// Use actual mbox for message delivery.
  * 		mbox_->do_deliver_message(
- * 				msg_type, message, overlimit_reaction_deep);
+ * 				delivery_mode, msg_type, message, redirection_deep);
  * 	}
  * };
  * \endcode
@@ -109,14 +111,15 @@ const int rc_nullptr_as_underlying_mbox =
  * 	my_mbox(so_5::mbox_t mbox) : base_type{std::move(mbox)} {}
  *
  * 	void do_deliver_message(
+ * 			so_5::message_delivery_mode_t delivery_mode,
  * 			const std::type_index & msg_type,
  * 			const so_5::message_ref_t & message,
- * 			unsigned int overlimit_reaction_deep ) override {
+ * 			unsigned int redirection_deep ) override {
  * 		if(is_appropriate_message_type(msg_type))
  * 			++counter_;
  * 		// Use actual mbox for message delivery.
  * 		base_type::do_deliver_message(
- * 				msg_type, message, overlimit_reaction_deep);
+ * 				delivery_mode, msg_type, message, redirection_deep);
  * 	}
  * }
  * \endcode
@@ -158,13 +161,14 @@ class simple_t : public ::so_5::abstract_message_box_t
 		 * class my_mbox : public so_5::extra::mboxes::proxy::simple_t {
 		 * public:
 		 * 	void do_deliver_message(
+		 * 			so_5::message_delivery_mode_t delivery_mode,
 		 * 			const std::type_index & msg_type,
 		 * 			const so_5::message_ref_t & message,
-		 * 			unsigned int overlimit_reaction_deep ) override {
+		 * 			unsigned int redirection_deep ) override {
 		 * 		... // Do some specific stuff.
 		 * 		// Use actual mbox for message delivery.
 		 * 		underlying_mbox().do_deliver_message(
-		 * 				msg_type, message, overlimit_reaction_deep);
+		 * 				delivery_mode, msg_type, message, redirection_deep);
 		 * 	}
 		 * 	...
 		 * };
@@ -198,24 +202,18 @@ class simple_t : public ::so_5::abstract_message_box_t
 
 		void
 		subscribe_event_handler(
-			const std::type_index & type_index,
-			const ::so_5::message_limit::control_block_t * limit,
-			::so_5::agent_t & subscriber ) override
+			const std::type_index & msg_type,
+			::so_5::abstract_message_sink_t & subscriber ) override
 			{
-				underlying_mbox().subscribe_event_handler(
-						type_index,
-						limit,
-						subscriber );
+				underlying_mbox().subscribe_event_handler( msg_type, subscriber );
 			}
 
 		void
 		unsubscribe_event_handlers(
-			const std::type_index & type_index,
-			::so_5::agent_t & subscriber ) override
+			const std::type_index & msg_type,
+			::so_5::abstract_message_sink_t & subscriber ) override
 			{
-				underlying_mbox().unsubscribe_event_handlers(
-						type_index,
-						subscriber );
+				underlying_mbox().unsubscribe_event_handlers( msg_type, subscriber );
 			}
 
 		std::string
@@ -232,21 +230,23 @@ class simple_t : public ::so_5::abstract_message_box_t
 
 		void
 		do_deliver_message(
+			::so_5::message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const ::so_5::message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) override
+			unsigned int redirection_deep ) override
 			{
 				underlying_mbox().do_deliver_message(
+						delivery_mode,
 						msg_type,
 						message,
-						overlimit_reaction_deep );
+						redirection_deep );
 			}
 
 		void
 		set_delivery_filter(
 			const std::type_index & msg_type,
 			const ::so_5::delivery_filter_t & filter,
-			::so_5::agent_t & subscriber ) override
+			::so_5::abstract_message_sink_t & subscriber ) override
 			{
 				underlying_mbox().set_delivery_filter(
 						msg_type,
@@ -257,7 +257,7 @@ class simple_t : public ::so_5::abstract_message_box_t
 		void
 		drop_delivery_filter(
 			const std::type_index & msg_type,
-			::so_5::agent_t & subscriber ) noexcept override
+			::so_5::abstract_message_sink_t & subscriber ) noexcept override
 			{
 				underlying_mbox().drop_delivery_filter(
 						msg_type,
@@ -268,18 +268,6 @@ class simple_t : public ::so_5::abstract_message_box_t
 		environment() const noexcept override
 			{
 				return underlying_mbox().environment();
-			}
-
-	protected :
-		void
-		do_deliver_message_from_timer(
-			const std::type_index & msg_type,
-			const ::so_5::message_ref_t & message ) override
-			{
-				delegate_deliver_message_from_timer(
-						underlying_mbox(),
-						msg_type,
-						message );
 			}
 		/*!
 		 * \}
