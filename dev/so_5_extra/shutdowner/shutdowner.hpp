@@ -8,8 +8,7 @@
 #include <so_5_extra/error_ranges.hpp>
 
 #include <so_5/impl/msg_tracing_helpers.hpp>
-#include <so_5/impl/message_limit_internals.hpp>
-#include <so_5/impl/agent_ptr_compare.hpp>
+#include <so_5/impl/message_sink_ptr_compare.hpp>
 
 #include <so_5/details/sync_helpers.hpp>
 
@@ -114,8 +113,7 @@ class time_elapsed_mbox_t
 		void
 		subscribe_event_handler(
 			const std::type_index & /*type_index*/,
-			const message_limit::control_block_t * /*limit*/,
-			agent_t & /*subscriber*/ ) override
+			abstract_message_sink_t & /*subscriber*/ ) override
 			{
 				SO_5_THROW_EXCEPTION( rc_not_implemented,
 						"subscribe_event_handler is not implemented for "
@@ -125,7 +123,7 @@ class time_elapsed_mbox_t
 		void
 		unsubscribe_event_handlers(
 			const std::type_index & /*type_index*/,
-			agent_t & /*subscriber*/ ) override
+			abstract_message_sink_t & /*subscriber*/ ) override
 			{
 				SO_5_THROW_EXCEPTION( rc_not_implemented,
 						"subscribe_event_handler is not implemented for "
@@ -148,6 +146,7 @@ class time_elapsed_mbox_t
 
 		void
 		do_deliver_message(
+			message_delivery_mode_t /*delivery_mode*/,
 			const std::type_index & /*msg_type*/,
 			const message_ref_t & /*message*/,
 			unsigned int /*overlimit_reaction_deep*/ ) override
@@ -163,7 +162,7 @@ class time_elapsed_mbox_t
 		set_delivery_filter(
 			const std::type_index & /*msg_type*/,
 			const delivery_filter_t & /*filter*/,
-			agent_t & /*subscriber*/ ) override
+			abstract_message_sink_t & /*subscriber*/ ) override
 			{
 				SO_5_THROW_EXCEPTION( rc_not_implemented,
 						"set_delivery_filter is not implemented for "
@@ -173,7 +172,7 @@ class time_elapsed_mbox_t
 		void
 		drop_delivery_filter(
 			const std::type_index & /*msg_type*/,
-			agent_t & /*subscriber*/ ) noexcept override
+			abstract_message_sink_t & /*subscriber*/ ) noexcept override
 			{
 				/* Nothing to do. */
 			}
@@ -200,22 +199,13 @@ class time_elapsed_mbox_t
 struct subscriber_info_t
 	{
 		//! Actual subscriber.
-		/*!
-		 * Can't be nullptr.
-		 */
-		agent_t * m_subscriber;
+		std::reference_wrapper< abstract_message_sink_t > m_sink;
 		//! Message limit for that subscriber.
-		/*!
-		 * Can be nullptr if message limit is not used.
-		 */
-		const message_limit::control_block_t * m_limits;
 
 		//! Initializing constructor.
 		subscriber_info_t(
-			agent_t * subscriber,
-			const message_limit::control_block_t * limits )
-			:	m_subscriber(subscriber)
-			,	m_limits(limits)
+			abstract_message_sink_t & sink )
+			:	m_sink(sink)
 			{}
 
 		//! Comparison operator.
@@ -226,8 +216,9 @@ struct subscriber_info_t
 		bool
 		operator<( const subscriber_info_t & o ) const
 			{
-				return ::so_5::impl::special_agent_ptr_compare(
-						*m_subscriber, *(o.m_subscriber) );
+				return ::so_5::impl::special_message_sink_ptr_compare(
+						std::addressof( this->m_sink.get() ),
+						std::addressof( o.m_sink.get() ) );
 			}
 	};
 
@@ -406,19 +397,18 @@ class notify_mbox_t
 		void
 		subscribe_event_handler(
 			const std::type_index & type_index,
-			const message_limit::control_block_t * limit,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				ensure_valid_message_type( type_index );
 				this->lock_and_perform( [&] {
-					do_event_subscription( limit, subscriber );
+					do_event_subscription( subscriber );
 				} );
 			}
 
 		void
 		unsubscribe_event_handlers(
 			const std::type_index & type_index,
-			agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				ensure_valid_message_type( type_index );
 				const auto action = this->lock_and_perform( [&] {
@@ -445,12 +435,14 @@ class notify_mbox_t
 
 		void
 		do_deliver_message(
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message,
 			unsigned int /*overlimit_reaction_deep*/ ) override
 			{
 				ensure_valid_message_type( msg_type );
-				const auto action = do_initiate_shutdown( msg_type, message );
+				const auto action = do_initiate_shutdown(
+						delivery_mode, msg_type, message );
 				if( status::deferred_action_t::complete_shutdown == action )
 					complete_shutdown();
 			}
@@ -459,7 +451,7 @@ class notify_mbox_t
 		set_delivery_filter(
 			const std::type_index & msg_type,
 			const delivery_filter_t & /*filter*/,
-			agent_t & /*subscriber*/ ) override
+			abstract_message_sink_t & /*subscriber*/ ) override
 			{
 				ensure_valid_message_type( msg_type );
 				SO_5_THROW_EXCEPTION( rc_not_implemented,
@@ -469,7 +461,7 @@ class notify_mbox_t
 		void
 		drop_delivery_filter(
 			const std::type_index & /*msg_type*/,
-			agent_t & /*subscriber*/ ) noexcept override
+			abstract_message_sink_t & /*subscriber*/ ) noexcept override
 			{
 				/* Nothing to do. */
 			}
@@ -514,8 +506,7 @@ class notify_mbox_t
 		 */
 		void
 		do_event_subscription(
-			const message_limit::control_block_t * limit,
-			agent_t & subscriber )
+			abstract_message_sink_t & subscriber )
 			{
 				if( status::not_started != m_data.m_status.current() )
 					SO_5_THROW_EXCEPTION(
@@ -523,7 +514,7 @@ class notify_mbox_t
 							"a creation of new subscription is disabled during "
 							"shutdown procedure" );
 
-				subscriber_info_t info{ &subscriber, limit };
+				subscriber_info_t info{ subscriber };
 				auto it = std::lower_bound(
 						std::begin(m_data.m_subscribers),
 						std::end(m_data.m_subscribers),
@@ -537,18 +528,19 @@ class notify_mbox_t
 		 * necessary).
 		 */
 		status::deferred_action_t
-		do_event_unsubscripton( agent_t & subscriber )
+		do_event_unsubscripton(
+			abstract_message_sink_t & subscriber )
 			{
 				status::updater_t status_updater(
 						outliving_mutable( m_data.m_status ) );
 
-				subscriber_info_t info{ &subscriber, nullptr };
+				subscriber_info_t info{ subscriber };
 				auto it = std::lower_bound(
 						std::begin(m_data.m_subscribers),
-						std::end(m_data.m_subscribers), 
+						std::end(m_data.m_subscribers),
 						info );
 				if( it != std::end(m_data.m_subscribers) &&
-						it->m_subscriber == &subscriber )
+						std::addressof(it->m_sink.get()) == std::addressof(subscriber) )
 					{
 						m_data.m_subscribers.erase( it );
 
@@ -581,6 +573,7 @@ class notify_mbox_t
 		 */
 		status::deferred_action_t
 		do_initiate_shutdown(
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message )
 			{
@@ -592,7 +585,8 @@ class notify_mbox_t
 						updater.update( status::started );
 						if( !m_data.m_subscribers.empty() )
 							{
-								send_shutdown_initated_to_all( msg_type, message );
+								send_shutdown_initated_to_all(
+										delivery_mode, msg_type, message );
 								start_shutdown_clock();
 							}
 						else
@@ -607,39 +601,28 @@ class notify_mbox_t
 		//! Send shutdown_initiated message to all actual subscribers.
 		void
 		send_shutdown_initated_to_all(
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
 			const message_ref_t & message )
 			{
-				constexpr unsigned int overlimit_reaction_deep = 0u;
+				constexpr unsigned int redirection_deep = 0u;
 
 				typename Tracing_Base::deliver_op_tracer tracer{
 						*this, // as Tracing_Base
 						*this, // as abstract_message_box_t
 						"deliver_message",
-						msg_type, message, overlimit_reaction_deep };
+						delivery_mode,
+						msg_type, message, redirection_deep };
 
 				for( const auto & subscriber : m_data.m_subscribers )
 					{
-						using namespace so_5::message_limit::impl;
-
-						try_to_deliver_to_agent(
-								m_id,
-								*(subscriber.m_subscriber),
-								subscriber.m_limits,
+						subscriber.m_sink.get().push_event(
+								this->id(),
+								delivery_mode,
 								msg_type,
 								message,
-								overlimit_reaction_deep,
-								tracer.overlimit_tracer(),
-								[&] {
-									tracer.push_to_queue( subscriber.m_subscriber );
-
-									agent_t::call_push_event(
-											*(subscriber.m_subscriber),
-											subscriber.m_limits,
-											m_id,
-											msg_type,
-											message );
-								} );
+								redirection_deep,
+								tracer.overlimit_tracer() );
 					}
 			}
 
