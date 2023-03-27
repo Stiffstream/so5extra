@@ -385,10 +385,7 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 				// It will be used during timeout_handlers processing.
 			,	m_timeout_mbox(
 						::so_5::impl::internal_env_iface_t{ this->environment() }
-						.create_mpsc_mbox(
-								&m_owner.get(),
-								// No message limits for this mbox.
-								nullptr ) )
+						.create_limitless_mpsc_mbox( m_owner.get() ) )
 			{}
 
 		//! Access to timeout mbox.
@@ -786,7 +783,7 @@ class msg_independent_part_of_definition_point_t
 		[[nodiscard]] bool
 		is_activable() const noexcept
 			{
-				return m_op;
+				return static_cast<bool>(m_op);
 			}
 
 		//! Throws an exception if the async operation can't be activated.
