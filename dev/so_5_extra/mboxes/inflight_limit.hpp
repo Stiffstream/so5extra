@@ -310,21 +310,20 @@ class actual_mbox_t final
 		void
 		subscribe_event_handler(
 			const std::type_index & msg_type,
-			const ::so_5::message_limit::control_block_t * limit,
-			::so_5::agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				ensure_expected_msg_type(
 						msg_type,
 						"an attempt to subscribe with different message type" );
 
 				m_underlying_mbox->subscribe_event_handler(
-						msg_type, limit, subscriber );
+						msg_type, subscriber );
 			}
 
 		void
 		unsubscribe_event_handlers(
 			const std::type_index & msg_type,
-			::so_5::agent_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) override
 			{
 				ensure_expected_msg_type(
 						msg_type,
@@ -348,9 +347,10 @@ class actual_mbox_t final
 
 		void
 		do_deliver_message(
+			message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
-			const ::so_5::message_ref_t & message,
-			unsigned int overlimit_reaction_deep ) override
+			const message_ref_t & message,
+			unsigned int redirection_deep ) override
 			{
 				ensure_expected_msg_type(
 						msg_type,
@@ -360,11 +360,12 @@ class actual_mbox_t final
 						*this, // as Tracing_base
 						*this, // as abstract_message_box_t
 						"deliver_message",
-						msg_type, message, overlimit_reaction_deep };
+						delivery_mode,
+						msg_type, message, redirection_deep };
 
 				// Step 1: increment the counter and check that the limit
 				// isn't exceeded yet.
-				counter_incrementer_t incrementer{ 
+				counter_incrementer_t incrementer{
 						outliving_mutable( *m_instances_counter )
 					};
 				if( incrementer.value() <= m_limit )
@@ -383,9 +384,10 @@ class actual_mbox_t final
 
 						// Our envelope object has to be sent.
 						m_underlying_mbox->do_deliver_message(
+								delivery_mode,
 								msg_type,
 								our_envelope,
-								overlimit_reaction_deep );
+								redirection_deep );
 					}
 				else
 					{
@@ -401,8 +403,8 @@ class actual_mbox_t final
 		void
 		set_delivery_filter(
 			const std::type_index & msg_type,
-			const ::so_5::delivery_filter_t & filter,
-			::so_5::agent_t & subscriber ) override
+			const delivery_filter_t & filter,
+			abstract_message_sink_t & subscriber ) override
 			{
 				ensure_expected_msg_type(
 						msg_type,
@@ -418,7 +420,7 @@ class actual_mbox_t final
 		void
 		drop_delivery_filter(
 			const std::type_index & msg_type,
-			::so_5::agent_t & subscriber ) noexcept override
+			abstract_message_sink_t & subscriber ) noexcept override
 			{
 				// Because drop_delivery_filter is noexcept we just ignore
 				// an errornous call with a different message type.
