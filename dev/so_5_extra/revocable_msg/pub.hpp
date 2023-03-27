@@ -310,7 +310,11 @@ make_envelope_and_deliver(
 		so_5::intrusive_ptr_t< envelope_t > envelope{
 				std::make_unique< envelope_t >( std::move(payload) ) };
 
-		to->do_deliver_message( msg_type, envelope, 1u );
+		to->do_deliver_message(
+				message_delivery_mode_t::ordinary,
+				msg_type,
+				envelope,
+				1u );
 
 		return delivery_id_maker_t::make( std::move(envelope) );
 	}
