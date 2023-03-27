@@ -410,11 +410,11 @@ class actual_mbox_t final
 
 				insert_or_modify_subscriber(
 						subscriber,
-						[flt = &filter] {
-							return subscriber_info_t{ flt };
+						[&filter] {
+							return subscriber_info_t{ filter };
 						},
-						[flt = &filter]( subscriber_info_t & info ) {
-							info.set_filter( *flt );
+						[&filter]( subscriber_info_t & info ) {
+							info.set_filter( filter );
 						},
 						[]() { /* nothing to do */ } );
 			}

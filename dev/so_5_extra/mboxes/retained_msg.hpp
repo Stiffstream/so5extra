@@ -314,7 +314,7 @@ class actual_mbox_t final
 						msg_type,
 						subscriber,
 						[&] {
-							return subscriber_info_t{ std::addressof( filter ) };
+							return subscriber_info_t{ filter };
 						},
 						[&]( subscriber_info_t & info ) {
 							info.set_filter( filter );

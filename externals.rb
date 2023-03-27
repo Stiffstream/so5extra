@@ -1,6 +1,6 @@
 MxxRu::arch_externals :so5 do |e|
 #  e.url 'https://github.com/Stiffstream/sobjectizer/archive/v.5.7.4.1.tar.gz'
-  e.url 'https://github.com/Stiffstream/sobjectizer/archive/7808d4dab160e3cde77295de33b1c23834c3a342.tar.gz'
+  e.url 'https://github.com/Stiffstream/sobjectizer/archive/9c9ac8da7cda179611f422d8f2db370500c1f20f.tar.gz'
 
   e.map_dir 'dev/so_5' => 'dev'
 end
