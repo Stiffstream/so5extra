@@ -319,22 +319,23 @@ class actual_mbox_t final
 			}
 
 		void
-		unsubscribe_event_handlers(
+		unsubscribe_event_handler(
 			const std::type_index & msg_type,
-			abstract_message_sink_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) noexcept override
 			{
-				ensure_expected_msg_type(
-						msg_type,
-						"an attempt to unsubscribe with different message type" );
-
-				modify_and_remove_subscriber_if_needed(
-						subscriber,
-						[]( subscriber_info_t & info ) {
-							info.subscription_dropped();
-						},
-						[this]() {
-							this->m_data.m_subscriptions_count -= 1u;
-						} );
+				// Since v.1.6.0 we can't throw. So perform the main
+				// action only if types are the same.
+				if( msg_type == typeid(Msg_Type) )
+					{
+						modify_and_remove_subscriber_if_needed(
+								subscriber,
+								[]( subscriber_info_t & info ) {
+									info.subscription_dropped();
+								},
+								[this]() {
+									this->m_data.m_subscriptions_count -= 1u;
+								} );
+					}
 			}
 
 		std::string

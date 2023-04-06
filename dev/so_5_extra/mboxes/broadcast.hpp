@@ -133,12 +133,11 @@ public :
 		}
 
 	void
-	unsubscribe_event_handlers(
+	unsubscribe_event_handler(
 		const std::type_index & /*type_index*/,
-		abstract_message_sink_t & /*subscriber*/ ) override
+		abstract_message_sink_t & /*subscriber*/ ) noexcept override
 		{
-			SO_5_THROW_EXCEPTION( rc_not_implemented,
-					"unsubscribe_event_handler can't be used for broadcast mbox" );
+			// Can't throw in noexcept method.
 		}
 
 	std::string

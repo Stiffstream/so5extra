@@ -209,11 +209,11 @@ class simple_t : public ::so_5::abstract_message_box_t
 			}
 
 		void
-		unsubscribe_event_handlers(
+		unsubscribe_event_handler(
 			const std::type_index & msg_type,
-			::so_5::abstract_message_sink_t & subscriber ) override
+			::so_5::abstract_message_sink_t & subscriber ) noexcept override
 			{
-				underlying_mbox().unsubscribe_event_handlers( msg_type, subscriber );
+				underlying_mbox().unsubscribe_event_handler( msg_type, subscriber );
 			}
 
 		std::string

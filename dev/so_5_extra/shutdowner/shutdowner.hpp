@@ -121,13 +121,11 @@ class time_elapsed_mbox_t
 			}
 
 		void
-		unsubscribe_event_handlers(
+		unsubscribe_event_handler(
 			const std::type_index & /*type_index*/,
-			abstract_message_sink_t & /*subscriber*/ ) override
+			abstract_message_sink_t & /*subscriber*/ ) noexcept override
 			{
-				SO_5_THROW_EXCEPTION( rc_not_implemented,
-						"subscribe_event_handler is not implemented for "
-						"time_elapsed_mbox" );
+				// Can't throw in noexcept method.
 			}
 
 		std::string

@@ -237,9 +237,9 @@ class mbox_template_t
 			}
 
 		void
-		unsubscribe_event_handlers(
+		unsubscribe_event_handler(
 			const std::type_index & msg_type,
-			so_5::abstract_message_sink_t & subscriber ) override
+			so_5::abstract_message_sink_t & subscriber ) noexcept override
 			{
 				std::lock_guard< Lock_Type > lock( this->m_lock );
 

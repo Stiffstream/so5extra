@@ -312,7 +312,7 @@ class subscribe_event_t
 /*!
  * \brief Function object to be used with std::visit.
  *
- * Implement logic of so_5::abstract_message_box_t::unsubscribe_event_handlers()
+ * Implement logic of so_5::abstract_message_box_t::unsubscribe_event_handler()
  * in a case when message type is unknown.
  */
 class unsubscribe_event_t
@@ -329,9 +329,9 @@ class unsubscribe_event_t
 			{}
 
 		void
-		operator()( const redirect_to_if_not_found_case_t & c ) const
+		operator()( const redirect_to_if_not_found_case_t & c ) const noexcept
 			{
-				c.dest()->unsubscribe_event_handlers(
+				c.dest()->unsubscribe_event_handler(
 						m_msg_type,
 						m_subscriber );
 			}
@@ -601,14 +601,14 @@ class actual_mbox_t final
 			}
 
 		void
-		unsubscribe_event_handlers(
+		unsubscribe_event_handler(
 			const std::type_index & msg_type,
-			abstract_message_sink_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) noexcept override
 			{
 				const auto opt_target = try_find_target_for_msg_type( msg_type );
 				if( opt_target )
 					{
-						(*opt_target)->m_dest->unsubscribe_event_handlers(
+						(*opt_target)->m_dest->unsubscribe_event_handler(
 								msg_type,
 								subscriber );
 					}
@@ -757,11 +757,15 @@ class actual_mbox_t final
 		/*!
 		 * \brief Attempt to find a target for specified message type.
 		 *
+		 * \note
+		 * Since v.1.6.0 this method is marked as noexcept because it is
+		 * called in unsubscribe_event_handler().
+		 *
 		 * \return empty std::optional if \a msg_type is unknown.
 		 */
 		[[nodiscard]]
 		std::optional< const target_t * >
-		try_find_target_for_msg_type( const std::type_index & msg_type ) const
+		try_find_target_for_msg_type( const std::type_index & msg_type ) const noexcept
 			{
 				const auto last = end( m_data.m_targets );
 				const auto it = std::lower_bound(

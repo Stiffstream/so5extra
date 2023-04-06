@@ -660,9 +660,9 @@ class actual_mbox_t final
 			}
 
 		void
-		unsubscribe_event_handlers(
+		unsubscribe_event_handler(
 			const std::type_index & /*msg_type*/,
-			abstract_message_sink_t & /*subscriber*/ ) override
+			abstract_message_sink_t & /*subscriber*/ ) noexcept override
 			{
 			}
 
