@@ -404,9 +404,9 @@ class notify_mbox_t
 			}
 
 		void
-		unsubscribe_event_handlers(
+		unsubscribe_event_handler(
 			const std::type_index & type_index,
-			abstract_message_sink_t & subscriber ) override
+			abstract_message_sink_t & subscriber ) noexcept override
 			{
 				ensure_valid_message_type( type_index );
 				const auto action = this->lock_and_perform( [&] {

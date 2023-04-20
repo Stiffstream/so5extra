@@ -237,7 +237,8 @@ class delivery_id_t final
 		friend void
 		swap( delivery_id_t & a, delivery_id_t & b ) noexcept
 			{
-				a.m_envelope.swap( b.m_envelope );
+				using std::swap;
+				swap( a.m_envelope, b.m_envelope );
 			}
 
 		//! Revoke the message.

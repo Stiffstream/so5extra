@@ -146,8 +146,9 @@ class timer_id_t final
 		friend void
 		swap( timer_id_t & a, timer_id_t & b ) noexcept
 			{
-				a.m_envelope.swap( b.m_envelope );
-				a.m_actual_id.swap( b.m_actual_id );
+				using std::swap;
+				swap( a.m_envelope, b.m_envelope );
+				swap( a.m_actual_id, b.m_actual_id );
 			}
 
 		//! Is message delivery still in progress?
