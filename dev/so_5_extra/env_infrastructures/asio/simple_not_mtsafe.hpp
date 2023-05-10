@@ -9,8 +9,8 @@
 #include <so_5_extra/env_infrastructures/asio/impl/common.hpp>
 
 #include <so_5/version.hpp>
-#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 7u, 3u)
-#error "SObjectizer-5.7.3 is required"
+#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 8u, 0u)
+#error "SObjectizer-5.8.0 is required"
 #endif
 
 #include <so_5/impl/st_env_infrastructure_reuse.hpp>
@@ -241,8 +241,14 @@ class env_infrastructure_t
 		void
 		launch( env_init_t init_fn ) override;
 
+		/*!
+		 * \attention
+		 * Since SO-5.8.0 this method should be a noexcept, but
+		 * Asio's post() can throw. In that case the whole application
+		 * will be terminated.
+		 */
 		void
-		stop() override;
+		stop() noexcept override;
 
 		[[nodiscard]]
 		coop_unique_holder_t
@@ -260,7 +266,7 @@ class env_infrastructure_t
 
 		bool
 		final_deregister_coop(
-			coop_shptr_t coop_name ) override;
+			coop_shptr_t coop_name ) noexcept override;
 
 		so_5::timer_id_t
 		schedule_timer(
@@ -408,28 +414,23 @@ env_infrastructure_t<Activity_Tracker>::launch( env_init_t init_fn )
 
 template< typename Activity_Tracker >
 void
-env_infrastructure_t<Activity_Tracker>::stop()
+env_infrastructure_t<Activity_Tracker>::stop() noexcept
 	{
-		// Note: if the code below throws then we don't know the actual
-		// state of env_infrastructure. Because of that we just terminate
-		// the whole application in the case of an exception.
-		::so_5::details::invoke_noexcept_code( [&] {
-			if( shutdown_status_t::not_started == m_shutdown_status )
-				{
-					m_shutdown_status = shutdown_status_t::must_be_started;
-					::asio::post( m_io_svc.get(), [this] {
-						// Shutdown procedure must be started.
-						m_shutdown_status = shutdown_status_t::in_progress;
+		if( shutdown_status_t::not_started == m_shutdown_status )
+			{
+				m_shutdown_status = shutdown_status_t::must_be_started;
+				::asio::post( m_io_svc.get(), [this] {
+					// Shutdown procedure must be started.
+					m_shutdown_status = shutdown_status_t::in_progress;
 
-						// All registered cooperations must be deregistered now.
-						m_coop_repo.deregister_all_coop();
+					// All registered cooperations must be deregistered now.
+					m_coop_repo.deregister_all_coop();
 
-						check_shutdown_completeness();
-					} );
-				}
-			else
-				check_shutdown_completeness();
-		} );
+					check_shutdown_completeness();
+				} );
+			}
+		else
+			check_shutdown_completeness();
 	}
 
 template< typename Activity_Tracker >
@@ -468,7 +469,7 @@ env_infrastructure_t<Activity_Tracker>::ready_to_deregister_notify(
 template< typename Activity_Tracker >
 bool
 env_infrastructure_t<Activity_Tracker>::final_deregister_coop(
-	coop_shptr_t coop )
+	coop_shptr_t coop ) noexcept
 	{
 		return m_coop_repo.final_deregister_coop( std::move(coop) )
 				.m_has_live_coop;
