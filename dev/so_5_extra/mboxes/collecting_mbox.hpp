@@ -1176,7 +1176,7 @@ class mbox_template_t final
 									result = mbox_t{ new T{
 											data.m_id,
 											std::make_tuple( target, std::forward<Args>(args)... ),
-											std::make_tuple( std::ref(data.m_tracer.get()) )
+											std::make_tuple( std::ref(data.m_tracer) )
 									} };
 								}
 							else

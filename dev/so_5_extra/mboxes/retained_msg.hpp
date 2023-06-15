@@ -613,7 +613,7 @@ make_mbox( environment_t & env )
 									::so_5::impl::msg_tracing_helpers::tracing_enabled_base >;
 
 							result = mbox_t{ new T{
-									data.m_env.get(), data.m_id, data.m_tracer.get()
+									data.m_env.get(), data.m_id, data.m_tracer
 								}
 							};
 						}

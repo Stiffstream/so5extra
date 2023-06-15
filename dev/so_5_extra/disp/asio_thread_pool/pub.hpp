@@ -829,6 +829,21 @@ class binder_template_t
 						work_thread_t::handle_demand( std::move(d) );
 					} );
 			}
+
+		void
+		push_evt_start( execution_demand_t demand ) override
+			{
+				// Just delegate to the ordinary push().
+				this->push( std::move(demand) );
+			}
+
+		void
+		push_evt_finish( execution_demand_t demand ) noexcept override
+			{
+				// Just delegate to the ordinary push() despite
+				// the fact that push() isn't noexcept.
+				this->push( std::move(demand) );
+			}
 	};
 
 //
@@ -974,7 +989,7 @@ class basic_dispatcher_skeleton_t : public actual_dispatcher_iface_t
 			std::string_view data_sources_name_base )
 			{
 				data_source().set_data_sources_name_base( data_sources_name_base );
-				data_source().start( outliving_mutable(env.stats_repository()) );
+				data_source().start( env.stats_repository() );
 
 				::so_5::details::do_with_rollback_on_exception(
 						[&] { launch_work_threads(env); },

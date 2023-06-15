@@ -731,7 +731,7 @@ make_mbox(
 									data.m_id,
 									std::move(notification_mbox),
 									mbox_type,
-									data.m_tracer.get()
+									data.m_tracer
 								} };
 						}
 					else

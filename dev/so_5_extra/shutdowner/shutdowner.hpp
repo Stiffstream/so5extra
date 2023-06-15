@@ -773,7 +773,7 @@ class layer_template_t : public ::so_5::extra::shutdowner::layer_t
 									std::move( time_elapsed_mbox ),
 									m_shutdown_time,
 									data.m_id,
-									data.m_tracer.get() ) );
+									data.m_tracer ) );
 					}
 				else
 					{

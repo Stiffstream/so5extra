@@ -408,7 +408,7 @@ make_mbox( environment_t & env )
 							result = mbox_t{ std::make_unique<T>(
 									data.m_env.get(),
 									data.m_id,
-									data.m_tracer.get() )
+									data.m_tracer )
 							};
 						}
 					else

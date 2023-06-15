@@ -243,7 +243,7 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 								m_owner.get().so_create_event_subscription(
 										m_timeout_mbox,
 										m_timeout_msg_type,
-										th.m_state,
+										th.m_state.get(),
 										th.m_handler,
 										::so_5::thread_safety_t::unsafe,
 										::so_5::event_handler_kind_t::final_handler );

@@ -554,7 +554,7 @@ make_mbox(
 									underlying_mbox,
 									message_payload_type< Msg_Type >::subscription_type_index(),
 									inflight_limit,
-									data.m_tracer.get()
+									data.m_tracer
 								} };
 						}
 					else

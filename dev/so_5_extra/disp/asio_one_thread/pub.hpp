@@ -509,6 +509,21 @@ class work_thread_template_t
 						} );
 			}
 
+		void
+		push_evt_start( execution_demand_t demand ) override
+			{
+				// Just delegate to the ordinary push().
+				this->push( std::move(demand) );
+			}
+
+		void
+		push_evt_finish( execution_demand_t demand ) noexcept override
+			{
+				// Just delegate to the ordinary push() despite
+				// the fact that push() isn't noexcept.
+				this->push( std::move(demand) );
+			}
+
 	private :
 		void
 		body()

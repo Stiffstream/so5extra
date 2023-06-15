@@ -1087,7 +1087,7 @@ class mbox_builder_t
 
 									result = mbox_t{ new T{
 											std::move(mbox_data),
-											data.m_tracer.get()
+											data.m_tracer
 										} };
 								}
 							else
