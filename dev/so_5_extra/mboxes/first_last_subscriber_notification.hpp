@@ -16,7 +16,6 @@
 
 #include <so_5_extra/error_ranges.hpp>
 
-#include <so_5/impl/message_sink_ptr_compare.hpp>
 #include <so_5/impl/msg_tracing_helpers.hpp>
 #include <so_5/impl/local_mbox_basic_subscription_info.hpp>
 
@@ -173,7 +172,7 @@ struct template_independent_mbox_data_t
 					abstract_message_sink_t * a,
 					abstract_message_sink_t * b ) const noexcept
 				{
-					return ::so_5::impl::special_message_sink_ptr_compare( a, b );
+					return abstract_message_sink_t::special_sink_ptr_compare( a, b );
 				}
 			};
 

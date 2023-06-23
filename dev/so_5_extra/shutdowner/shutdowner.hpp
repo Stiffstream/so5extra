@@ -8,7 +8,6 @@
 #include <so_5_extra/error_ranges.hpp>
 
 #include <so_5/impl/msg_tracing_helpers.hpp>
-#include <so_5/impl/message_sink_ptr_compare.hpp>
 
 #include <so_5/details/sync_helpers.hpp>
 
@@ -214,7 +213,7 @@ struct subscriber_info_t
 		bool
 		operator<( const subscriber_info_t & o ) const
 			{
-				return ::so_5::impl::special_message_sink_ptr_compare(
+				return abstract_message_sink_t::special_sink_ptr_compare(
 						std::addressof( this->m_sink.get() ),
 						std::addressof( o.m_sink.get() ) );
 			}
