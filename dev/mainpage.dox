@@ -3,6 +3,18 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
+ * \subsection so_5_extra_v1_6_0 v.1.6.0
+ *
+ * Adaptation to SObjectizer v.5.8.0.
+ *
+ * \attention
+ * so5extra-1.6.0 can't be used with SObjectizer versions prior to v.5.8.0.
+ *
+ * unique_subscribers mbox is now a part of SObjectizer-5.8.0.
+ * The header file `so_5_extra/mboxes/unique_subscribers.hpp` and
+ * the function `so_5::extra::mboxes::unique_subscribers::make_mbox`
+ * are kept just for compatibility reasons.
+ *
  * \subsection so_5_extra_v1_5_2 v.1.5.2
  *
  * New type of mbox is introduced: so_5::extra::mboxes::inflight_limit.

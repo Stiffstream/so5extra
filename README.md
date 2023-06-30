@@ -18,7 +18,6 @@ At the current moment so5extra contains the following components:
 * so_5::extra::mboxes::proxy. A proxy-mbox which delegates all calls to the underlying actual mbox. Such proxy simplifies development of custom mboxes.
 * so_5::extra::mboxes::retained_msg. An implementation of mbox which holds the last sent message and automatically resend it to every new subscriber for this message type;
 * so_5::extra::mboxes::round_robin. An implementation of *round-robin* mbox which performs delivery of messages by round-robin scheme;
-* so_5::extra::mboxes::unique_subscribers. A variant of Multi-Producer/Single-Consumer mbox, that allows having many different subscribers if all of those subscribers are subscribed to different message types;
 * so_5::extra::mchains::fixed_size. An implementation of fixed-size mchain which capacity is known at the compile-time;
 * so_5::extra::revocable_msg. A set of tools for sending messages/signals those can be revoked;
 * so_5::extra::revocable_timer. A set of tools for sending delayed/periodic messages/signals those can be revoked;
@@ -31,7 +30,7 @@ More features can be added to so5extra in future. Some of so5extra's features ca
 
 ## The Old-School Way
 
-### Obtaining 
+### Obtaining
 
 so5extra can be obtained from source-code repository via Git. For example:
 
@@ -39,8 +38,8 @@ so5extra can be obtained from source-code repository via Git. For example:
 
 so5extra can also be downloaded from the corresponding [Releases](https://github.com/Stiffstream/so5extra/releases) section on GitHub. There are two types of achives with so5extra: 
 
-* archives with so5extra sources only (with names like `so5extra-1.4.0.tar.xz`);
-* archives with so5extra and all dependecies, like SObjectizer and Asio. These archives have names like `so5extra-1.4.0-full.tar.xz`).
+* archives with so5extra sources only (with names like `so5extra-1.6.0.tar.xz`);
+* archives with so5extra and all dependecies, like SObjectizer and Asio. These archives have names like `so5extra-1.6.0-full.tar.xz`).
 
 If so5extra is got from repository or downloaded as archive without dependecies inside then obtaining of dependecies could be necessary. It can be done via mxxruexternals command: 
 
@@ -107,7 +106,7 @@ It can be also necessary to add public-conan remote:
 Add so5extra to conanfile.txt of your project:
 
     [requires]
-    so5extra/1.4.0@stiffstream/stable
+    so5extra/1.6.0@stiffstream/stable
 
 It also may be necessary to specify shared option for SObjectizer. For example, for build SObjectizer as a static library:
 
