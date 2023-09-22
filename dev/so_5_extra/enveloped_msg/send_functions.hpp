@@ -9,6 +9,12 @@
 
 #pragma once
 
+#include <so_5/version.hpp>
+
+#if SO_5_VERSION < SO_5_VERSION_MAKE(5, 8, 1)
+#error "SObjectizer v.5.8.1 or above required"
+#endif
+
 #include <so_5_extra/enveloped_msg/errors.hpp>
 
 #include <so_5/send_functions.hpp>
@@ -258,12 +264,11 @@ template< typename Message, typename... Args >
 details::payload_holder_t
 make( Args && ...args )
 	{
+		// Since SO-5.8.1 mutability is handled by make_message_instance.
 		message_ref_t message{
 				so_5::details::make_message_instance< Message >(
 						std::forward<Args>(args)... )
 		};
-
-		so_5::details::mark_as_mutable_if_necessary< Message >( *message );
 
 		return {
 				message_payload_type< Message >::subscription_type_index(),
