@@ -451,11 +451,7 @@ class actual_mbox_t final
 				if( msg_type != m_msg_type )
 					SO_5_THROW_EXCEPTION(
 							errors::rc_different_message_type,
-							//FIXME: we have to create std::string object because
-							//so_5::exception_t::raise expects std::string.
-							//This should be fixed after resolving:
-							//https://github.com/Stiffstream/sobjectizer/issues/46
-							std::string{ error_description } );
+							error_description );
 			}
 	};
 
