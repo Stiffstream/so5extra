@@ -17,7 +17,7 @@ MxxRu::arch_externals :asio_mxxru do |e|
 end
 
 MxxRu::arch_externals :doctest do |e|
-  e.url 'https://github.com/doctest/doctest/archive/refs/tags/v2.4.8.tar.gz'
+  e.url 'https://github.com/doctest/doctest/archive/refs/tags/v2.4.11.tar.gz'
 
   e.map_file 'doctest/doctest.h' => 'dev/doctest/*'
 end
