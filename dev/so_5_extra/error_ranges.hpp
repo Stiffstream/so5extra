@@ -110,6 +110,12 @@ const int mboxes_composite_errors = 21400;
  */
 const int mboxes_inflight_limit_errors = 21500;
 
+//! Starting point for errors of msg_hierarchy submodule.
+/*!
+ * \since v.1.6.2
+ */
+const int msg_hierarchy_errors = 21600;
+
 } /* namespace errors */
 
 } /* namespace extra */

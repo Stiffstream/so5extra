@@ -13,6 +13,8 @@
 #error "SObjectizer-5.8.0 of newest is required"
 #endif
 
+#include <so_5_extra/error_ranges.hpp>
+
 #include <so_5/unique_subscribers_mbox.hpp>
 #include <so_5/environment.hpp>
 
@@ -20,9 +22,193 @@
 #include <iostream>
 #include <memory>
 #include <mutex>
+#include <type_traits>
 
 namespace so_5::extra::msg_hierarchy
 {
+
+namespace errors
+{
+
+/*!
+ * @brief An attempt to get parent upcaster but it isn't exists.
+ *
+ * @since v.1.6.2
+ */
+const int rc_no_parent_upcaster =
+		so_5::extra::errors::msg_hierarchy_errors;
+
+/*!
+ * @brief An attempt to deliver signal via msg_hierarchy-related mbox.
+ *
+ * msg_hierarchy and signals are incompatible.
+ *
+ * @since v.1.6.2
+ */
+const int rc_signal_cannot_be_delivered =
+		so_5::extra::errors::msg_hierarchy_errors + 1;
+
+/*!
+ * @brief An attempt to deliver a message that type is not derived from root.
+ *
+ * @since v.1.6.2
+ */
+const int rc_message_is_not_derived_from_root =
+		so_5::extra::errors::msg_hierarchy_errors + 2;
+
+} /* namespace errors */
+
+namespace impl
+{
+
+class message_upcaster_t;
+
+//
+// upcaster_factory_t
+//
+//FIXME: document this!
+using upcaster_factory_t =
+	message_upcaster_t (*)(::so_5::message_mutability_t) noexcept;
+
+//
+// message_upcaster_t
+//
+//FIXME: document this!
+class message_upcaster_t
+	{
+		std::type_index m_self_type;
+
+		upcaster_factory_t m_parent_factory;
+
+	public:
+		message_upcaster_t(
+			std::type_index self_type,
+			upcaster_factory_t parent_factory )
+			: m_self_type{ std::move(self_type) }
+			, m_parent_factory{ parent_factory }
+			{}
+
+		[[nodiscard]] const std::type_index &
+		self_type() const noexcept
+			{
+				return m_self_type;
+			}
+
+		[[nodiscard]] bool
+		has_parent_factory() const noexcept
+			{
+				return nullptr != m_parent_factory;
+			}
+
+		[[nodiscard]] message_upcaster_t
+		parent_upcaster( message_mutability_t mutability ) const
+			{
+				if( !has_parent_factory() )
+					SO_5_THROW_EXCEPTION(
+							::so_5::extra::msg_hierarchy::errors::rc_no_parent_upcaster,
+							"no parent upcaster_factory" );
+
+				return (*m_parent_factory)( mutability );
+			}
+	};
+
+//
+// root_base_t
+//
+class root_base_t : public message_t
+	{
+		upcaster_factory_t m_factory{};
+
+	public:
+		[[nodiscard]] upcaster_factory_t
+		so_message_upcaster_factory() const noexcept
+			{
+				return m_factory;
+			}
+
+		void
+		so_set_message_upcaster_factory(
+			upcaster_factory_t factory) noexcept
+			{
+				m_factory = factory;
+			}
+	};
+
+} /* namespace impl */
+
+template<typename Base>
+class root_t : public impl::root_base_t
+	{
+	public:
+		[[nodiscard]] static impl::message_upcaster_t
+		so_make_upcaster_root( ::so_5::message_mutability_t mutability ) noexcept
+			{
+				if( ::so_5::message_mutability_t::mutable_message == mutability )
+					return { typeid(::so_5::mutable_msg<Base>), nullptr };
+				else
+					return { typeid(Base), nullptr };
+			}
+
+	public:
+		root_t()
+			{
+				this->so_set_message_upcaster_factory(
+						&root_t::so_make_upcaster_root );
+			}
+	};
+
+namespace impl
+{
+
+template< typename B, typename = std::void_t<> >
+struct has_so_make_upcaster_method : public std::false_type {};
+
+template< typename B >
+struct has_so_make_upcaster_method<
+	B, std::void_t< decltype(&B::so_make_upcaster) >
+> : public std::true_type {};
+
+} /* namespace impl */
+
+//
+// node_t
+//
+//FIXME: document this!
+template<typename Derived, typename Base>
+class node_t
+	{
+	public:
+		[[nodiscard]] static impl::message_upcaster_t
+		so_make_upcaster( message_mutability_t mutability ) noexcept
+			{
+				if constexpr( impl::has_so_make_upcaster_method<Base>::value )
+					{
+						const auto upcaster = &Base::so_make_upcaster;
+						if( ::so_5::message_mutability_t::mutable_message == mutability )
+							return { typeid(::so_5::mutable_msg<Derived>), upcaster };
+						else
+							return { typeid(Derived), upcaster };
+					}
+				else
+					{
+						const auto upcaster = &Base::so_make_upcaster_root;
+						if( ::so_5::message_mutability_t::mutable_message == mutability )
+							return { typeid(::so_5::mutable_msg<Derived>), upcaster };
+						else
+							return { typeid(Derived), upcaster };
+					}
+			}
+
+	public:
+		node_t(Derived & derived)
+			{
+				static_assert(
+						std::is_base_of_v<impl::root_base_t, Derived> &&
+						std::is_base_of_v<Base, Derived> );
+
+				derived.so_set_message_upcaster_factory( &node_t::so_make_upcaster );
+			}
+	};
 
 namespace impl
 {
@@ -192,28 +378,67 @@ class multi_consumer_demuxing_data_t : public basic_demuxing_data_t< Root, Lock_
 
 		void
 		do_deliver_message(
-			message_delivery_mode_t delivery_mode,
+			::so_5::message_delivery_mode_t delivery_mode,
 			const std::type_index & msg_type,
-			const message_ref_t & message,
+			const ::so_5::message_ref_t & message,
 			unsigned int redirection_deep ) override
 			{
+				namespace err_ns = ::so_5::extra::msg_hierarchy::errors;
+
 				//FIXME: the message has to be checked for immutability!
+
+				const ::so_5::message_t * raw_msg = message.get();
+				if( !raw_msg )
+					SO_5_THROW_EXCEPTION(
+							err_ns::rc_signal_cannot_be_delivered,
+							"signal can't be handled by msg_hierarchy's demuxer" );
+				const root_base_t * root = dynamic_cast<const root_base_t *>(raw_msg);
+				if( !root )
+					SO_5_THROW_EXCEPTION(
+							err_ns::rc_message_is_not_derived_from_root,
+							"a message type has to be derived from root_t" );
 
 				//FIXME: should a reader-writer lock be used here?
 				std::lock_guard< Lock_Type > lock{ this->m_lock };
 
-				//FIXME: actual searching algorithm has to be used here!
+				// Try to deliver message by its actual type and them
+				// trying to going hierarchy up.
+				const auto msg_mutabilty_flag = message_mutability( *root );
+				auto upcaster = root->so_message_upcaster_factory()(
+						msg_mutabilty_flag );
+
+				// Main delivery loop.
 				for( const auto & [id, consumer_map] : m_consumers_with_mboxes )
 					{
-						if( const auto it = consumer_map.find( msg_type );
-								it != consumer_map.end() )
-							{
-								it->second->do_deliver_message(
-										delivery_mode,
-										msg_type,
-										message,
-										redirection_deep );
-							}
+std::cout << "*** handling mboxes of " << id << std::endl;
+						bool delivery_finished = false;
+						do
+						{
+							const auto type_to_find = upcaster.self_type();
+std::cout << "****** trying to deliver message of type: " << type_to_find.name() << std::endl;
+							if( const auto it = consumer_map.find( type_to_find );
+									it != consumer_map.end() )
+								{
+									// Only one delivery for every consumer.
+									delivery_finished = true;
+std::cout << "********* delivering via " << it->second->id() << std::endl;
+									it->second->do_deliver_message(
+											delivery_mode,
+											type_to_find,
+											message,
+											redirection_deep );
+								}
+							else
+								{
+									delivery_finished = !upcaster.has_parent_factory();
+									if( !delivery_finished )
+										{
+											// It's not the root yet, try to go one level up.
+											upcaster = upcaster.parent_upcaster( msg_mutabilty_flag );
+										}
+								}
+						} while( !delivery_finished );
+std::cout << "*** loop for " << id << " finished" << std::endl;
 					}
 			}
 	};
