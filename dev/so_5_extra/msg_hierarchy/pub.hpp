@@ -407,6 +407,7 @@ class multi_consumer_demuxing_controller_t
 							"a message type has to be derived from root_t" );
 
 				// ...the object has to be locked for the delivery procedure...
+
 				//FIXME: should a reader-writer lock be used here?
 				std::lock_guard< Lock_Type > lock{ this->m_lock };
 
@@ -438,15 +439,16 @@ class multi_consumer_demuxing_controller_t
 			//! The pointer to the root of the hierarchy for this message.
 			const root_base_t * root )
 			{
-				// Try to deliver message by its actual type and them
-				// trying to going hierarchy up.
 				const auto msg_mutabilty_flag = message_mutability( *root );
-				auto upcaster = root->so_message_upcaster_factory()(
-						msg_mutabilty_flag );
 
 				// Main delivery loop.
 				for( const auto & [id, consumer_map] : m_consumers_with_mboxes )
 					{
+						// Try to deliver message by its actual type and them
+						// trying to going hierarchy up.
+						auto upcaster = root->so_message_upcaster_factory()(
+								msg_mutabilty_flag );
+
 std::cout << "*** handling mboxes of " << id << std::endl;
 						bool delivery_finished = false;
 						do
