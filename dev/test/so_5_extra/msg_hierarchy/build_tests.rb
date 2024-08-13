@@ -6,4 +6,7 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/simple/prj.ut.rb" )
 	required_prj( "#{path}/simple/prj_s.ut.rb" )
+
+	required_prj( "#{path}/mpmc_mutable_msg/prj.ut.rb" )
+	required_prj( "#{path}/mpmc_mutable_msg/prj_s.ut.rb" )
 }

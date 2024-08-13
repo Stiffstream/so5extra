@@ -380,28 +380,37 @@ class multi_consumer_demuxing_controller_t
 		void
 		do_deliver_message(
 			::so_5::message_delivery_mode_t delivery_mode,
-			const std::type_index & /*msg_type*/,
+			const std::type_index & msg_type,
 			const ::so_5::message_ref_t & message,
 			unsigned int redirection_deep ) override
 			{
 				namespace err_ns = ::so_5::extra::msg_hierarchy::errors;
 
-				//FIXME: the message has to be checked for immutability!
+				// Do all necessary checks first...
+				if( ::so_5::message_mutability_t::immutable_message !=
+						message_mutability( message ) )
+					SO_5_THROW_EXCEPTION(
+							::so_5::rc_mutable_msg_cannot_be_delivered_via_mpmc_mbox,
+							"an attempt to deliver mutable message via MPMC mbox"
+							", msg_type=" + std::string(msg_type.name()) );
 
 				const ::so_5::message_t * raw_msg = message.get();
 				if( !raw_msg )
 					SO_5_THROW_EXCEPTION(
 							err_ns::rc_signal_cannot_be_delivered,
 							"signal can't be handled by msg_hierarchy's demuxer" );
+
 				const root_base_t * root = dynamic_cast<const root_base_t *>(raw_msg);
 				if( !root )
 					SO_5_THROW_EXCEPTION(
 							err_ns::rc_message_is_not_derived_from_root,
 							"a message type has to be derived from root_t" );
 
+				// ...the object has to be locked for the delivery procedure...
 				//FIXME: should a reader-writer lock be used here?
 				std::lock_guard< Lock_Type > lock{ this->m_lock };
 
+				// ...now the message can be delivered.
 				do_delivery_procedure(
 						delivery_mode,
 						message,
