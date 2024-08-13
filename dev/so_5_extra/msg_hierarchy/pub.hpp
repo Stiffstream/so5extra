@@ -200,7 +200,7 @@ class node_t
 			}
 
 	public:
-		node_t(Derived & derived)
+		node_t( Derived & derived )
 			{
 				static_assert(
 						std::is_base_of_v<impl::root_base_t, Derived> &&
@@ -222,13 +222,13 @@ using consumer_numeric_id_t = std::uint_least64_t;
 inline constexpr consumer_numeric_id_t invalid_consumer_id{ 0 };
 
 //
-// demuxing_data_iface_t
+// demuxing_controller_iface_t
 //
 //FIXME: document this!
-class demuxing_data_iface_t : public ::so_5::atomic_refcounted_t
+class demuxing_controller_iface_t : public ::so_5::atomic_refcounted_t
 	{
 	public:
-		virtual ~demuxing_data_iface_t() noexcept = default;
+		virtual ~demuxing_controller_iface_t() noexcept = default;
 
 		[[nodiscard]] virtual ::so_5::environment_t &
 		environment() const noexcept = 0;
@@ -254,18 +254,18 @@ class demuxing_data_iface_t : public ::so_5::atomic_refcounted_t
 	};
 
 //
-// demuxing_data_iface_shptr_t
+// demuxing_controller_iface_shptr_t
 //
 //FIXME: document this!
-using demuxing_data_iface_shptr_t =
-		::so_5::intrusive_ptr_t< demuxing_data_iface_t >;
+using demuxing_controller_iface_shptr_t =
+		::so_5::intrusive_ptr_t< demuxing_controller_iface_t >;
 
 //
-// basic_demuxing_data_t
+// basic_demuxing_controller_t
 //
 //FIXME: document this!
 template< typename Root, typename Lock_Type >
-class basic_demuxing_data_t : public demuxing_data_iface_t
+class basic_demuxing_controller_t : public demuxing_controller_iface_t
 	{
 	protected:
 		::so_5::environment_t & m_env;
@@ -277,7 +277,7 @@ class basic_demuxing_data_t : public demuxing_data_iface_t
 		consumer_numeric_id_t m_consumer_id_counter{};
 
 	public:
-		basic_demuxing_data_t(
+		basic_demuxing_controller_t(
 			::so_5::outliving_reference_t< ::so_5::environment_t > env,
 			::so_5::mbox_type_t mbox_type )
 			: m_env{ env.get() }
@@ -315,21 +315,22 @@ class basic_demuxing_data_t : public demuxing_data_iface_t
 	};
 
 //
-// demuxing_data_shptr_t
+// demuxing_controller_shptr_t
 //
 //FIXME: document this!
 template< typename Root, typename Lock_Type >
-using demuxing_data_shptr_t =
-		::so_5::intrusive_ptr_t< basic_demuxing_data_t< Root, Lock_Type > >;
+using demuxing_controller_shptr_t =
+		::so_5::intrusive_ptr_t< basic_demuxing_controller_t< Root, Lock_Type > >;
 
 //
-// mpmc_demuxing_data_t
+// mpmc_demuxing_controller_t
 //
 //FIXME: document this!
 template< typename Root, typename Lock_Type >
-class multi_consumer_demuxing_data_t : public basic_demuxing_data_t< Root, Lock_Type >
+class multi_consumer_demuxing_controller_t
+	: public basic_demuxing_controller_t< Root, Lock_Type >
 	{
-		using base_type_t = basic_demuxing_data_t< Root, Lock_Type >;
+		using base_type_t = basic_demuxing_controller_t< Root, Lock_Type >;
 
 		using one_consumer_mboxes_map_t = std::map< std::type_index, ::so_5::mbox_t >;
 
@@ -341,7 +342,7 @@ class multi_consumer_demuxing_data_t : public basic_demuxing_data_t< Root, Lock_
 		consumers_map_t m_consumers_with_mboxes;
 
 	public:
-		multi_consumer_demuxing_data_t(
+		multi_consumer_demuxing_controller_t(
 			::so_5::outliving_reference_t< ::so_5::environment_t > env )
 			: base_type_t{ env, ::so_5::mbox_type_t::multi_producer_multi_consumer }
 			{}
@@ -379,7 +380,7 @@ class multi_consumer_demuxing_data_t : public basic_demuxing_data_t< Root, Lock_
 		void
 		do_deliver_message(
 			::so_5::message_delivery_mode_t delivery_mode,
-			const std::type_index & msg_type,
+			const std::type_index & /*msg_type*/,
 			const ::so_5::message_ref_t & message,
 			unsigned int redirection_deep ) override
 			{
@@ -401,6 +402,33 @@ class multi_consumer_demuxing_data_t : public basic_demuxing_data_t< Root, Lock_
 				//FIXME: should a reader-writer lock be used here?
 				std::lock_guard< Lock_Type > lock{ this->m_lock };
 
+				do_delivery_procedure(
+						delivery_mode,
+						message,
+						redirection_deep,
+						root );
+			}
+
+	private:
+		/*!
+		 * @brief Perform delivery of the message.
+		 *
+		 * It's assumed that all necessary check have been performed earlier.
+		 *
+		 * @attention
+		 * This method has to be called when object is locked.
+		 */
+		void
+		do_delivery_procedure(
+			//! How message has to be delivered.
+			::so_5::message_delivery_mode_t delivery_mode,
+			//! Message to be delivered.
+			const ::so_5::message_ref_t & message,
+			//! Redirection deep for overload control.
+			unsigned int redirection_deep,
+			//! The pointer to the root of the hierarchy for this message.
+			const root_base_t * root )
+			{
 				// Try to deliver message by its actual type and them
 				// trying to going hierarchy up.
 				const auto msg_mutabilty_flag = message_mutability( *root );
@@ -444,30 +472,31 @@ std::cout << "*** loop for " << id << " finished" << std::endl;
 	};
 
 //
-// mpsc_demuxing_data_t
+// mpsc_demuxing_controller_t
 //
 //FIXME: document this!
 template< typename Root, typename Lock_Type >
-class single_consumer_demuxing_data_t : public basic_demuxing_data_t< Root, Lock_Type >
+class single_consumer_demuxing_controller_t
+	: public basic_demuxing_controller_t< Root, Lock_Type >
 	{
-		using base_type_t = basic_demuxing_data_t< Root, Lock_Type >;
+		using base_type_t = basic_demuxing_controller_t< Root, Lock_Type >;
 
 	public:
-		single_consumer_demuxing_data_t(
+		single_consumer_demuxing_controller_t(
 			::so_5::outliving_reference_t< ::so_5::environment_t > env )
 			: base_type_t{ env, ::so_5::mbox_type_t::multi_producer_single_consumer }
 			{}
 
 		[[nodiscard]] so_5::mbox_t
 		acquire_receiving_mbox_for(
-			consumer_numeric_id_t id,
-			const std::type_index & msg_type )
+			consumer_numeric_id_t /*id*/,
+			const std::type_index & /*msg_type*/ )
 			{
 				throw std::runtime_error{ "Not implemented!" };
 			}
 
 		void
-		consumer_destroyed( consumer_numeric_id_t id ) noexcept override
+		consumer_destroyed( consumer_numeric_id_t /*id*/ ) noexcept override
 			{
 				std::lock_guard< Lock_Type > lock{ this->m_lock };
 
@@ -493,15 +522,15 @@ template< typename Root >
 class multi_consumer_sending_mbox_t final
 	: public ::so_5::abstract_message_box_t
 	{
-		demuxing_data_iface_shptr_t m_data;
+		demuxing_controller_iface_shptr_t m_controller;
 
 		const ::so_5::mbox_id_t m_id;
 
 	public:
 		multi_consumer_sending_mbox_t(
-			demuxing_data_iface_shptr_t data,
+			demuxing_controller_iface_shptr_t controller,
 			::so_5::mbox_id_t id )
-			: m_data{ std::move(data) }
+			: m_controller{ std::move(controller) }
 			, m_id{ id }
 			{}
 
@@ -557,7 +586,7 @@ class multi_consumer_sending_mbox_t final
 			const message_ref_t & message,
 			unsigned int redirection_deep ) override
 			{
-				m_data->do_deliver_message(
+				m_controller->do_deliver_message(
 						delivery_mode,
 						msg_type,
 						message,
@@ -576,8 +605,8 @@ class multi_consumer_sending_mbox_t final
 
 		virtual void
 		drop_delivery_filter(
-			const std::type_index & msg_type,
-			abstract_message_sink_t & subscriber ) noexcept override
+			const std::type_index & /*msg_type*/,
+			abstract_message_sink_t & /*subscriber*/ ) noexcept override
 			{
 				// Nothing to do.
 			}
@@ -586,7 +615,7 @@ class multi_consumer_sending_mbox_t final
 		so_5::environment_t &
 		environment() const noexcept override
 			{
-				return m_data->environment();
+				return m_controller->environment();
 			}
 	};
 
@@ -616,35 +645,35 @@ template<
 	typename Traits = default_traits_t >
 class demuxer_t
 	{
-		impl::demuxing_data_shptr_t< Root, Lock_Type > m_data;
+		impl::demuxing_controller_shptr_t< Root, Lock_Type > m_controller;
 
 		::so_5::mbox_t m_sending_mbox;
 
-		[[nodiscard]] static impl::demuxing_data_shptr_t< Root, Lock_Type >
-		make_required_demuxing_data_object(
+		[[nodiscard]] static impl::demuxing_controller_shptr_t< Root, Lock_Type >
+		make_required_demuxing_controller_object(
 			::so_5::outliving_reference_t< ::so_5::environment_t > env,
 			::so_5::mbox_type_t mbox_type )
 			{
-				using result_t = impl::demuxing_data_shptr_t< Root, Lock_Type >;
+				using result_t = impl::demuxing_controller_shptr_t< Root, Lock_Type >;
 
 				result_t result;
 				switch( mbox_type )
 					{
 					case ::so_5::mbox_type_t::multi_producer_multi_consumer:
 						{
-							using data_t = impl::multi_consumer_demuxing_data_t<
+							using controller_t = impl::multi_consumer_demuxing_controller_t<
 									Root, Lock_Type >;
 
-							result = result_t{ new data_t{ env } };
+							result = result_t{ new controller_t{ env } };
 						}
 					break;
 
 					case ::so_5::mbox_type_t::multi_producer_single_consumer:
 						{
-							using data_t = impl::single_consumer_demuxing_data_t<
+							using controller_t = impl::single_consumer_demuxing_controller_t<
 									Root, Lock_Type >;
 
-							result = result_t{ new data_t{ env } };
+							result = result_t{ new controller_t{ env } };
 						}
 					break;
 					}
@@ -653,7 +682,7 @@ class demuxer_t
 
 		[[nodiscard]] static ::so_5::mbox_t
 		make_required_sending_mbox(
-			impl::demuxing_data_iface_shptr_t data,
+			impl::demuxing_controller_iface_shptr_t controller,
 			::so_5::environment_t & env,
 			::so_5::mbox_type_t mbox_type )
 			{
@@ -666,7 +695,7 @@ class demuxer_t
 					case ::so_5::mbox_type_t::multi_producer_multi_consumer:
 						result = so_5::mbox_t{
 								new impl::multi_consumer_sending_mbox_t< Root >(
-										std::move(data),
+										std::move(controller),
 										mbox_id )
 							};
 					break;
@@ -685,20 +714,20 @@ class demuxer_t
 			{
 				using std::swap;
 
-				swap( a.m_data, b.m_data );
+				swap( a.m_controller, b.m_controller );
 				swap( a.m_sending_mbox, b.m_sending_mbox );
 			}
 
 		demuxer_t(
 			::so_5::environment_t & env,
 			::so_5::mbox_type_t mbox_type )
-			: m_data{
-					make_required_demuxing_data_object(
+			: m_controller{
+					make_required_demuxing_controller_object(
 						::so_5::outliving_mutable( env ),
 						mbox_type )
 				}
 			, m_sending_mbox{
-					make_required_sending_mbox( m_data, env, mbox_type )
+					make_required_sending_mbox( m_controller, env, mbox_type )
 				}
 			{}
 
@@ -707,7 +736,10 @@ class demuxer_t
 		operator=( const demuxer_t & ) = delete;
 
 		demuxer_t( demuxer_t && o ) noexcept
-			: m_data{ std::exchange( o.m_data, impl::demuxing_data_shptr_t< Root >{} ) }
+			: m_controller{
+					std::exchange( o.m_controller,
+							impl::demuxing_controller_shptr_t< Root, Lock_Type >{} )
+				}
 			, m_sending_mbox{ std::exchange( o.m_sending_mbox, ::so_5::mbox_t{} ) }
 			{}
 		demuxer_t &
@@ -735,17 +767,17 @@ class demuxer_t
 template< typename Root >
 class consumer_t
 	{
-		template< typename Root, typename Lock_Type, typename Traits >
+		template< typename Demuxer_Root, typename Demuxer_Lock_Type, typename Demuxer_Traits >
 		friend class demuxer_t;
 
-		impl::demuxing_data_iface_shptr_t m_data;
+		impl::demuxing_controller_iface_shptr_t m_controller;
 
 		impl::consumer_numeric_id_t m_id;
 
 		consumer_t(
-			impl::demuxing_data_iface_shptr_t data,
+			impl::demuxing_controller_iface_shptr_t controller,
 			impl::consumer_numeric_id_t id )
-			: m_data{ std::move(data) }
+			: m_controller{ std::move(controller) }
 			, m_id{ id }
 			{}
 
@@ -755,15 +787,15 @@ class consumer_t
 			{
 				using std::swap;
 
-				swap( a.m_data, b.m_data );
+				swap( a.m_controller, b.m_controller );
 				swap( a.m_id, b.m_id );
 			}
 
 		~consumer_t()
 			{
-				if( m_data )
+				if( m_controller )
 					{
-						m_data->consumer_destroyed( m_id );
+						m_controller->consumer_destroyed( m_id );
 					}
 			}
 
@@ -772,7 +804,10 @@ class consumer_t
 		operator=( const consumer_t & ) = delete;
 
 		consumer_t( consumer_t && o ) noexcept
-			: m_data{ std::exchange( o.m_data, impl::default_distribution_period< Root >{} ) }
+			: m_controller{
+					std::exchange( o.m_controller,
+							impl::demuxing_controller_iface_shptr_t{} )
+				}
 			, m_id{ std::exchange( o.m_id, impl::invalid_consumer_id ) }
 			{}
 
@@ -793,7 +828,7 @@ class consumer_t
 
 				//FIXME: mutability of the message has to be checked.
 
-				return m_data->acquire_receiving_mbox_for(
+				return m_controller->acquire_receiving_mbox_for(
 						m_id,
 						::so_5::message_payload_type< Msg_Type >::subscription_type_index() );
 			}
@@ -808,8 +843,8 @@ template< typename Root, typename Lock_Type, typename Traits >
 demuxer_t< Root, Lock_Type, Traits >::allocate_consumer()
 	{
 		return consumer_t< Root >{
-				m_data,
-				m_data->acquire_new_consumer_id()
+				m_controller,
+				m_controller->acquire_new_consumer_id()
 			};
 	}
 
