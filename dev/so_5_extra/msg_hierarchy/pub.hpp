@@ -56,6 +56,14 @@ const int rc_signal_cannot_be_delivered =
 const int rc_message_is_not_derived_from_root =
 		so_5::extra::errors::msg_hierarchy_errors + 2;
 
+/*!
+ * @brief An attempt to create receiving mbox for a mutable message.
+ *
+ * @since v.1.6.2
+ */
+const int rc_mpmc_demuxer_cannot_handler_mutable_msg =
+		so_5::extra::errors::msg_hierarchy_errors + 3;
+
 } /* namespace errors */
 
 namespace impl
@@ -149,7 +157,6 @@ class root_t : public impl::root_base_t
 					return { typeid(Base), nullptr };
 			}
 
-	public:
 		root_t()
 			{
 				this->so_set_message_upcaster_factory(
@@ -199,7 +206,6 @@ class node_t
 					}
 			}
 
-	public:
 		node_t( Derived & derived )
 			{
 				static_assert(
@@ -230,11 +236,16 @@ class demuxing_controller_iface_t : public ::so_5::atomic_refcounted_t
 	public:
 		virtual ~demuxing_controller_iface_t() noexcept = default;
 
-		[[nodiscard]] virtual ::so_5::environment_t &
+		[[nodiscard]]
+		virtual ::so_5::environment_t &
 		environment() const noexcept = 0;
 
 		virtual void
 		consumer_destroyed( consumer_numeric_id_t id ) noexcept = 0;
+
+		[[nodiscard]]
+		virtual ::so_5::mbox_type_t
+		mbox_type() const noexcept = 0;
 
 		[[nodiscard]] virtual ::so_5::mbox_t
 		acquire_receiving_mbox_for(
@@ -284,12 +295,6 @@ class basic_demuxing_controller_t : public demuxing_controller_iface_t
 			, m_mbox_type{ mbox_type }
 			{}
 
-		[[nodiscard]] ::so_5::mbox_type_t
-		mbox_type() const noexcept
-			{
-				return m_mbox_type;
-			}
-
 		[[nodiscard]] consumer_numeric_id_t
 		acquire_new_consumer_id()
 			{
@@ -311,6 +316,12 @@ class basic_demuxing_controller_t : public demuxing_controller_iface_t
 			{
 				//FIXME: implement this!
 				std::cout << "consumer_destroyed: " << id << std::endl;
+			}
+
+		[[nodiscard]] ::so_5::mbox_type_t
+		mbox_type() const noexcept override
+			{
+				return m_mbox_type;
 			}
 	};
 
@@ -656,6 +667,9 @@ template<
 	typename Traits = default_traits_t >
 class demuxer_t
 	{
+		static_assert( std::is_base_of_v<impl::root_base_t, Root>,
+				"the Root has to be root_t<Msg> or a type derived from root_t<Msg>" );
+
 		impl::demuxing_controller_shptr_t< Root, Lock_Type > m_controller;
 
 		::so_5::mbox_t m_sending_mbox;
@@ -834,10 +848,29 @@ class consumer_t
 		[[nodiscard]] so_5::mbox_t
 		receiving_mbox()
 			{
-				//FIXME: Msg_Type has to be Root type or should be
-				//derived from Root type.
+				if constexpr( ::so_5::is_mutable_message< Msg_Type >::value )
+					{
+						// There we have Msg_Type as `so_5::mutable_msg<Payload_Type>` and have
+						// to extract and handle Payload_Type instead of Msg_Type.
+						using payload_type = typename ::so_5::message_payload_type< Msg_Type >::payload_type;
 
-				//FIXME: mutability of the message has to be checked.
+						static_assert(
+								(std::is_same_v<payload_type, Root>
+										|| std::is_base_of_v<Root, payload_type>),
+								"Msg_Type has to be a Root type or a type derived from Root" );
+
+						if( ::so_5::mbox_type_t::multi_producer_multi_consumer ==
+								m_controller->mbox_type() )
+							SO_5_THROW_EXCEPTION(
+									errors::rc_mpmc_demuxer_cannot_handler_mutable_msg,
+									std::string{ "receiving_mbox can't be created for a mutable msg: " }
+											+ typeid(Msg_Type).name() );
+					}
+				else
+					{
+						static_assert( (std::is_same_v<Msg_Type, Root> || std::is_base_of_v<Root, Msg_Type>),
+								"Msg_Type has to be a Root type or a type derived from Root" );
+					}
 
 				return m_controller->acquire_receiving_mbox_for(
 						m_id,
