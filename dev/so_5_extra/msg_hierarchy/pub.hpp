@@ -64,6 +64,17 @@ const int rc_message_is_not_derived_from_root =
 const int rc_mpmc_demuxer_cannot_handler_mutable_msg =
 		so_5::extra::errors::msg_hierarchy_errors + 3;
 
+/*!
+ * @brief There are more than one subscriber for a mutable message.
+ *
+ * A demuxer can't deliver an instance of a mutable message if there are
+ * more than one subscriber for this message.
+ *
+ * @since v.1.6.2
+ */
+const int rc_more_than_one_subscriber_for_mutable_msg =
+		so_5::extra::errors::msg_hierarchy_errors + 4;
+
 } /* namespace errors */
 
 namespace impl
@@ -147,6 +158,9 @@ class root_base_t : public message_t
 template<typename Base>
 class root_t : public impl::root_base_t
 	{
+		static_assert( !::so_5::is_mutable_message< Base >::value,
+				"the Base can't be mutable_msg<T>" );
+
 	public:
 		[[nodiscard]] static impl::message_upcaster_t
 		so_make_upcaster_root( ::so_5::message_mutability_t mutability ) noexcept
@@ -184,6 +198,12 @@ struct has_so_make_upcaster_method<
 template<typename Derived, typename Base>
 class node_t
 	{
+		static_assert( !::so_5::is_mutable_message< Base >::value,
+				"the Base can't be mutable_msg<T>" );
+
+		static_assert( !::so_5::is_mutable_message< Derived >::value,
+				"the Derived can't be mutable_msg<T>" );
+
 	public:
 		[[nodiscard]] static impl::message_upcaster_t
 		so_make_upcaster( message_mutability_t mutability ) noexcept
@@ -338,7 +358,7 @@ using demuxing_controller_shptr_t =
 //
 //FIXME: document this!
 template< typename Root, typename Lock_Type >
-class multi_consumer_demuxing_controller_t
+class multi_consumer_demuxing_controller_t final
 	: public basic_demuxing_controller_t< Root, Lock_Type >
 	{
 		using base_type_t = basic_demuxing_controller_t< Root, Lock_Type >;
@@ -498,10 +518,19 @@ std::cout << "*** loop for " << id << " finished" << std::endl;
 //
 //FIXME: document this!
 template< typename Root, typename Lock_Type >
-class single_consumer_demuxing_controller_t
+class single_consumer_demuxing_controller_t final
 	: public basic_demuxing_controller_t< Root, Lock_Type >
 	{
 		using base_type_t = basic_demuxing_controller_t< Root, Lock_Type >;
+
+		using one_consumer_mboxes_map_t = std::map< std::type_index, ::so_5::mbox_t >;
+
+		using consumers_map_t = std::map<
+				consumer_numeric_id_t,
+				one_consumer_mboxes_map_t
+			>;
+
+		consumers_map_t m_consumers_with_mboxes;
 
 	public:
 		single_consumer_demuxing_controller_t(
@@ -522,17 +551,127 @@ class single_consumer_demuxing_controller_t
 			{
 				std::lock_guard< Lock_Type > lock{ this->m_lock };
 
-				//FIXME: implement this!
+				auto [it_consumer, _] = m_consumers_with_mboxes.emplace(
+						id, one_consumer_mboxes_map_t{} );
+				auto & consumer_map = it_consumer->second;
+
+				auto it_msg = consumer_map.find( msg_type );
+				if( it_msg == consumer_map.end() )
+					{
+						it_msg = consumer_map.emplace(
+								msg_type,
+								::so_5::make_unique_subscribers_mbox< Lock_Type >( this->m_env ) )
+							.first;
+					}
+
+				return it_msg->second;
 			}
 
 		void
 		do_deliver_message(
-			message_delivery_mode_t /*delivery_mode*/,
-			const std::type_index & /*msg_type*/,
-			const message_ref_t & /*message*/,
-			unsigned int /*redirection_deep*/ ) override
+			message_delivery_mode_t delivery_mode,
+			const std::type_index & msg_type,
+			const message_ref_t & message,
+			unsigned int redirection_deep ) override
 			{
-				//FIXME: implement this!
+				namespace err_ns = ::so_5::extra::msg_hierarchy::errors;
+
+				// Do all necessary checks first...
+				const ::so_5::message_t * raw_msg = message.get();
+				if( !raw_msg )
+					SO_5_THROW_EXCEPTION(
+							err_ns::rc_signal_cannot_be_delivered,
+							"signal can't be handled by msg_hierarchy's demuxer" );
+
+				const root_base_t * root = dynamic_cast<const root_base_t *>(raw_msg);
+				if( !root )
+					SO_5_THROW_EXCEPTION(
+							err_ns::rc_message_is_not_derived_from_root,
+							"a message type has to be derived from root_t" );
+
+				const auto msg_mutabilty_flag = message_mutability( *root );
+
+				// ...the object has to be locked for the delivery procedure...
+
+				//FIXME: should a reader-writer lock be used here?
+				std::lock_guard< Lock_Type > lock{ this->m_lock };
+
+				if( ::so_5::message_mutability_t::mutable_message == msg_mutabilty_flag )
+					{
+						// Is there a single subscriber for a message?
+						const auto dest_mbox = detect_receiver_for_mutable_msg_or_throw(
+								message,
+								root );
+
+						//FIXME: deliver message to the dest_mbox if it isn't nullptr.
+					}
+				else
+					{
+						// ...now the immutable message can be delivered.
+						do_delivery_procedure_for_immutable_message(
+								delivery_mode,
+								message,
+								redirection_deep,
+								root );
+					}
+			}
+
+	private:
+		//FIXME: document this!
+		[[nodiscard]]
+		so_5::mbox_t
+		detect_receiver_for_mutable_msg_or_throw(
+			//! Message to be delivered.
+			const ::so_5::message_ref_t & message,
+			//! Message pointer that is casted to the hierarchy root.
+			const root_base_t * root ) const
+			{
+				so_5::mbox_t result{};
+
+				// Main loop for subscribers detection.
+				for( const auto & [id, consumer_map] : m_consumers_with_mboxes )
+					{
+						// Try to deliver message by its actual type and them
+						// trying to going hierarchy up.
+						auto upcaster = root->so_message_upcaster_factory()(
+								::so_5::message_mutability_t::mutable_message );
+
+						bool delivery_finished = false;
+						do
+						{
+							const auto type_to_find = upcaster.self_type();
+							if( const auto it = consumer_map.find( type_to_find );
+									it != consumer_map.end() )
+								{
+									if( result )
+										{
+											namespace err_ns = ::so_5::extra::msg_hierarchy::errors;
+											// Another subscriber detected. The message
+											// can't be delivered.
+											SO_5_THROW_EXCEPTION(
+													err_ns::rc_more_than_one_subscriber_for_mutable_msg,
+													"more than one subscriber detected for "
+													"a mutable message" );
+										}
+									else
+										result = it->second;
+
+									// Only one delivery for every consumer.
+									delivery_finished = true;
+								}
+							else
+								{
+									delivery_finished = !upcaster.has_parent_factory();
+									if( !delivery_finished )
+										{
+											// It's not the root yet, try to go one level up.
+											upcaster = upcaster.parent_upcaster( msg_mutabilty_flag );
+										}
+								}
+						} while( !delivery_finished );
+					}
+
+				return result;
 			}
 	};
 
@@ -669,6 +808,9 @@ class demuxer_t
 	{
 		static_assert( std::is_base_of_v<impl::root_base_t, Root>,
 				"the Root has to be root_t<Msg> or a type derived from root_t<Msg>" );
+
+		static_assert( !::so_5::is_mutable_message< Root >::value,
+				"the Root can't be mutable_msg<T>" );
 
 		impl::demuxing_controller_shptr_t< Root, Lock_Type > m_controller;
 
