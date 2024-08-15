@@ -54,11 +54,11 @@ class a_receiver_t final : public so_5::agent_t
 		void
 		so_define_agent() override
 			{
-				so_subscribe( m_consumer.receiving_mbox< data_message_one >() )
+				so_subscribe( m_consumer.receiving_mbox< so_5::mutable_msg< data_message_one > >() )
 					.event( &a_receiver_t::on_data_message_one )
 					;
 
-				so_subscribe( m_consumer.receiving_mbox< base_message >() )
+				so_subscribe( m_consumer.receiving_mbox< so_5::mutable_msg< base_message > >() )
 					.event( &a_receiver_t::on_base_message )
 					;
 			}
@@ -66,18 +66,18 @@ class a_receiver_t final : public so_5::agent_t
 		void
 		so_evt_start() override
 			{
-				so_5::send< data_message_one >( m_sending_mbox );
+				so_5::send< so_5::mutable_msg< data_message_one > >( m_sending_mbox );
 			}
 
 	public:
 		void
-		on_data_message_one( mhood_t< data_message_one > /*cmd*/ )
+		on_data_message_one( mutable_mhood_t< data_message_one > /*cmd*/ )
 			{
-				so_5::send< data_message_two >( m_sending_mbox );
+				so_5::send< so_5::mutable_msg< data_message_two > >( m_sending_mbox );
 			}
 
 		void
-		on_base_message( mhood_t< base_message > /*cmd*/ )
+		on_base_message( mutable_mhood_t< base_message > /*cmd*/ )
 			{
 				so_deregister_agent_coop_normally();
 			}
@@ -87,7 +87,7 @@ class a_receiver_t final : public so_5::agent_t
 
 using namespace test;
 
-TEST_CASE( "mpmc_simple" )
+TEST_CASE( "mpsc_simple" )
 {
 	bool completed{ false };
 
@@ -96,7 +96,7 @@ TEST_CASE( "mpmc_simple" )
 						env.introduce_coop( [](so_5::coop_t & coop) {
 								hierarchy_ns::demuxer_t< base_message > demuxer{
 										coop.environment(),
-										so_5::mbox_type_t::multi_producer_multi_consumer
+										so_5::mbox_type_t::multi_producer_single_consumer
 									};
 								coop.make_agent<a_receiver_t>( demuxer );
 							} );

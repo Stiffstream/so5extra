@@ -354,113 +354,35 @@ using demuxing_controller_shptr_t =
 		::so_5::intrusive_ptr_t< basic_demuxing_controller_t< Root, Lock_Type > >;
 
 //
-// mpmc_demuxing_controller_t
+// controller_consumers_mixin_t
 //
-//FIXME: document this!
-template< typename Root, typename Lock_Type >
-class multi_consumer_demuxing_controller_t final
-	: public basic_demuxing_controller_t< Root, Lock_Type >
+/*!
+ * @brief Helper type to be used as mixin for actual demuxing controllers.
+ *
+ * Contains map of consumers and implements delivery procedure for
+ * immutable messages.
+ */
+struct controller_consumers_mixin_t
 	{
-		using base_type_t = basic_demuxing_controller_t< Root, Lock_Type >;
-
+		//! Type of map of mboxes for one consumer.
 		using one_consumer_mboxes_map_t = std::map< std::type_index, ::so_5::mbox_t >;
 
+		//! Type of map of all consumers.
 		using consumers_map_t = std::map<
 				consumer_numeric_id_t,
 				one_consumer_mboxes_map_t
 			>;
 
+		//! Map of all consumers.
 		consumers_map_t m_consumers_with_mboxes;
 
-	public:
-		multi_consumer_demuxing_controller_t(
-			::so_5::outliving_reference_t< ::so_5::environment_t > env )
-			: base_type_t{ env, ::so_5::mbox_type_t::multi_producer_multi_consumer }
-			{}
-
-		[[nodiscard]] so_5::mbox_t
-		acquire_receiving_mbox_for(
-			consumer_numeric_id_t id,
-			const std::type_index & msg_type ) override
-			{
-				std::lock_guard< Lock_Type > lock{ this->m_lock };
-
-				auto [it_consumer, _] = m_consumers_with_mboxes.emplace(
-						id, one_consumer_mboxes_map_t{} );
-				auto & consumer_map = it_consumer->second;
-
-				auto it_msg = consumer_map.find( msg_type );
-				if( it_msg == consumer_map.end() )
-					{
-						it_msg = consumer_map.emplace(
-								msg_type,
-								this->m_env.create_mbox() ).first;
-					}
-
-				return it_msg->second;
-			}
-
-		void
-		consumer_destroyed( consumer_numeric_id_t id ) noexcept override
-			{
-				std::lock_guard< Lock_Type > lock{ this->m_lock };
-
-				m_consumers_with_mboxes.erase( id );
-			}
-
-		void
-		do_deliver_message(
-			::so_5::message_delivery_mode_t delivery_mode,
-			const std::type_index & msg_type,
-			const ::so_5::message_ref_t & message,
-			unsigned int redirection_deep ) override
-			{
-				namespace err_ns = ::so_5::extra::msg_hierarchy::errors;
-
-				// Do all necessary checks first...
-				if( ::so_5::message_mutability_t::immutable_message !=
-						message_mutability( message ) )
-					SO_5_THROW_EXCEPTION(
-							::so_5::rc_mutable_msg_cannot_be_delivered_via_mpmc_mbox,
-							"an attempt to deliver mutable message via MPMC mbox"
-							", msg_type=" + std::string(msg_type.name()) );
-
-				const ::so_5::message_t * raw_msg = message.get();
-				if( !raw_msg )
-					SO_5_THROW_EXCEPTION(
-							err_ns::rc_signal_cannot_be_delivered,
-							"signal can't be handled by msg_hierarchy's demuxer" );
-
-				const root_base_t * root = dynamic_cast<const root_base_t *>(raw_msg);
-				if( !root )
-					SO_5_THROW_EXCEPTION(
-							err_ns::rc_message_is_not_derived_from_root,
-							"a message type has to be derived from root_t" );
-
-				// ...the object has to be locked for the delivery procedure...
-
-				//FIXME: should a reader-writer lock be used here?
-				std::lock_guard< Lock_Type > lock{ this->m_lock };
-
-				// ...now the message can be delivered.
-				do_delivery_procedure(
-						delivery_mode,
-						message,
-						redirection_deep,
-						root );
-			}
-
-	private:
 		/*!
 		 * @brief Perform delivery of the message.
 		 *
 		 * It's assumed that all necessary check have been performed earlier.
-		 *
-		 * @attention
-		 * This method has to be called when object is locked.
 		 */
 		void
-		do_delivery_procedure(
+		do_delivery_procedure_for_immutable_message(
 			//! How message has to be delivered.
 			::so_5::message_delivery_mode_t delivery_mode,
 			//! Message to be delivered.
@@ -514,25 +436,131 @@ std::cout << "*** loop for " << id << " finished" << std::endl;
 	};
 
 //
+// mpmc_demuxing_controller_t
+//
+//FIXME: document this!
+template< typename Root, typename Lock_Type >
+class multi_consumer_demuxing_controller_t final
+	: public basic_demuxing_controller_t< Root, Lock_Type >
+	, private controller_consumers_mixin_t
+	{
+		using base_type_t = basic_demuxing_controller_t< Root, Lock_Type >;
+
+	public:
+		multi_consumer_demuxing_controller_t(
+			::so_5::outliving_reference_t< ::so_5::environment_t > env )
+			: base_type_t{ env, ::so_5::mbox_type_t::multi_producer_multi_consumer }
+			{}
+
+		[[nodiscard]] so_5::mbox_t
+		acquire_receiving_mbox_for(
+			consumer_numeric_id_t id,
+			const std::type_index & msg_type ) override
+			{
+				std::lock_guard< Lock_Type > lock{ this->m_lock };
+
+				auto [it_consumer, _] = this->m_consumers_with_mboxes.emplace(
+						id, one_consumer_mboxes_map_t{} );
+				auto & consumer_map = it_consumer->second;
+
+				auto it_msg = consumer_map.find( msg_type );
+				if( it_msg == consumer_map.end() )
+					{
+						it_msg = consumer_map.emplace(
+								msg_type,
+								this->m_env.create_mbox() ).first;
+					}
+
+				return it_msg->second;
+			}
+
+		void
+		consumer_destroyed( consumer_numeric_id_t id ) noexcept override
+			{
+				std::lock_guard< Lock_Type > lock{ this->m_lock };
+
+				this->m_consumers_with_mboxes.erase( id );
+			}
+
+		void
+		do_deliver_message(
+			::so_5::message_delivery_mode_t delivery_mode,
+			const std::type_index & msg_type,
+			const ::so_5::message_ref_t & message,
+			unsigned int redirection_deep ) override
+			{
+				namespace err_ns = ::so_5::extra::msg_hierarchy::errors;
+
+				// Do all necessary checks first...
+				if( ::so_5::message_mutability_t::immutable_message !=
+						message_mutability( message ) )
+					SO_5_THROW_EXCEPTION(
+							::so_5::rc_mutable_msg_cannot_be_delivered_via_mpmc_mbox,
+							"an attempt to deliver mutable message via MPMC mbox"
+							", msg_type=" + std::string(msg_type.name()) );
+
+				const ::so_5::message_t * raw_msg = message.get();
+				if( !raw_msg )
+					SO_5_THROW_EXCEPTION(
+							err_ns::rc_signal_cannot_be_delivered,
+							"signal can't be handled by msg_hierarchy's demuxer" );
+
+				const root_base_t * root = dynamic_cast<const root_base_t *>(raw_msg);
+				if( !root )
+					SO_5_THROW_EXCEPTION(
+							err_ns::rc_message_is_not_derived_from_root,
+							"a message type has to be derived from root_t" );
+
+				// ...the object has to be locked for the delivery procedure...
+
+				//FIXME: should a reader-writer lock be used here?
+				std::lock_guard< Lock_Type > lock{ this->m_lock };
+
+				// ...now the message can be delivered.
+				this->do_delivery_procedure_for_immutable_message(
+						delivery_mode,
+						message,
+						redirection_deep,
+						root );
+			}
+	};
+
+//
+// single_dest_info_t
+//
+/*!
+ * @brief Information about a single destination for a mutable message.
+ */
+struct single_dest_info_t
+	{
+		//! Mbox to be used for delivery.
+		so_5::mbox_t m_dest_mbox;
+
+		//! Subscription type to be used for delivery.
+		std::type_index m_subscription_type;
+
+		//! Initializing constructor.
+		single_dest_info_t(
+			so_5::mbox_t dest_mbox,
+			std::type_index subscription_type )
+			: m_dest_mbox{ std::move(dest_mbox) }
+			, m_subscription_type{ std::move(subscription_type) }
+			{}
+	};
+
+//
 // mpsc_demuxing_controller_t
 //
 //FIXME: document this!
 template< typename Root, typename Lock_Type >
 class single_consumer_demuxing_controller_t final
 	: public basic_demuxing_controller_t< Root, Lock_Type >
+	, private controller_consumers_mixin_t
 	{
 		using base_type_t = basic_demuxing_controller_t< Root, Lock_Type >;
 
-		using one_consumer_mboxes_map_t = std::map< std::type_index, ::so_5::mbox_t >;
-
-		using consumers_map_t = std::map<
-				consumer_numeric_id_t,
-				one_consumer_mboxes_map_t
-			>;
-
-		consumers_map_t m_consumers_with_mboxes;
-
 	public:
+		//! Initializing constructor.
 		single_consumer_demuxing_controller_t(
 			::so_5::outliving_reference_t< ::so_5::environment_t > env )
 			: base_type_t{ env, ::so_5::mbox_type_t::multi_producer_single_consumer }
@@ -540,18 +568,12 @@ class single_consumer_demuxing_controller_t final
 
 		[[nodiscard]] so_5::mbox_t
 		acquire_receiving_mbox_for(
-			consumer_numeric_id_t /*id*/,
-			const std::type_index & /*msg_type*/ )
-			{
-				throw std::runtime_error{ "Not implemented!" };
-			}
-
-		void
-		consumer_destroyed( consumer_numeric_id_t /*id*/ ) noexcept override
+			consumer_numeric_id_t id,
+			const std::type_index & msg_type )
 			{
 				std::lock_guard< Lock_Type > lock{ this->m_lock };
 
-				auto [it_consumer, _] = m_consumers_with_mboxes.emplace(
+				auto [it_consumer, _] = this->m_consumers_with_mboxes.emplace(
 						id, one_consumer_mboxes_map_t{} );
 				auto & consumer_map = it_consumer->second;
 
@@ -564,7 +586,17 @@ class single_consumer_demuxing_controller_t final
 							.first;
 					}
 
+std::cout << "*** mbox for " << msg_type.name() << " created" << std::endl;
+
 				return it_msg->second;
+			}
+
+		void
+		consumer_destroyed( consumer_numeric_id_t id ) noexcept override
+			{
+				std::lock_guard< Lock_Type > lock{ this->m_lock };
+
+				this->m_consumers_with_mboxes.erase( id );
 			}
 
 		void
@@ -574,6 +606,8 @@ class single_consumer_demuxing_controller_t final
 			const message_ref_t & message,
 			unsigned int redirection_deep ) override
 			{
+//FIXME: remove after debugging!
+std::cout << "*** trying to deliver message: " << msg_type.name() << std::endl;
 				namespace err_ns = ::so_5::extra::msg_hierarchy::errors;
 
 				// Do all necessary checks first...
@@ -599,16 +633,21 @@ class single_consumer_demuxing_controller_t final
 				if( ::so_5::message_mutability_t::mutable_message == msg_mutabilty_flag )
 					{
 						// Is there a single subscriber for a message?
-						const auto dest_mbox = detect_receiver_for_mutable_msg_or_throw(
-								message,
-								root );
-
-						//FIXME: deliver message to the dest_mbox if it isn't nullptr.
+						const auto single_dest_info =
+								detect_receiver_for_mutable_msg_or_throw( root );
+						if( single_dest_info )
+							// The single subscriber is found, the message has to be
+							// delivered to it.
+							single_dest_info->m_dest_mbox->do_deliver_message(
+									delivery_mode,
+									single_dest_info->m_subscription_type,
+									message,
+									redirection_deep );
 					}
 				else
 					{
 						// ...now the immutable message can be delivered.
-						do_delivery_procedure_for_immutable_message(
+						this->do_delivery_procedure_for_immutable_message(
 								delivery_mode,
 								message,
 								redirection_deep,
@@ -619,17 +658,17 @@ class single_consumer_demuxing_controller_t final
 	private:
 		//FIXME: document this!
 		[[nodiscard]]
-		so_5::mbox_t
+		std::optional< single_dest_info_t >
 		detect_receiver_for_mutable_msg_or_throw(
-			//! Message to be delivered.
-			const ::so_5::message_ref_t & message,
 			//! Message pointer that is casted to the hierarchy root.
 			const root_base_t * root ) const
 			{
-				so_5::mbox_t result{};
+//FIXME: remove after debugging!
+std::cout << "*** trying to find single subscriber " << std::endl;
+				std::optional< single_dest_info_t > result;
 
 				// Main loop for subscribers detection.
-				for( const auto & [id, consumer_map] : m_consumers_with_mboxes )
+				for( const auto & [id, consumer_map] : this->m_consumers_with_mboxes )
 					{
 						// Try to deliver message by its actual type and them
 						// trying to going hierarchy up.
@@ -654,7 +693,11 @@ class single_consumer_demuxing_controller_t final
 													"a mutable message" );
 										}
 									else
-										result = it->second;
+										{
+//FIXME: remove after debugging!
+std::cout << "*** subscriber found for " << type_to_find.name() << std::endl;
+											result = single_dest_info_t{ it->second, type_to_find };
+										}
 
 									// Only one delivery for every consumer.
 									delivery_finished = true;
@@ -665,7 +708,8 @@ class single_consumer_demuxing_controller_t final
 									if( !delivery_finished )
 										{
 											// It's not the root yet, try to go one level up.
-											upcaster = upcaster.parent_upcaster( msg_mutabilty_flag );
+											upcaster = upcaster.parent_upcaster(
+													::so_5::message_mutability_t::mutable_message );
 										}
 								}
 						} while( !delivery_finished );
@@ -676,29 +720,40 @@ class single_consumer_demuxing_controller_t final
 	};
 
 //
-// multi_consumer_sending_mbox_t
+// basic_sending_mbox_t
 //
-//FIXME: document this!
-template< typename Root >
-class multi_consumer_sending_mbox_t final
+/*!
+ * @brief Basic implementation for all kinds of sending_mboxes.
+ */
+class basic_sending_mbox_t
 	: public ::so_5::abstract_message_box_t
 	{
+		//! Controller to be used.
 		demuxing_controller_iface_shptr_t m_controller;
 
+		//! ID of the mbox.
 		const ::so_5::mbox_id_t m_id;
 
-	public:
-		multi_consumer_sending_mbox_t(
+	protected:
+		/*!
+		 * @brief Initializing constructor.
+		 *
+		 * It's protected to be accessible for derived classes only.
+		 */
+		basic_sending_mbox_t(
+			//! Controller to be used.
 			demuxing_controller_iface_shptr_t controller,
+			//! ID for this mbox.
 			::so_5::mbox_id_t id )
 			: m_controller{ std::move(controller) }
 			, m_id{ id }
 			{}
 
+	public:
 		//FIXME: has to be removed after debugging!
-		~multi_consumer_sending_mbox_t() override
+		~basic_sending_mbox_t() override
 			{
-				std::cout << "~multi_consumer_sending_mbox_t" << std::endl;
+				std::cout << "~basic_consumer_sending_mbox_t" << std::endl;
 			}
 
 		::so_5::mbox_id_t
@@ -722,22 +777,6 @@ class multi_consumer_sending_mbox_t final
 			abstract_message_sink_t & /*subscriber*/ ) noexcept override
 			{
 				// Nothing to do.
-			}
-
-		std::string
-		query_name() const override
-			{
-				std::ostringstream s;
-				s << "<mbox:type=MSG_HIERARCHY_SENDING_MPMC:root="
-						<< typeid(Root).name()
-						<< ":id=" << m_id << ">";
-				return s.str();
-			}
-
-		::so_5::mbox_type_t
-		type() const override
-			{
-				return ::so_5::mbox_type_t::multi_producer_multi_consumer;
 			}
 
 		void
@@ -780,6 +819,78 @@ class multi_consumer_sending_mbox_t final
 			}
 	};
 
+//
+// multi_consumer_sending_mbox_t
+//
+//FIXME: document this!
+template< typename Root >
+class multi_consumer_sending_mbox_t final
+	: public basic_sending_mbox_t
+	{
+	public:
+		//! Initializing constructor.
+		multi_consumer_sending_mbox_t(
+			//! Controller to be used.
+			demuxing_controller_iface_shptr_t controller,
+			//! ID for this mbox.
+			::so_5::mbox_id_t id )
+			: basic_sending_mbox_t{ std::move(controller), id }
+			{}
+
+		std::string
+		query_name() const override
+			{
+				std::ostringstream s;
+				s << "<mbox:type=MSG_HIERARCHY_SENDING_MPMC:root="
+						<< typeid(Root).name()
+						<< ":id=" << this->id() << ">";
+				return s.str();
+			}
+
+		::so_5::mbox_type_t
+		type() const override
+			{
+				return ::so_5::mbox_type_t::multi_producer_multi_consumer;
+			}
+	};
+
+//
+// single_consumer_sending_mbox_t
+//
+/*!
+ * @brief Implementation of sending_mbox for case of MPSC mbox.
+ */
+template< typename Root >
+class single_consumer_sending_mbox_t final
+	: public basic_sending_mbox_t
+	{
+	public:
+		//! Initializing constructor.
+		single_consumer_sending_mbox_t(
+			//! Controller to be used.
+			demuxing_controller_iface_shptr_t controller,
+			//! ID for this mbox.
+			::so_5::mbox_id_t id )
+			: basic_sending_mbox_t{ std::move(controller), id }
+			{}
+
+		std::string
+		query_name() const override
+			{
+				std::ostringstream s;
+				s << "<mbox:type=MSG_HIERARCHY_SENDING_MPMS:root="
+						<< typeid(Root).name()
+						<< ":id=" << this->id() << ">";
+				return s.str();
+			}
+
+		::so_5::mbox_type_t
+		type() const override
+			{
+				return ::so_5::mbox_type_t::multi_producer_single_consumer;
+			}
+	};
+
 } /* namespace impl */
 
 //
@@ -816,7 +927,8 @@ class demuxer_t
 
 		::so_5::mbox_t m_sending_mbox;
 
-		[[nodiscard]] static impl::demuxing_controller_shptr_t< Root, Lock_Type >
+		[[nodiscard]]
+		static impl::demuxing_controller_shptr_t< Root, Lock_Type >
 		make_required_demuxing_controller_object(
 			::so_5::outliving_reference_t< ::so_5::environment_t > env,
 			::so_5::mbox_type_t mbox_type )
@@ -847,7 +959,8 @@ class demuxer_t
 				return result;
 			}
 
-		[[nodiscard]] static ::so_5::mbox_t
+		[[nodiscard]]
+		static ::so_5::mbox_t
 		make_required_sending_mbox(
 			impl::demuxing_controller_iface_shptr_t controller,
 			::so_5::environment_t & env,
@@ -868,7 +981,11 @@ class demuxer_t
 					break;
 
 					case ::so_5::mbox_type_t::multi_producer_single_consumer:
-						//FIXME: implement this!
+						result = so_5::mbox_t{
+								new impl::single_consumer_sending_mbox_t< Root >(
+										std::move(controller),
+										mbox_id )
+							};
 					break;
 					}
 
@@ -917,10 +1034,12 @@ class demuxer_t
 				return *this;
 			}
 
-		[[nodiscard]] consumer_t< Root >
+		[[nodiscard]]
+		consumer_t< Root >
 		allocate_consumer();
 
-		[[nodiscard]] ::so_5::mbox_t
+		[[nodiscard]]
+		::so_5::mbox_t
 		sending_mbox() const noexcept
 			{
 				return m_sending_mbox;
@@ -994,7 +1113,8 @@ class consumer_t
 					{
 						// There we have Msg_Type as `so_5::mutable_msg<Payload_Type>` and have
 						// to extract and handle Payload_Type instead of Msg_Type.
-						using payload_type = typename ::so_5::message_payload_type< Msg_Type >::payload_type;
+						using payload_type =
+								typename ::so_5::message_payload_type< Msg_Type >::payload_type;
 
 						static_assert(
 								(std::is_same_v<payload_type, Root>
