@@ -73,7 +73,7 @@ class a_receiver_t final : public so_5::agent_t
 
 using namespace test;
 
-TEST_CASE( "simple shutdown on empty environment" )
+TEST_CASE( "mpmc_mutable_msg" )
 {
 	bool completed{ false };
 	std::string trace;
