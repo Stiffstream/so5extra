@@ -585,7 +585,7 @@ class single_consumer_demuxing_controller_t final
 		void
 		do_deliver_message(
 			message_delivery_mode_t delivery_mode,
-			const std::type_index & msg_type,
+			const std::type_index & /*msg_type*/,
 			const message_ref_t & message,
 			unsigned int redirection_deep ) override
 			{

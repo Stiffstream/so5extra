@@ -16,6 +16,9 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/mpmc_root_only/prj.ut.rb" )
 	required_prj( "#{path}/mpmc_root_only/prj_s.ut.rb" )
 
+	required_prj( "#{path}/mpmc_remove_consumers/prj.ut.rb" )
+	required_prj( "#{path}/mpmc_remove_consumers/prj_s.ut.rb" )
+
 	required_prj( "#{path}/mpmc_several_consumers/prj.ut.rb" )
 	required_prj( "#{path}/mpmc_several_consumers/prj_s.ut.rb" )
 
