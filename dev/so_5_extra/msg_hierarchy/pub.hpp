@@ -329,15 +329,6 @@ class basic_demuxing_controller_t : public demuxing_controller_iface_t
 				return m_env;
 			}
 
-		//FIXME: this implementation is not needed in this class.
-		//It's here for debugging purposes only.
-		void
-		consumer_destroyed( consumer_numeric_id_t id ) noexcept override
-			{
-				//FIXME: implement this!
-				std::cout << "consumer_destroyed: " << id << std::endl;
-			}
-
 		[[nodiscard]] ::so_5::mbox_type_t
 		mbox_type() const noexcept override
 			{
@@ -402,18 +393,15 @@ struct controller_consumers_mixin_t
 						auto upcaster = root->so_message_upcaster_factory()(
 								msg_mutabilty_flag );
 
-std::cout << "*** handling mboxes of " << id << std::endl;
 						bool delivery_finished = false;
 						do
 						{
 							const auto type_to_find = upcaster.self_type();
-std::cout << "****** trying to deliver message of type: " << type_to_find.name() << std::endl;
 							if( const auto it = consumer_map.find( type_to_find );
 									it != consumer_map.end() )
 								{
 									// Only one delivery for every consumer.
 									delivery_finished = true;
-std::cout << "********* delivering via " << it->second->id() << std::endl;
 									it->second->do_deliver_message(
 											delivery_mode,
 											type_to_find,
@@ -430,7 +418,6 @@ std::cout << "********* delivering via " << it->second->id() << std::endl;
 										}
 								}
 						} while( !delivery_finished );
-std::cout << "*** loop for " << id << " finished" << std::endl;
 					}
 			}
 	};
@@ -584,8 +571,6 @@ class single_consumer_demuxing_controller_t final
 							.first;
 					}
 
-std::cout << "*** mbox for " << msg_type.name() << " created" << std::endl;
-
 				return it_msg->second;
 			}
 
@@ -604,8 +589,6 @@ std::cout << "*** mbox for " << msg_type.name() << " created" << std::endl;
 			const message_ref_t & message,
 			unsigned int redirection_deep ) override
 			{
-//FIXME: remove after debugging!
-std::cout << "*** trying to deliver message: " << msg_type.name() << std::endl;
 				namespace err_ns = ::so_5::extra::msg_hierarchy::errors;
 
 				// Do all necessary checks first...
@@ -659,8 +642,6 @@ std::cout << "*** trying to deliver message: " << msg_type.name() << std::endl;
 			//! Message pointer that is casted to the hierarchy root.
 			const root_base_t * root ) const
 			{
-//FIXME: remove after debugging!
-std::cout << "*** trying to find single subscriber " << std::endl;
 				std::optional< single_dest_info_t > result;
 
 				// Main loop for subscribers detection.
@@ -690,8 +671,6 @@ std::cout << "*** trying to find single subscriber " << std::endl;
 										}
 									else
 										{
-//FIXME: remove after debugging!
-std::cout << "*** subscriber found for " << type_to_find.name() << std::endl;
 											result = single_dest_info_t{ it->second, type_to_find };
 										}
 
@@ -746,12 +725,6 @@ class basic_sending_mbox_t
 			{}
 
 	public:
-		//FIXME: has to be removed after debugging!
-		~basic_sending_mbox_t() override
-			{
-				std::cout << "~basic_consumer_sending_mbox_t" << std::endl;
-			}
-
 		::so_5::mbox_id_t
 		id() const override
 			{
