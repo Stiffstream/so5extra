@@ -7,5 +7,8 @@ MxxRu::Cpp::exe_target {
 	target '_unit.test.so_5_extra.msg_hierarchy.mpmc_several_consumers_s'
 
 	cpp_source 'main.cpp'
+	cpp_source 'sender.cpp'
+	cpp_source 'stopper.cpp'
+	cpp_source 'receivers.cpp'
 }
 
