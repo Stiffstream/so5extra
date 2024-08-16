@@ -21,7 +21,7 @@
 #include <cstdint>
 #include <iostream>
 #include <memory>
-#include <mutex>
+#include <shared_mutex>
 #include <type_traits>
 
 namespace so_5::extra::msg_hierarchy
@@ -512,9 +512,7 @@ class multi_consumer_demuxing_controller_t final
 							"a message type has to be derived from root_t" );
 
 				// ...the object has to be locked for the delivery procedure...
-
-				//FIXME: should a reader-writer lock be used here?
-				std::lock_guard< Lock_Type > lock{ this->m_lock };
+				std::shared_lock< Lock_Type > lock{ this->m_lock };
 
 				// ...now the message can be delivered.
 				this->do_delivery_procedure_for_immutable_message(
@@ -626,9 +624,7 @@ std::cout << "*** trying to deliver message: " << msg_type.name() << std::endl;
 				const auto msg_mutabilty_flag = message_mutability( *root );
 
 				// ...the object has to be locked for the delivery procedure...
-
-				//FIXME: should a reader-writer lock be used here?
-				std::lock_guard< Lock_Type > lock{ this->m_lock };
+				std::shared_lock< Lock_Type > lock{ this->m_lock };
 
 				if( ::so_5::message_mutability_t::mutable_message == msg_mutabilty_flag )
 					{
@@ -894,13 +890,6 @@ class single_consumer_sending_mbox_t final
 } /* namespace impl */
 
 //
-// default_traits_t
-//
-//FIXME: document this!
-struct default_traits_t
-	{
-	};
-
 //
 // consumer_t forward decl.
 //
@@ -913,8 +902,7 @@ class consumer_t;
 //FIXME: document this!
 template<
 	typename Root,
-	typename Lock_Type = std::mutex,
-	typename Traits = default_traits_t >
+	typename Lock_Type = std::shared_mutex >
 class demuxer_t
 	{
 		static_assert( std::is_base_of_v<impl::root_base_t, Root>,
@@ -1053,7 +1041,7 @@ class demuxer_t
 template< typename Root >
 class consumer_t
 	{
-		template< typename Demuxer_Root, typename Demuxer_Lock_Type, typename Demuxer_Traits >
+		template< typename Demuxer_Root, typename Demuxer_Lock_Type >
 		friend class demuxer_t;
 
 		impl::demuxing_controller_iface_shptr_t m_controller;
@@ -1144,9 +1132,9 @@ class consumer_t
 // demuxer_t implementation
 //
 
-template< typename Root, typename Lock_Type, typename Traits >
+template< typename Root, typename Lock_Type >
 [[nodiscard]] consumer_t< Root >
-demuxer_t< Root, Lock_Type, Traits >::allocate_consumer()
+demuxer_t< Root, Lock_Type >::allocate_consumer()
 	{
 		return consumer_t< Root >{
 				m_controller,
