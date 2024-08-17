@@ -1,4 +1,4 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN 
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
 #include <so_5_extra/msg_hierarchy/pub.hpp>
@@ -96,7 +96,7 @@ TEST_CASE( "mpsc_simple" )
 						env.introduce_coop( [](so_5::coop_t & coop) {
 								hierarchy_ns::demuxer_t< base_message > demuxer{
 										coop.environment(),
-										so_5::mbox_type_t::multi_producer_single_consumer
+										hierarchy_ns::single_consumer
 									};
 								coop.make_agent<a_receiver_t>( demuxer );
 							} );

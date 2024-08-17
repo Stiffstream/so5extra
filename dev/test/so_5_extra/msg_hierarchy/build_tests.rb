@@ -22,6 +22,9 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/mpmc_several_consumers/prj.ut.rb" )
 	required_prj( "#{path}/mpmc_several_consumers/prj_s.ut.rb" )
 
+	required_prj( "#{path}/mpmc_redirect/prj.ut.rb" )
+	required_prj( "#{path}/mpmc_redirect/prj_s.ut.rb" )
+
 	required_prj( "#{path}/mpsc_simple/prj.ut.rb" )
 	required_prj( "#{path}/mpsc_simple/prj_s.ut.rb" )
 
@@ -33,4 +36,7 @@ MxxRu::Cpp::composite_target {
 
 	required_prj( "#{path}/mpsc_several_consumers_2/prj.ut.rb" )
 	required_prj( "#{path}/mpsc_several_consumers_2/prj_s.ut.rb" )
+
+	required_prj( "#{path}/mpsc_redirect/prj.ut.rb" )
+	required_prj( "#{path}/mpsc_redirect/prj_s.ut.rb" )
 }

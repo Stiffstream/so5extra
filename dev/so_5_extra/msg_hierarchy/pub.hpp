@@ -554,7 +554,7 @@ class single_consumer_demuxing_controller_t final
 		[[nodiscard]] so_5::mbox_t
 		acquire_receiving_mbox_for(
 			consumer_numeric_id_t id,
-			const std::type_index & msg_type )
+			const std::type_index & msg_type ) override
 			{
 				std::lock_guard< Lock_Type > lock{ this->m_lock };
 
@@ -1114,6 +1114,20 @@ demuxer_t< Root, Lock_Type >::allocate_consumer()
 				m_controller->acquire_new_consumer_id()
 			};
 	}
+
+/*!
+ * @brief Indicator that a demuxer with Multi-Producer/Multi-Consumer mboxes
+ * has to be created.
+ */
+inline constexpr ::so_5::mbox_type_t multi_consumer =
+		::so_5::mbox_type_t::multi_producer_multi_consumer;
+
+/*!
+ * @brief Indicator that a demuxer with Multi-Producer/Single-Consumer mboxes
+ * has to be created.
+ */
+inline constexpr ::so_5::mbox_type_t single_consumer =
+		::so_5::mbox_type_t::multi_producer_single_consumer;
 
 } /* namespace so_5::extra::msg_hierarchy */
 

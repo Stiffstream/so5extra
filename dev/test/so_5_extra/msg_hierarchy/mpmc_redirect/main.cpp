@@ -37,47 +37,69 @@ struct data_message_two
 			{}
 	};
 
-class a_receiver_t final : public so_5::agent_t
+class a_first_t final : public so_5::agent_t
 	{
 		hierarchy_ns::consumer_t< base_message > m_consumer;
 
+		const so_5::mbox_t m_redirection_mbox;
 		const so_5::mbox_t m_sending_mbox;
+
 	public:
-		a_receiver_t(
+		a_first_t(
 			context_t ctx,
-			hierarchy_ns::demuxer_t< base_message > & demuxer )
+			hierarchy_ns::demuxer_t< base_message > & demuxer,
+			so_5::mbox_t redirection_mbox )
 			: so_5::agent_t{ std::move(ctx) }
 			, m_consumer{ demuxer.allocate_consumer() }
+			, m_redirection_mbox{ std::move(redirection_mbox) }
 			, m_sending_mbox{ demuxer.sending_mbox() }
 			{}
 
 		void
 		so_define_agent() override
 			{
-				so_subscribe( m_consumer.receiving_mbox< data_message_one >() )
-					.event( &a_receiver_t::on_data_message_one )
-					;
-
 				so_subscribe( m_consumer.receiving_mbox< base_message >() )
-					.event( &a_receiver_t::on_base_message )
+					.event( &a_first_t::on_base_message )
 					;
 			}
 
 		void
 		so_evt_start() override
 			{
-				so_5::send< data_message_one >( m_sending_mbox );
+				so_5::send< data_message_two >( m_sending_mbox );
 			}
 
 	public:
 		void
-		on_data_message_one( mhood_t< data_message_one > /*cmd*/ )
+		on_base_message( mhood_t< base_message > cmd )
 			{
-				so_5::send< data_message_two >( m_sending_mbox );
+				so_5::send( m_redirection_mbox, cmd );
 			}
+	};
+
+class a_second_t final : public so_5::agent_t
+	{
+		hierarchy_ns::consumer_t< base_message > m_consumer;
+
+	public:
+		a_second_t(
+			context_t ctx,
+			hierarchy_ns::demuxer_t< base_message > & demuxer )
+			: so_5::agent_t{ std::move(ctx) }
+			, m_consumer{ demuxer.allocate_consumer() }
+			{}
 
 		void
-		on_base_message( mhood_t< base_message > /*cmd*/ )
+		so_define_agent() override
+			{
+				so_subscribe( m_consumer.receiving_mbox< data_message_two >() )
+					.event( &a_second_t::on_data_message_two )
+					;
+			}
+
+	public:
+		void
+		on_data_message_two( mhood_t< data_message_two > )
 			{
 				so_deregister_agent_coop_normally();
 			}
@@ -94,11 +116,18 @@ TEST_CASE( "mpmc_simple" )
 	run_with_time_limit( [&] {
 			so_5::launch( [&](so_5::environment_t & env) {
 						env.introduce_coop( [](so_5::coop_t & coop) {
-								hierarchy_ns::demuxer_t< base_message > demuxer{
+								hierarchy_ns::demuxer_t< base_message > demuxer1{
 										coop.environment(),
 										hierarchy_ns::multi_consumer
 									};
-								coop.make_agent<a_receiver_t>( demuxer );
+								hierarchy_ns::demuxer_t< base_message > demuxer2{
+										coop.environment(),
+										hierarchy_ns::multi_consumer
+									};
+
+								coop.make_agent< a_first_t >(
+										demuxer1, demuxer2.sending_mbox() );
+								coop.make_agent< a_second_t >( demuxer2 );
 							} );
 					} );
 

@@ -1,4 +1,4 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN 
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
 #include <so_5_extra/msg_hierarchy/pub.hpp>
@@ -136,7 +136,7 @@ TEST_CASE( "mpmc_remove_consumers" )
 							{
 								hierarchy_ns::demuxer_t< base_message > demuxer{
 										env,
-										so_5::mbox_type_t::multi_producer_multi_consumer
+										hierarchy_ns::multi_consumer
 									};
 
 								// Every agent will work on a separate thread.

@@ -1,4 +1,4 @@
-#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN 
+#define DOCTEST_CONFIG_IMPLEMENT_WITH_MAIN
 #include <doctest/doctest.h>
 
 #include "sender.hpp"
@@ -27,7 +27,7 @@ TEST_CASE( "mpmc_several_consumers" )
 
 								hierarchy_ns::demuxer_t< base_message > demuxer{
 										coop.environment(),
-										so_5::mbox_type_t::multi_producer_multi_consumer
+										hierarchy_ns::multi_consumer
 									};
 
 								coop.make_agent<a_sender_t>( demuxer, stopper_mbox );
