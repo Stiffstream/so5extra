@@ -13,4 +13,5 @@ MxxRu::Cpp::composite_target {
 	required_prj( "#{path}/revocable_timer/build_samples.rb" )
 	required_prj( "#{path}/enveloped_msg/build_samples.rb" )
 	required_prj( "#{path}/sync/build_samples.rb" )
+	required_prj( "#{path}/msg_hierarchy/build_samples.rb" )
 }
