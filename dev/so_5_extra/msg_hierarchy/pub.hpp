@@ -85,40 +85,68 @@ class message_upcaster_t;
 //
 // upcaster_factory_t
 //
-//FIXME: document this!
+/*!
+ * @brief Type of pointer to factory function for making upcaster object.
+ */
 using upcaster_factory_t =
 	message_upcaster_t (*)(::so_5::message_mutability_t) noexcept;
 
 //
 // message_upcaster_t
 //
-//FIXME: document this!
+/*!
+ * @brief Upcaster for a message.
+ *
+ * It's simple object that holds a type_index for message type for that
+ * this object has been created.
+ *
+ * It also may holds a pointer to parent's type upcaster factory. This pointer
+ * will be nullptr if the current type if a root of the hierarchy.
+ */
 class message_upcaster_t
 	{
+		//! Type of the message for that this upcaster has been created.
 		std::type_index m_self_type;
 
+		//! Pointer to parent's type upcaster factory.
+		//!
+		//! Will be nullptr, if there is no parent type and self_type is
+		//! the root of the hierarchy.
 		upcaster_factory_t m_parent_factory;
 
 	public:
+		//! Initializing constructor.
 		message_upcaster_t(
+			//! Type for that this upcaster object has been created.
 			std::type_index self_type,
+			//! Pointer to parent's type upcaster factory or nullptr.
 			upcaster_factory_t parent_factory )
 			: m_self_type{ std::move(self_type) }
 			, m_parent_factory{ parent_factory }
 			{}
 
+		//! Getter of the type for that this upcaster object has been created.
 		[[nodiscard]] const std::type_index &
 		self_type() const noexcept
 			{
 				return m_self_type;
 			}
 
+		//! Does parent's type factory exists?
+		//!
+		//! @retval true if parent's type factory present and parent_upcaster() can
+		//! be safely called.
 		[[nodiscard]] bool
 		has_parent_factory() const noexcept
 			{
 				return nullptr != m_parent_factory;
 			}
 
+		//! Getter for the parent's type upcaster.
+		//!
+		//! @throw so_5::exception_t if there is no parent's type.
+		//!
+		//! @return upcaster object for the parent type.
 		[[nodiscard]] message_upcaster_t
 		parent_upcaster( message_mutability_t mutability ) const
 			{
@@ -134,17 +162,34 @@ class message_upcaster_t
 //
 // root_base_t
 //
+/*!
+ * @brief Type to be the actual base class of all hierarchies.
+ *
+ * This is a non-template part of root_t<T> class.
+ *
+ * The main purpose of this class is to hold the top-level upcaster-factory.
+ */
 class root_base_t : public message_t
 	{
+		//! The top-level upcaster-factory for the current hierarchy.
+		//!
+		//! @note
+		//! This pointer will be updated several times.
+		//! The constructor of every derived class will update it.
 		upcaster_factory_t m_factory{};
 
 	public:
+		//! Getter for the stored upcaster-factory.
 		[[nodiscard]] upcaster_factory_t
 		so_message_upcaster_factory() const noexcept
 			{
 				return m_factory;
 			}
 
+		//! Setter for the upcaster-factory.
+		//!
+		//! @note
+		//! The old stored value will be lost.
 		void
 		so_set_message_upcaster_factory(
 			upcaster_factory_t factory) noexcept
@@ -155,6 +200,24 @@ class root_base_t : public message_t
 
 } /* namespace impl */
 
+//
+// root_t
+//
+/*!
+ * @brief The base class that starts a separate hierarchy.
+ *
+ * Usage example:
+ * @code
+ * class basic_message : public so_5::extra::msg_hierarchy::root_t< basic_message >
+ * {
+ * 	... // Some domain-specific content.
+ * };
+ * @endcode
+ *
+ * @tparam Base User-defined type to be the root of the hierarchy.
+ * NOTE: mutability flag should not be used here. It means that
+ * `root_t<my_message>` is OK, but `root_t<so_5::mutable_msg<my_message>>` is an error.
+ */
 template<typename Base>
 class root_t : public impl::root_base_t
 	{
@@ -162,6 +225,11 @@ class root_t : public impl::root_base_t
 				"the Base can't be mutable_msg<T>" );
 
 	public:
+		//! Method that creates the root upcaster-object.
+		//!
+		//! @note
+		//! This method is intended for internal usage of msg_hierarchy implementation.
+		//! Please do not call it in applicaton code.
 		[[nodiscard]] static impl::message_upcaster_t
 		so_make_upcaster_root( ::so_5::message_mutability_t mutability ) noexcept
 			{
@@ -171,6 +239,9 @@ class root_t : public impl::root_base_t
 					return { typeid(Base), nullptr };
 			}
 
+		//! Constructor.
+		//!
+		//! Sets the root's upcaster-factory.
 		root_t()
 			{
 				this->so_set_message_upcaster_factory(
