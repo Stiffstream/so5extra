@@ -252,9 +252,13 @@ class root_t : public impl::root_base_t
 namespace impl
 {
 
+//! Metafunction for checking presence of so_make_upcaster method.
 template< typename B, typename = std::void_t<> >
 struct has_so_make_upcaster_method : public std::false_type {};
 
+//! Metafunction for checking presence of so_make_upcaster method.
+//!
+//! This is a specialization for case when type B has so_make_upcaster method.
 template< typename B >
 struct has_so_make_upcaster_method<
 	B, std::void_t< decltype(&B::so_make_upcaster) >
@@ -265,7 +269,72 @@ struct has_so_make_upcaster_method<
 //
 // node_t
 //
-//FIXME: document this!
+/*!
+ * @brief A special mixin to be used for every derived class in a hierarchy.
+ *
+ * The main purpose of this class is to provide so_make_upcaster that is
+ * required for hierarchy traversal.
+ *
+ * Usage example:
+ * @code
+ * namespace hierarchy_ns = so_5::extra::msg_hierarchy;
+ *
+ * // The root of the hierarchy.
+ * struct basic : public hierarchy_ns::root_t< basic >
+ * {
+ * 	... // Some data and methods.
+ * };
+ *
+ * // A derived message.
+ * // Should have two base classes: one is `basic` (that is the root),
+ * // another is the node_t mixin.
+ * // NOTE the use of public inheritance from node_t.
+ * struct device_type_A : public basic, public hierarchy_ns::node_t< device_type_A, basic >
+ * {
+ * 	... // Some data and methods.
+ *
+ * 	// The constructor should call node_t's constructor.
+ * 	device_type_A()
+ * 		: hierarchy_ns::node_t< device_type_A, basic >{ *this }
+ * 	{}
+ * };
+ *
+ * // Another derived message.
+ * struct device_type_B : public basic, public hierarchy_ns::node_t< device_type_B, basic >
+ * {
+ * 	... // Some data and methods.
+ *
+ * 	// The constructor should call node_t's constructor.
+ * 	device_type_B()
+ * 		: hierarchy_ns::node_t< device_type_B, basic >{ *this }
+ * 	{}
+ * };
+ *
+ * // Another level in the hierarchy.
+ * struct device_vendor_X : public device_type_A, public hierarchy_ns< device_vendor_X, device_type_A >
+ * {
+ * 	... // Some data and methods.
+ *
+ * 	// The constructor should call node_t's constructor.
+ * 	device_vendor_X()
+ * 		: hierarchy_ns::node_t< device_vendor_X, device_type_A >{ *this }
+ * 	{}
+ * };
+ * @endcode
+ *
+ * @attention
+ * It's important to use public inheritance for node_t mixin.
+ *
+ * @attention
+ * It's important to call node_t's constructor in the constructor of your class!
+ *
+ * @note
+ * This is an empty mixin class that doesn't add any size overhead to your classes
+ * because of empty base optimization.
+ *
+ * @tparam Derived type for that node_t will be a mixin.
+ * @tparam Base type that has to be a base type for Derived.
+ */
 template<typename Derived, typename Base>
 class node_t
 	{
@@ -276,6 +345,9 @@ class node_t
 				"the Derived can't be mutable_msg<T>" );
 
 	public:
+		//! Helper method for obtain message-upcaster object for type Derived.
+		//!
+		//! This method will be a part of Derived type.
 		[[nodiscard]] static impl::message_upcaster_t
 		so_make_upcaster( message_mutability_t mutability ) noexcept
 			{
@@ -297,6 +369,7 @@ class node_t
 					}
 			}
 
+		//! Initializing constructor.
 		node_t( Derived & derived )
 			{
 				static_assert(
@@ -321,28 +394,52 @@ inline constexpr consumer_numeric_id_t invalid_consumer_id{ 0 };
 //
 // demuxing_controller_iface_t
 //
-//FIXME: document this!
+/*!
+ * @brief Interface for demuxing_controller entity.
+ */
 class demuxing_controller_iface_t : public ::so_5::atomic_refcounted_t
 	{
 	public:
 		virtual ~demuxing_controller_iface_t() noexcept = default;
 
+		//! Get a reference to SObjectizer Environment for that demuxer has been
+		//! created.
 		[[nodiscard]]
 		virtual ::so_5::environment_t &
 		environment() const noexcept = 0;
 
+		//! Notification for destruction of a particular consumer.
+		//!
+		//! This method will be called in the destructor of every consumer.
+		//!
+		//! It's expected than the actual demuxer_controller will clean up
+		//! all resources associated with this consumer.
+		//!
+		//! @note
+		//! It's important that this method is noexcept, because it's called
+		//! in noexcept context (like destructor of a consumer object).
 		virtual void
-		consumer_destroyed( consumer_numeric_id_t id ) noexcept = 0;
+		consumer_destroyed(
+			//! ID of the destroyed consumer.
+			consumer_numeric_id_t id ) noexcept = 0;
 
+		//! Get type of sending_mbox for the demuxer.
 		[[nodiscard]]
 		virtual ::so_5::mbox_type_t
 		mbox_type() const noexcept = 0;
 
+		//! Create a receiving mbox for a consumer.
 		[[nodiscard]] virtual ::so_5::mbox_t
 		acquire_receiving_mbox_for(
+			//! ID of consumer for that new receiving mbox has to be obtained.
 			consumer_numeric_id_t id,
+			//! Message type to be received from that mbox.
 			const std::type_index & msg_type ) = 0;
 
+		//! Delivery of a message.
+		//!
+		//! @note
+		//! This method mimics so_5::abstract_message_box_t::do_deliver_message method.
 		virtual void
 		do_deliver_message(
 			//! Can the delivery blocks the current thread?
@@ -358,29 +455,47 @@ class demuxing_controller_iface_t : public ::so_5::atomic_refcounted_t
 //
 // demuxing_controller_iface_shptr_t
 //
-//FIXME: document this!
+//! Alias for shared_ptr to demuxing_controller_iface.
 using demuxing_controller_iface_shptr_t =
 		::so_5::intrusive_ptr_t< demuxing_controller_iface_t >;
 
 //
 // basic_demuxing_controller_t
 //
-//FIXME: document this!
+/*!
+ * @brief Partial implementation of demuxing_controller_iface.
+ *
+ * Implements functionality that not depends on the mbox_type of
+ * the demuxer.
+ *
+ * @tparam Root type of the hierarchy root.
+ * @tparam Lock_Type type of mutex for thread safety (a type similar to
+ * std::shared_mutex). It should be a DefaultConstructible object.
+ */
 template< typename Root, typename Lock_Type >
 class basic_demuxing_controller_t : public demuxing_controller_iface_t
 	{
 	protected:
+		//! SObjectizer Environment for that demuxer has been created.
+		//!
+		//! It's expected that this reference will outlast the controller object.
 		::so_5::environment_t & m_env;
 
+		//! Lock for thread-safety.
 		Lock_Type m_lock;
 
+		//! Type of mbox for the demuxer.
 		const ::so_5::mbox_type_t m_mbox_type;
 
+		//! Counter for generation of customer's IDs.
 		consumer_numeric_id_t m_consumer_id_counter{};
 
 	public:
+		//! Initializing constructor.
 		basic_demuxing_controller_t(
+			//! SObjectizer Environment for that the demuxer has been created.
 			::so_5::outliving_reference_t< ::so_5::environment_t > env,
+			//! Type of mbox for the demuxer.
 			::so_5::mbox_type_t mbox_type )
 			: m_env{ env.get() }
 			, m_mbox_type{ mbox_type }
@@ -410,7 +525,7 @@ class basic_demuxing_controller_t : public demuxing_controller_iface_t
 //
 // demuxing_controller_shptr_t
 //
-//FIXME: document this!
+//! Alias of shared_ptr for basic_demuxing_controller.
 template< typename Root, typename Lock_Type >
 using demuxing_controller_shptr_t =
 		::so_5::intrusive_ptr_t< basic_demuxing_controller_t< Root, Lock_Type > >;
@@ -496,16 +611,26 @@ struct controller_consumers_mixin_t
 //
 // mpmc_demuxing_controller_t
 //
-//FIXME: document this!
+/*!
+ * Implementation of demuxer_controller interface for
+ * multi-producer/multi-consumer case.
+ *
+ * @note
+ * See description of demuxing_controller_iface_t for information
+ * about Root and Lock_Type template parameters.
+ */
 template< typename Root, typename Lock_Type >
 class multi_consumer_demuxing_controller_t final
 	: public basic_demuxing_controller_t< Root, Lock_Type >
 	, private controller_consumers_mixin_t
 	{
+		//! Alias for basic_demuxing_controller.
 		using base_type_t = basic_demuxing_controller_t< Root, Lock_Type >;
 
 	public:
+		//! Initializing constructor.
 		multi_consumer_demuxing_controller_t(
+			//! SObjectizer Environment for that the demuxer has been created.
 			::so_5::outliving_reference_t< ::so_5::environment_t > env )
 			: base_type_t{ env, ::so_5::mbox_type_t::multi_producer_multi_consumer }
 			{}
@@ -607,17 +732,26 @@ struct single_dest_info_t
 //
 // mpsc_demuxing_controller_t
 //
-//FIXME: document this!
+/*!
+ * Implementation of demuxer_controller interface for
+ * multi-producer/single-consumer case.
+ *
+ * @note
+ * See description of demuxing_controller_iface_t for information
+ * about Root and Lock_Type template parameters.
+ */
 template< typename Root, typename Lock_Type >
 class single_consumer_demuxing_controller_t final
 	: public basic_demuxing_controller_t< Root, Lock_Type >
 	, private controller_consumers_mixin_t
 	{
+		//! Alias for basic_demuxing_controller.
 		using base_type_t = basic_demuxing_controller_t< Root, Lock_Type >;
 
 	public:
 		//! Initializing constructor.
 		single_consumer_demuxing_controller_t(
+			//! SObjectizer Environment for that the demuxer has been created.
 			::so_5::outliving_reference_t< ::so_5::environment_t > env )
 			: base_type_t{ env, ::so_5::mbox_type_t::multi_producer_single_consumer }
 			{}
@@ -706,7 +840,11 @@ class single_consumer_demuxing_controller_t final
 			}
 
 	private:
-		//FIXME: document this!
+		//! Try to find a single destination for a mutable message.
+		//!
+		//! @throw so_5::exception_t if there are more than one available destinations.
+		//!
+		//! @return non-empty value of a single destination has been found.
 		[[nodiscard]]
 		std::optional< single_dest_info_t >
 		detect_receiver_for_mutable_msg_or_throw(
@@ -862,7 +1000,7 @@ class basic_sending_mbox_t
 //
 // multi_consumer_sending_mbox_t
 //
-//FIXME: document this!
+//! Implementation of sending mbox for multi-producer/multi-consumer case.
 template< typename Root >
 class multi_consumer_sending_mbox_t final
 	: public basic_sending_mbox_t
@@ -897,9 +1035,7 @@ class multi_consumer_sending_mbox_t final
 //
 // single_consumer_sending_mbox_t
 //
-/*!
- * @brief Implementation of sending_mbox for case of MPSC mbox.
- */
+//! Implementation of sending mbox for multi-producer/single-consumer case.
 template< typename Root >
 class single_consumer_sending_mbox_t final
 	: public basic_sending_mbox_t
@@ -955,14 +1091,23 @@ class demuxer_t
 		static_assert( !::so_5::is_mutable_message< Root >::value,
 				"the Root can't be mutable_msg<T>" );
 
+		//! Actual demuxing_controller for this demuxer instance.
 		impl::demuxing_controller_shptr_t< Root, Lock_Type > m_controller;
 
+		//! Actual sending mbox for this demuxer instance.
+		//!
+		//! @note
+		//! It may be a MPMC or MPSC mbox. The type will be detected at the
+		//! construction time. Once created it can't be changed later.
 		::so_5::mbox_t m_sending_mbox;
 
+		//! Factory to create an appropriate demuxing_controller instance.
 		[[nodiscard]]
 		static impl::demuxing_controller_shptr_t< Root, Lock_Type >
 		make_required_demuxing_controller_object(
+			//! SObjectizer Environment for that the demuxer has been created.
 			::so_5::outliving_reference_t< ::so_5::environment_t > env,
+			//! Type of mbox for the demuxer.
 			::so_5::mbox_type_t mbox_type )
 			{
 				using result_t = impl::demuxing_controller_shptr_t< Root, Lock_Type >;
@@ -991,14 +1136,18 @@ class demuxer_t
 				return result;
 			}
 
+		//! Factory to create an appropriate sending_mbox instance.
 		[[nodiscard]]
 		static ::so_5::mbox_t
 		make_required_sending_mbox(
+			//! Actual demuxing_controller object to be used for message delivery.
 			impl::demuxing_controller_iface_shptr_t controller,
-			::so_5::environment_t & env,
+			//! SObjectizer Environment for that the demuxer has been created.
+			::so_5::outliving_reference_t< ::so_5::environment_t > env,
+			//! Type of mbox for the demuxer.
 			::so_5::mbox_type_t mbox_type )
 			{
-				const auto mbox_id = ::so_5::impl::internal_env_iface_t{ env }
+				const auto mbox_id = ::so_5::impl::internal_env_iface_t{ env.get() }
 						.allocate_mbox_id();
 
 				so_5::mbox_t result;
@@ -1006,7 +1155,7 @@ class demuxer_t
 					{
 					case ::so_5::mbox_type_t::multi_producer_multi_consumer:
 						result = so_5::mbox_t{
-								new impl::multi_consumer_sending_mbox_t< Root >(
+								std::make_unique< impl::multi_consumer_sending_mbox_t< Root > >(
 										std::move(controller),
 										mbox_id )
 							};
@@ -1014,7 +1163,7 @@ class demuxer_t
 
 					case ::so_5::mbox_type_t::multi_producer_single_consumer:
 						result = so_5::mbox_t{
-								new impl::single_consumer_sending_mbox_t< Root >(
+								std::make_unique< impl::single_consumer_sending_mbox_t< Root > >(
 										std::move(controller),
 										mbox_id )
 							};
@@ -1043,7 +1192,10 @@ class demuxer_t
 						mbox_type )
 				}
 			, m_sending_mbox{
-					make_required_sending_mbox( m_controller, env, mbox_type )
+					make_required_sending_mbox(
+						m_controller,
+						::so_5::outliving_mutable( env ),
+						mbox_type )
 				}
 			{}
 

@@ -11,11 +11,11 @@
 namespace sample
 {
 
-struct	cfg_t
+struct cfg_t
 {
-	unsigned int	m_request_count{ 1000u };
+	unsigned int m_request_count{ 1000u };
 
-	bool	m_separate_dispatchers{ false };
+	bool m_separate_dispatchers{ false };
 };
 
 [[nodiscard]]
