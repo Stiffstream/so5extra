@@ -1079,7 +1079,112 @@ class consumer_t;
 //
 // demuxer_t definition
 //
-//FIXME: document this!
+/*!
+ * @brief Demuxer for hierarchy of messages.
+ *
+ * A demuxer provides a single _sending_mbox_ for all messages. An outgoing
+ * message has to be sent to this sending_mbox.
+ *
+ * To receive a message it's necessary to do the following actions:
+ *
+ * - create a consumer instance by calling allocate_consumer() method;
+ * - call consumer_t::receiving_mbox() for the consumer instance to get
+ *   a mbox for a particular type of a message.
+ *
+ * The dexumer can be either multi-producer/multi-consumer or
+ * multi-producer/single-consumer. This type is specified in the constructor
+ * and can't be changed later. A multi-consumer demuxer prohibits delivery
+ * of mutable messages.
+ *
+ * Usage example:
+ * @code
+ * namespace hierarchy_ns = so_5::extra::msg_hierarchy;
+ *
+ * struct basic : public hierarchy_ns::root_t< basic > {...};
+ *
+ * struct device_type_A : public basic, public hierarchy_ns::node_t< device_type_A, basic > {...}
+ * ... // Other types of messages.
+ *
+ * class message_receiver final : public so_5::agent_t {
+ * 	// Consumer handle to work with incoming messages.
+ * 	hierarchy_ns::consumer_t< basic > m_consumer;
+ *
+ * 	...
+ * public:
+ * 	message_receiver( context_t ctx, hierarchy_ns::demuxer_t< basic > & demuxer )
+ * 		: so_5::agent_t{ std::move(ctx) }
+ * 		, m_consumer{
+ * 				// Allocation of consumer instance for this agent.
+ * 				demuxer.allocate_consumer() }
+ * 	{}
+ * 	...
+ * 	void so_define_agent() override
+ * 	{
+ * 		// Obtaining receiving_mbox for message subscriptions.
+ * 		so_subscribe( m_consumer.receiving_mbox< basic >() )
+ * 			.event( ... );
+ *
+ * 		so_subscribe( m_controller.receiving_mbox< device_type_A >() )
+ * 			.event( ... )
+ * 			.event( ... );
+ * 	}
+ * };
+ * ...
+ * so_5::environment_t & env = ...;
+ * // Instance of demuxer.
+ * hierarchy_ns::demuxer_t< basic > demuxer{ env, hierarchy_ns::multi_consumer };
+ * // Registration of agents.
+ * env.register_agent_as_coop(
+ * 	env.make_agent< message_receiver >( demuxer ) );
+ * ...
+ * @endcode
+ *
+ * @attention
+ * The demuxer_t is a Moveable, but not Copyable class.
+ *
+ * @note
+ * A demuxer object can be seen as a temprary proxy for a special controller object.
+ * This controller object will live as long as there are live references to the
+ * sending_mbox and/or any of receiving_mboxes. But demuxer object can be safely
+ * destroyed if it's not needed anymore. For example:
+ * @code
+ * so_5::environment_t & env = ...;
+ * env.introduce_coop( []( so_5::coop_t & coop ) {
+ * 		// A demuxer object is needed only during the creation of agents.
+ * 		hierarchy_ns::demuxer_t< basic > demuxer{ coop.environment(), hierarchy_ns::multi_consumer };
+ *
+ * 		coop.make_agent< message_receiver >( demuxer );
+ * 		coop.make_agent< message_sender >( demuxer );
+ * 		...
+ * 		// The demuxer object is no more needed and can be destroyed now.
+ * 		// The underlying controller object will live while message_receiver
+ * 		// and message_sender agents are live.
+ * 	} );
+ * @endcode
+ *
+ * @tparam Root the type of the hierarchy root. This type has to be derived from root_t<T>
+ * template class. This type should not use `so_5::mutable_msg` modifier. It means that
+ * @code
+ * struct my_root : public so_5::extra::msg_hierarchy::root_t< my_root >{...};
+*  so_5::extra::msg_hierarchy::demuxer_t< my_root > demuxer{...};
+ * @endcode
+ * Is OK, but this is an error:
+ * @code
+ * struct my_root : public so_5::extra::msg_hierarchy::root_t< my_root >{...};
+ * so_5::extra::msg_hierarchy::demuxer_t< so_5::mutable_msg<my_root> > demuxer{...}; // ERROR!
+ * @endcode
+ * It you need a demuxer that allows to send a mutable message it's necessary to
+ * pass single_consumer value to the demuxer's constructor:
+ * @code
+ * struct my_root : public so_5::extra::msg_hierarchy::root_t< my_root >{...};
+ * so_5::extra::msg_hierarchy::demuxer_t< my_root > demuxer{
+ * 	env,
+ * 	// This flag makes multi-producer/single-consumer demuxer.
+ * 	so_5::extra::msg_hierarchy::single_consumer };
+ * @endcode
+ *
+ * @tparam Lock_Type type to be used for thread safety. It should be a class like std::shared_mutex.
+ */
 template<
 	typename Root,
 	typename Lock_Type = std::shared_mutex >
@@ -1183,8 +1288,15 @@ class demuxer_t
 				swap( a.m_sending_mbox, b.m_sending_mbox );
 			}
 
+		//! Initializing constructor.
 		demuxer_t(
+			//! SObjectizer Environment to work in.
+			//! This reference should reman valid for the whole lifetime of the
+			//! demuxer object.
 			::so_5::environment_t & env,
+			//! Type of demuxer and its sending_mbox.
+			//! It's expected to be so_5::extra::msg_hierarchy::multi_consumer or
+			//! so_5::extra::msg_hierarchy::single_consumer.
 			::so_5::mbox_type_t mbox_type )
 			: m_controller{
 					make_required_demuxing_controller_object(
@@ -1218,12 +1330,18 @@ class demuxer_t
 				return *this;
 			}
 
+		//! Create an instance of consumer object.
+		//!
+		//! @note
+		//! Every call to allocate_consumer() returns a separate instance of
+		//! consumer object.
 		[[nodiscard]]
 		consumer_t< Root >
 		allocate_consumer();
 
+		//! Getter for the single sending_mbox mbox.
 		[[nodiscard]]
-		::so_5::mbox_t
+		const ::so_5::mbox_t &
 		sending_mbox() const noexcept
 			{
 				return m_sending_mbox;
@@ -1233,19 +1351,119 @@ class demuxer_t
 //
 // consumer_t
 //
-//FIXME: document this!
+/*!
+ * @brief A consumer interface for a demuxer object.
+ *
+ * A demuxer object (an instance of demuxer_t template class) provides access to
+ * sending_mbox only. To receive a message it's necessary to create an instance
+ * of a consumer and receive a special receiving_mbox from it. The template
+ * class consumer_t represents such a consumer object.
+ *
+ * An instance of a consumer_t should live as long as user wants to receive
+ * incoming message. If a consumer_t instance is destroyed then all receiving
+ * mboxes created by this consumer will be deactivated. It means that
+ * instances of mboxes will remain live but nothing will be sent to them.
+ *
+ * Because of that it's recommended to bind a consumer to an agent that requires it:
+ * @code
+ * namespace hierarchy_ns = so_5::extra::msg_hierarchy;
+ *
+ * struct basic : public hierarchy_ns::root_t< basic >{ ... };
+ *
+ * class message_receiver final : public so_5::agent_t {
+ * 	// An instance of consumer_t.
+ * 	// This instance will live as long as message_receiver agent itself.
+ * 	hierarchy_ns::consumer_t< basic > m_consumer;
+ * 	...
+ * public:
+ * 	message_receiver( context_t ctx, hierarchy_ns::demuxer_t< basic > & demuxer )
+ * 		: so_5::agent_t{ std::move(ctx) }
+ * 		  // Create an instance of a consumer for the demuxer.
+ * 		, m_consumer{ demuxer.allocate_consumer() }
+ * 	{}
+ * 	...
+ * }
+ * @endcode
+ *
+ * @note
+ * All receiving_mboxes created by the same consumer object are bound together.
+ * If a message can be received from several of them only one mbox will be
+ * selected for the delivery. An example:
+ * @code
+ * namespace hierarchy_ns = so_5::extra::msg_hierarchy;
+ *
+ * struct basic : public hierarchy_ns::root_t< basic >{ ... };
+ *
+ * struct device_type_A : public basic, public hierarchy_ns::node_t< device_type_A, basic >{ ... };
+ * struct vendor_X_device_Y : public device_type_A, public hierarchy_ns::node_t< vendor_X_device_Y, device_type_A >{ ... };
+ *
+ * struct vendor_Z_device_V : public device_type_A, public hierarchy_ns::node_t< vendor_V_device_Z, device_type_A >{ ... };
+ *
+ * struct control_code : public basic, public hierarchy_ns::node_t< control_code, basic >{ ... };
+ *
+ * class demo final : public so_5::agent_t {
+ * 	hierarchy_ns::consumer_t< basic > m_consumer;
+ *
+ * 	const so_5::mbox_t m_sending_mbox;
+ *
+ * public:
+ * 	demo( context_t ctx, hierarchy_ns::demuxer_t< basic > & demuxer )
+ * 		: so_5::agent_t{ std::move(ctx) }
+ * 		, m_consumer{ demuxer.allocate_consumer() }
+ * 		, m_sending_mbox{ demuxer.sending_mbox() }
+ * 	{}
+ * 	...
+ * 	void so_define_agent() override {
+ * 		so_subscribe( m_consumer.receiving_mbox< basic >() )
+ * 			.event( [this]( mhood_t<basic> & cmd) {
+ * 				... // Handler (1)
+ * 			} );
+ *
+ * 		so_subscribe( m_consumer.receiving_mbox< device_type_A >() )
+ * 			.event( [this]( mhood_t<device_type_A> & cmd) {
+ * 				... // Handler (2)
+ * 			} );
+ *
+ * 		so_subscribe( m_consumer.receiving_mbox< vendor_X_device_Y >() )
+ * 			.event( [this]( mhood_t<vendor_X_device_Y> & cmd) {
+ * 				... // Handler (3)
+ * 			} );
+ * 	}
+ * 	...
+ * 	void so_evt_start() override {
+ * 		so_5::send< vendor_X_device_Y >( m_sending_mbox, ... );
+ *
+ * 		so_5::send< vendor_Z_device_V >( m_sending_mbox, ... );
+ *
+ * 		so_5::send< control_code >( m_sending_mbox, ... );
+ * 	}
+ * };
+ * @endcode
+ * The message `vendor_X_device_Y` will be delivered to the handler (3) because
+ * it's the best match for the message type. The message `vendor_Z_device_V` will
+ * be delivered to the handler (2) as `device_type_A` message. And the message
+ * `control_code` will be delivered to the handler (1) as `basic` message.
+ *
+ * @attention
+ * The consumer_t is a Moveable, but not Copyable class.
+ */
 template< typename Root >
 class consumer_t
 	{
 		template< typename Demuxer_Root, typename Demuxer_Lock_Type >
 		friend class demuxer_t;
 
+		//! Actual demuxing_controller to be used for message exchange.
 		impl::demuxing_controller_iface_shptr_t m_controller;
 
+		//! ID for this consumer.
 		impl::consumer_numeric_id_t m_id;
 
+		//! Initializing constructor.
 		consumer_t(
+			//! Actual demuxing_controller to be used for message exchange.
 			impl::demuxing_controller_iface_shptr_t controller,
+			//! ID for this consumer.
 			impl::consumer_numeric_id_t id )
 			: m_controller{ std::move(controller) }
 			, m_id{ id }
@@ -1289,6 +1507,51 @@ class consumer_t
 				return *this;
 			}
 
+		//! Acquire a receiving mbox for the specified message type.
+		//!
+		//! Usage example:
+		//! @code
+		//! class demo final : public so_5::agent_t {
+		//! 	hierarchy_ns::consumer_t< basic > m_consumer;
+		//!
+		//! 	const so_5::mbox_t m_sending_mbox;
+		//!
+		//! public:
+		//! 	demo( context_t ctx, hierarchy_ns::demuxer_t< basic > & demuxer )
+		//! 		: so_5::agent_t{ std::move(ctx) }
+		//! 		, m_consumer{ demuxer.allocate_consumer() }
+		//! 		, m_sending_mbox{ demuxer.sending_mbox() }
+		//! 	{}
+		//! 	...
+		//! 	void so_define_agent() override {
+		//! 		so_subscribe( m_consumer.receiving_mbox< basic >() )
+		//! 			.event( [this]( mhood_t<basic> & cmd) {
+		//! 				... // Handler (1)
+		//! 			} );
+		//!
+		//! 		so_subscribe( m_consumer.receiving_mbox< device_type_A >() )
+		//! 			.event( [this]( mhood_t<device_type_A> & cmd) {
+		//! 				... // Handler (2)
+		//! 			} );
+		//!
+		//! 		so_subscribe( m_consumer.receiving_mbox< vendor_X_device_Y >() )
+		//! 			.event( [this]( mhood_t<vendor_X_device_Y> & cmd) {
+		//! 				... // Handler (3)
+		//! 			} );
+		//! 	}
+		//! };
+		//! @endcode
+		//!
+		//! @note
+		//! It's necessary to use `so_5::mutable_msg` modifier to get a receiving mbox
+		//! for a mutable message:
+		//! @code
+		//! so_subscribe( m_consumer.receiving_mbox< so_5::mutable_msg< control_code > >() )
+		//! 	.event( [this]( mutable_mhood_t<control_code> cmd ) {
+		//! 		...
+		//! 	} );
+		//! @endcode
+		//!
 		template< typename Msg_Type >
 		[[nodiscard]] so_5::mbox_t
 		receiving_mbox()
