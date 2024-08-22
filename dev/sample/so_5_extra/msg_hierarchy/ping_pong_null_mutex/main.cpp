@@ -86,19 +86,17 @@ struct null_mutex_t
 		void unlock_shared() noexcept {}
 	};
 
-namespace hierarchy_ns = so_5::extra::msg_hierarchy;
-
 //
 // Types for message for exchange.
 //
-struct basic : public hierarchy_ns::root_t< basic >
+struct basic : public so_5::extra::msg_hierarchy::root_t< basic >
 	{
 		basic() = default;
 	};
 
 struct abstract_ping
 	: public basic
-	, public hierarchy_ns::node_t< abstract_ping, basic >
+	, public so_5::extra::msg_hierarchy::node_t< abstract_ping, basic >
 	{
 		[[nodiscard]]
 		virtual int
@@ -106,13 +104,13 @@ struct abstract_ping
 
 		abstract_ping()
 			// This is required by msg_hierarchy's design.
-			: hierarchy_ns::node_t< abstract_ping, basic >{ *this }
+			: so_5::extra::msg_hierarchy::node_t< abstract_ping, basic >{ *this }
 		{}
 	};
 
 struct abstract_pong
 	: public basic
-	, public hierarchy_ns::node_t< abstract_pong, basic >
+	, public so_5::extra::msg_hierarchy::node_t< abstract_pong, basic >
 	{
 		[[nodiscard]]
 		virtual int
@@ -120,19 +118,19 @@ struct abstract_pong
 
 		abstract_pong()
 			// This is required by msg_hierarchy's design.
-			: hierarchy_ns::node_t< abstract_pong, basic >{ *this }
+			: so_5::extra::msg_hierarchy::node_t< abstract_pong, basic >{ *this }
 		{}
 	};
 
 // Type of demuxer to be used.
-using demuxer_t = hierarchy_ns::demuxer_t< basic, null_mutex_t >;
+using demuxer_t = so_5::extra::msg_hierarchy::demuxer_t< basic, null_mutex_t >;
 
 // Type of pinger agent.
 template< typename Actual_Ping_Type >
 class pinger_t final : public so_5::agent_t
 	{
 		// This object should live as long as the agent itself.
-		hierarchy_ns::consumer_t< basic > m_consumer;
+		so_5::extra::msg_hierarchy::consumer_t< basic > m_consumer;
 
 		// The mbox for outgoing messages.
 		const so_5::mbox_t m_out_mbox;
@@ -174,7 +172,7 @@ template< typename Actual_Pong_Type >
 class ponger_t final : public so_5::agent_t
 	{
 		// This object should live as long as the agent itself.
-		hierarchy_ns::consumer_t< basic > m_consumer;
+		so_5::extra::msg_hierarchy::consumer_t< basic > m_consumer;
 
 		// The mbox for outgoing messages.
 		const so_5::mbox_t m_out_mbox;
@@ -201,7 +199,7 @@ class ponger_t final : public so_5::agent_t
 // Actual ping message type.
 struct ping final
 	: public abstract_ping
-	, public hierarchy_ns::node_t< ping, abstract_ping >
+	, public so_5::extra::msg_hierarchy::node_t< ping, abstract_ping >
 {
 	int m_payload;
 
@@ -209,7 +207,7 @@ struct ping final
 	payload() const noexcept override { return m_payload; }
 
 	ping( int payload )
-		: hierarchy_ns::node_t< ping, abstract_ping >{ *this }
+		: so_5::extra::msg_hierarchy::node_t< ping, abstract_ping >{ *this }
 		, m_payload{ payload }
 		{}
 };
@@ -217,7 +215,7 @@ struct ping final
 // Actual pong message type.
 struct pong final
 	: public abstract_pong
-	, public hierarchy_ns::node_t< pong, abstract_pong >
+	, public so_5::extra::msg_hierarchy::node_t< pong, abstract_pong >
 {
 	int m_payload;
 
@@ -225,7 +223,7 @@ struct pong final
 	payload() const noexcept override { return m_payload; }
 
 	pong( int payload )
-		: hierarchy_ns::node_t< pong, abstract_pong >{ *this }
+		: so_5::extra::msg_hierarchy::node_t< pong, abstract_pong >{ *this }
 		, m_payload{ payload }
 		{}
 };
@@ -242,7 +240,7 @@ run_sample(
 						{
 							demuxer_t demuxer{
 									coop.environment(),
-									hierarchy_ns::multi_consumer
+									so_5::extra::msg_hierarchy::multi_consumer
 								};
 
 							// Pinger agent.

@@ -277,10 +277,8 @@ struct has_so_make_upcaster_method<
  *
  * Usage example:
  * @code
- * namespace hierarchy_ns = so_5::extra::msg_hierarchy;
- *
  * // The root of the hierarchy.
- * struct basic : public hierarchy_ns::root_t< basic >
+ * struct basic : public so_5::extra::msg_hierarchy::root_t< basic >
  * {
  * 	... // Some data and methods.
  * };
@@ -289,35 +287,35 @@ struct has_so_make_upcaster_method<
  * // Should have two base classes: one is `basic` (that is the root),
  * // another is the node_t mixin.
  * // NOTE the use of public inheritance from node_t.
- * struct device_type_A : public basic, public hierarchy_ns::node_t< device_type_A, basic >
+ * struct device_type_A : public basic, public so_5::extra::msg_hierarchy::node_t< device_type_A, basic >
  * {
  * 	... // Some data and methods.
  *
  * 	// The constructor should call node_t's constructor.
  * 	device_type_A()
- * 		: hierarchy_ns::node_t< device_type_A, basic >{ *this }
+ * 		: so_5::extra::msg_hierarchy::node_t< device_type_A, basic >{ *this }
  * 	{}
  * };
  *
  * // Another derived message.
- * struct device_type_B : public basic, public hierarchy_ns::node_t< device_type_B, basic >
+ * struct device_type_B : public basic, public so_5::extra::msg_hierarchy::node_t< device_type_B, basic >
  * {
  * 	... // Some data and methods.
  *
  * 	// The constructor should call node_t's constructor.
  * 	device_type_B()
- * 		: hierarchy_ns::node_t< device_type_B, basic >{ *this }
+ * 		: so_5::extra::msg_hierarchy::node_t< device_type_B, basic >{ *this }
  * 	{}
  * };
  *
  * // Another level in the hierarchy.
- * struct device_vendor_X : public device_type_A, public hierarchy_ns< device_vendor_X, device_type_A >
+ * struct device_vendor_X : public device_type_A, public so_5::extra::msg_hierarchy< device_vendor_X, device_type_A >
  * {
  * 	... // Some data and methods.
  *
  * 	// The constructor should call node_t's constructor.
  * 	device_vendor_X()
- * 		: hierarchy_ns::node_t< device_vendor_X, device_type_A >{ *this }
+ * 		: so_5::extra::msg_hierarchy::node_t< device_vendor_X, device_type_A >{ *this }
  * 	{}
  * };
  * @endcode
@@ -1098,20 +1096,18 @@ class consumer_t;
  *
  * Usage example:
  * @code
- * namespace hierarchy_ns = so_5::extra::msg_hierarchy;
+ * struct basic : public so_5::extra::msg_hierarchy::root_t< basic > {...};
  *
- * struct basic : public hierarchy_ns::root_t< basic > {...};
- *
- * struct device_type_A : public basic, public hierarchy_ns::node_t< device_type_A, basic > {...}
+ * struct device_type_A : public basic, public so_5::extra::msg_hierarchy::node_t< device_type_A, basic > {...}
  * ... // Other types of messages.
  *
  * class message_receiver final : public so_5::agent_t {
  * 	// Consumer handle to work with incoming messages.
- * 	hierarchy_ns::consumer_t< basic > m_consumer;
+ * 	so_5::extra::msg_hierarchy::consumer_t< basic > m_consumer;
  *
  * 	...
  * public:
- * 	message_receiver( context_t ctx, hierarchy_ns::demuxer_t< basic > & demuxer )
+ * 	message_receiver( context_t ctx, so_5::extra::msg_hierarchy::demuxer_t< basic > & demuxer )
  * 		: so_5::agent_t{ std::move(ctx) }
  * 		, m_consumer{
  * 				// Allocation of consumer instance for this agent.
@@ -1132,7 +1128,7 @@ class consumer_t;
  * ...
  * so_5::environment_t & env = ...;
  * // Instance of demuxer.
- * hierarchy_ns::demuxer_t< basic > demuxer{ env, hierarchy_ns::multi_consumer };
+ * so_5::extra::msg_hierarchy::demuxer_t< basic > demuxer{ env, so_5::extra::msg_hierarchy::multi_consumer };
  * // Registration of agents.
  * env.register_agent_as_coop(
  * 	env.make_agent< message_receiver >( demuxer ) );
@@ -1151,7 +1147,7 @@ class consumer_t;
  * so_5::environment_t & env = ...;
  * env.introduce_coop( []( so_5::coop_t & coop ) {
  * 		// A demuxer object is needed only during the creation of agents.
- * 		hierarchy_ns::demuxer_t< basic > demuxer{ coop.environment(), hierarchy_ns::multi_consumer };
+ * 		so_5::extra::msg_hierarchy::demuxer_t< basic > demuxer{ coop.environment(), so_5::extra::msg_hierarchy::multi_consumer };
  *
  * 		coop.make_agent< message_receiver >( demuxer );
  * 		coop.make_agent< message_sender >( demuxer );
@@ -1366,17 +1362,15 @@ class demuxer_t
  *
  * Because of that it's recommended to bind a consumer to an agent that requires it:
  * @code
- * namespace hierarchy_ns = so_5::extra::msg_hierarchy;
- *
- * struct basic : public hierarchy_ns::root_t< basic >{ ... };
+ * struct basic : public so_5::extra::msg_hierarchy::root_t< basic >{ ... };
  *
  * class message_receiver final : public so_5::agent_t {
  * 	// An instance of consumer_t.
  * 	// This instance will live as long as message_receiver agent itself.
- * 	hierarchy_ns::consumer_t< basic > m_consumer;
+ * 	so_5::extra::msg_hierarchy::consumer_t< basic > m_consumer;
  * 	...
  * public:
- * 	message_receiver( context_t ctx, hierarchy_ns::demuxer_t< basic > & demuxer )
+ * 	message_receiver( context_t ctx, so_5::extra::msg_hierarchy::demuxer_t< basic > & demuxer )
  * 		: so_5::agent_t{ std::move(ctx) }
  * 		  // Create an instance of a consumer for the demuxer.
  * 		, m_consumer{ demuxer.allocate_consumer() }
@@ -1390,24 +1384,22 @@ class demuxer_t
  * If a message can be received from several of them only one mbox will be
  * selected for the delivery. An example:
  * @code
- * namespace hierarchy_ns = so_5::extra::msg_hierarchy;
+ * struct basic : public so_5::extra::msg_hierarchy::root_t< basic >{ ... };
  *
- * struct basic : public hierarchy_ns::root_t< basic >{ ... };
+ * struct device_type_A : public basic, public so_5::extra::msg_hierarchy::node_t< device_type_A, basic >{ ... };
+ * struct vendor_X_device_Y : public device_type_A, public so_5::extra::msg_hierarchy::node_t< vendor_X_device_Y, device_type_A >{ ... };
  *
- * struct device_type_A : public basic, public hierarchy_ns::node_t< device_type_A, basic >{ ... };
- * struct vendor_X_device_Y : public device_type_A, public hierarchy_ns::node_t< vendor_X_device_Y, device_type_A >{ ... };
+ * struct vendor_Z_device_V : public device_type_A, public so_5::extra::msg_hierarchy::node_t< vendor_V_device_Z, device_type_A >{ ... };
  *
- * struct vendor_Z_device_V : public device_type_A, public hierarchy_ns::node_t< vendor_V_device_Z, device_type_A >{ ... };
- *
- * struct control_code : public basic, public hierarchy_ns::node_t< control_code, basic >{ ... };
+ * struct control_code : public basic, public so_5::extra::msg_hierarchy::node_t< control_code, basic >{ ... };
  *
  * class demo final : public so_5::agent_t {
- * 	hierarchy_ns::consumer_t< basic > m_consumer;
+ * 	so_5::extra::msg_hierarchy::consumer_t< basic > m_consumer;
  *
  * 	const so_5::mbox_t m_sending_mbox;
  *
  * public:
- * 	demo( context_t ctx, hierarchy_ns::demuxer_t< basic > & demuxer )
+ * 	demo( context_t ctx, so_5::extra::msg_hierarchy::demuxer_t< basic > & demuxer )
  * 		: so_5::agent_t{ std::move(ctx) }
  * 		, m_consumer{ demuxer.allocate_consumer() }
  * 		, m_sending_mbox{ demuxer.sending_mbox() }
@@ -1512,12 +1504,12 @@ class consumer_t
 		//! Usage example:
 		//! @code
 		//! class demo final : public so_5::agent_t {
-		//! 	hierarchy_ns::consumer_t< basic > m_consumer;
+		//! 	so_5::extra::msg_hierarchy::consumer_t< basic > m_consumer;
 		//!
 		//! 	const so_5::mbox_t m_sending_mbox;
 		//!
 		//! public:
-		//! 	demo( context_t ctx, hierarchy_ns::demuxer_t< basic > & demuxer )
+		//! 	demo( context_t ctx, so_5::extra::msg_hierarchy::demuxer_t< basic > & demuxer )
 		//! 		: so_5::agent_t{ std::move(ctx) }
 		//! 		, m_consumer{ demuxer.allocate_consumer() }
 		//! 		, m_sending_mbox{ demuxer.sending_mbox() }

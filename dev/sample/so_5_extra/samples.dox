@@ -78,5 +78,10 @@
  * \example mboxes/inflight_limit/simple/main.cpp
  */
 
+/*!
+ * \example msg_hierarchy/ping_pong/main.cpp
+ * \example msg_hierarchy/ping_pong_null_mutex/main.cpp
+ */
+
 // vim:ft=cpp
 
