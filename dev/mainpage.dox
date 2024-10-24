@@ -3,6 +3,11 @@
  *
  * \section so_5_extra_versions so_5_extra Version Info
  *
+ * \subsection so_5_extra_v1_6_2 v.1.6.2
+ *
+ * A possibility to receive a message via its base class added:
+ * so_5::extra::msg_hierarchy.
+ *
  * \subsection so_5_extra_v1_6_0 v.1.6.0
  *
  * Adaptation to SObjectizer v.5.8.0.
