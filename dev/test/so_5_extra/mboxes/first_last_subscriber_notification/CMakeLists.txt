@@ -1,0 +1,7 @@
+add_subdirectory(delivery_filters_and_subscribers)
+add_subdirectory(delivery_filters_no_subscribers)
+add_subdirectory(mpsc_multi_subscribers)
+add_subdirectory(mutable_msg)
+add_subdirectory(simple)
+add_subdirectory(simple_null_mutex)
+

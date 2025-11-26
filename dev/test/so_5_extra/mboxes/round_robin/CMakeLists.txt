@@ -1,0 +1,5 @@
+add_subdirectory(msg_limits)
+add_subdirectory(rr_enveloped_msg_delivery)
+add_subdirectory(rr_msg_delivery)
+add_subdirectory(simple)
+add_subdirectory(simple_enveloped_msg)

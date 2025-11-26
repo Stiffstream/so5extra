@@ -1,0 +1,9 @@
+add_subdirectory(empty_env)
+add_subdirectory(many_subscribers)
+add_subdirectory(many_subscribers_stenv)
+add_subdirectory(one_subscriber)
+add_subdirectory(one_subscriber_stenv)
+add_subdirectory(simple)
+add_subdirectory(subscribe_when_shutdown)
+add_subdirectory(time_elapsed)
+

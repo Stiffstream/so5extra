@@ -1,0 +1,8 @@
+add_subdirectory(broadcast)
+add_subdirectory(collecting_mbox)
+add_subdirectory(composite)
+add_subdirectory(first_last_subscriber_notification)
+add_subdirectory(inflight_limit)
+add_subdirectory(proxy)
+add_subdirectory(retained_msg)
+add_subdirectory(round_robin)
