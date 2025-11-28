@@ -70,7 +70,15 @@ if(SO5EXTRA_MASTER_PROJECT)
 	# Because Asio doesn't provide CMake file it's necessary to
 	# define asio target by youself.
 	add_library(asio INTERFACE)
-	target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
+
+	# For some reason there is no need to add /asio/include for Windows.
+	# Maybe it's because symbolic links are used on Linux?
+	if(WIN32)
+		target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio)
+	else()
+		target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
+	endif()
+
 	find_package(Threads)
 	target_link_libraries(asio INTERFACE Threads::Threads)
 endif()
