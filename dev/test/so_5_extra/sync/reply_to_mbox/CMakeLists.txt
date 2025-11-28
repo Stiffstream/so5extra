@@ -1,9 +1,11 @@
 set(TEST _unit.so_5_extra.sync.reply_to_mbox)
 add_executable(${TEST} main.cpp)
-target_link_libraries(${TEST} sobjectizer::SharedLib)
+target_link_libraries(${TEST} sobjectizer::SharedLib
+	sobjectizer::so5extra doctest::doctest)
 add_test(NAME ${TEST} COMMAND ${TEST})
 
 set(TEST_S _unit.so_5_extra.sync.reply_to_mbox_s)
 add_executable(${TEST_S} main.cpp)
-target_link_libraries(${TEST_S} sobjectizer::StaticLib)
+target_link_libraries(${TEST_S} sobjectizer::StaticLib
+	sobjectizer::so5extra doctest::doctest)
 add_test(NAME ${TEST_S} COMMAND ${TEST})

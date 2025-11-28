@@ -7,8 +7,8 @@ if(CMAKE_CURRENT_SOURCE_DIR STREQUAL CMAKE_SOURCE_DIR)
 	set(SO5EXTRA_MASTER_PROJECT ON)
 endif()
 
-option(BUILD_EXAMPLES "Enable building examples [default: ON]" ON)
-option(BUILD_TESTS    "Enable building tests    [default: ON]" ON)
+option(SO5EXTRA_BUILD_EXAMPLES "Enable building examples [default: ON]" ON)
+option(SO5EXTRA_BUILD_TESTS    "Enable building tests    [default: ON]" ON)
 
 option(SO5EXTRA_INSTALL "Generate install target for so5extra"
 	${SO5EXTRA_MASTER_PROJECT})
@@ -24,6 +24,55 @@ if(NOT CMAKE_CXX_STANDARD)
 	set(CXX_EXTENSIONS NO)
 else()
 	message(STATUS "C++ standard is set to C++${CMAKE_CXX_STANDARD}")
+endif()
+
+if(SO5EXTRA_MASTER_PROJECT)
+	include(FetchContent)
+
+	set(FETCHCONTENT_QUIET OFF)
+
+	set(SOBJECTIZER_BUILD_SHARED ON CACHE INTERNAL "")
+	set(SOBJECTIZER_BUILD_STATIC ON CACHE INTERNAL "")
+	set(SOBJECTIZER_INSTALL ON CACHE INTERNAL "")
+	set(BUILD_ALL OFF CACHE INTERNAL "")
+	set(BUILD_EXAMPLES OFF CACHE INTERNAL "")
+	set(BUILD_TESTS OFF CACHE INTERNAL "")
+
+	FetchContent_Declare(sobjectizer
+		GIT_REPOSITORY https://github.com/stiffstream/sobjectizer
+		GIT_TAG v5.8.5
+		SOURCE_SUBDIR dev
+		OVERRIDE_FIND_PACKAGE
+		LOG_DOWNLOAD TRUE
+		LOG_CONFIGURE TRUE
+		LOG_BUILD TRUE
+		LOG_INSTALL TRUE
+	)
+
+	set(DOCTEST_WITH_MAIN_IN_STATIC_LIB OFF CACHE INTERNAL "")
+
+	FetchContent_Declare(doctest
+		GIT_REPOSITORY https://github.com/doctest/doctest
+		GET_TAG v2.4.12
+		OVERRIDE_FIND_PACKAGE
+	)
+
+	FetchContent_Declare(asio
+		GIT_REPOSITORY https://github.com/chriskohlhoff/asio
+		GET_TAG asio-1-29-0
+		OVERRIDE_FIND_PACKAGE
+		CONFIGURE_COMMAND ""
+		BUILD_COMMAND ""
+	)
+
+	FetchContent_MakeAvailable(sobjectizer doctest asio)
+
+	# Because Asio doesn't provide CMake file it's necessary to
+	# define asio target by youself.
+	add_library(asio INTERFACE)
+	target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
+	find_package(Threads)
+	target_link_libraries(asio INTERFACE Threads::Threads)
 endif()
 
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
@@ -60,18 +109,19 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
 	)
 endif()
 
-include_directories(AFTER ${CMAKE_CURRENT_SOURCE_DIR})
-include_directories(AFTER ${CMAKE_CURRENT_SOURCE_DIR}/asio/include)
+# FIXME: it seems that those lines have to be removed.
+#include_directories(AFTER ${CMAKE_CURRENT_SOURCE_DIR})
+#include_directories(AFTER ${CMAKE_CURRENT_SOURCE_DIR}/asio/include)
+#add_subdirectory(so_5)
 
-add_subdirectory(so_5)
 add_subdirectory(so_5_extra)
 
-if(BUILD_TESTS)
+if(SO5EXTRA_BUILD_TESTS)
 	enable_testing()
 	add_subdirectory(test/so_5_extra)
 endif()
 
-if(BUILD_EXAMPLES)
+if(SO5EXTRA_BUILD_EXAMPLES)
 	add_subdirectory(sample/so_5_extra)
 endif()
 
