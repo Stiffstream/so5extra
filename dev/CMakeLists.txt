@@ -53,13 +53,13 @@ if(SO5EXTRA_MASTER_PROJECT)
 
 	FetchContent_Declare(doctest
 		GIT_REPOSITORY https://github.com/doctest/doctest
-		GET_TAG v2.4.12
+		GIT_TAG v2.4.12
 		OVERRIDE_FIND_PACKAGE
 	)
 
 	FetchContent_Declare(asio
 		GIT_REPOSITORY https://github.com/chriskohlhoff/asio
-		GET_TAG asio-1-29-0
+		GIT_TAG asio-1-29-0
 		OVERRIDE_FIND_PACKAGE
 		CONFIGURE_COMMAND ""
 		BUILD_COMMAND ""
