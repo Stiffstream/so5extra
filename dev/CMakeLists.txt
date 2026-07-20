@@ -40,7 +40,7 @@ if(SO5EXTRA_MASTER_PROJECT)
 
 	FetchContent_Declare(sobjectizer
 		GIT_REPOSITORY https://github.com/stiffstream/sobjectizer
-		GIT_TAG v5.8.5
+		GIT_TAG e633be9bfd02c9088a531a39f55105702409285b
 		SOURCE_SUBDIR dev
 		OVERRIDE_FIND_PACKAGE
 		LOG_DOWNLOAD TRUE
@@ -53,13 +53,13 @@ if(SO5EXTRA_MASTER_PROJECT)
 
 	FetchContent_Declare(doctest
 		GIT_REPOSITORY https://github.com/doctest/doctest
-		GIT_TAG v2.4.12
+		GIT_TAG v2.5.3
 		OVERRIDE_FIND_PACKAGE
 	)
 
 	FetchContent_Declare(asio
 		GIT_REPOSITORY https://github.com/chriskohlhoff/asio
-		GIT_TAG asio-1-29-0
+		GIT_TAG asio-1-38-2
 		OVERRIDE_FIND_PACKAGE
 		CONFIGURE_COMMAND ""
 		BUILD_COMMAND ""
