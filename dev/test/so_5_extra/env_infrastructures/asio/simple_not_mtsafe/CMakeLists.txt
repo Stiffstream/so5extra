@@ -15,3 +15,5 @@ add_subdirectory(stress_timers)
 add_subdirectory(unknown_exception_init_fn)
 add_subdirectory(unknown_exception_init_fn_2)
 add_subdirectory(unknown_exception_init_fn_3)
+
+add_subdirectory(completion_on_stop)

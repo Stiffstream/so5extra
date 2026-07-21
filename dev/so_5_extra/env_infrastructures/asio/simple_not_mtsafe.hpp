@@ -434,7 +434,7 @@ env_infrastructure_t<Activity_Tracker>::stop() noexcept
 		if( shutdown_status_t::not_started == m_shutdown_status )
 			{
 				m_shutdown_status = shutdown_status_t::must_be_started;
-				::asio::post( m_io_svc.get(), [this] {
+				::asio::dispatch( m_io_svc.get(), [this] {
 					// Shutdown procedure must be started.
 					m_shutdown_status = shutdown_status_t::in_progress;
 
