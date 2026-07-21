@@ -7,10 +7,12 @@
 
 #include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
+#include <future>
+
 TEST_CASE("Do not shutdown if there is no more work")
 {
 	run_with_time_limit( [] {
-		so_5::environment_t * penv{};
+		std::promise< so_5::environment_t * > penv;
 		std::chrono::steady_clock::time_point finished_at;
 
 		std::thread sobj_thread( [&] {
@@ -18,7 +20,7 @@ TEST_CASE("Do not shutdown if there is no more work")
 
 			so_5::launch(
 					[&](so_5::environment_t & env) {
-						penv = &env;
+						penv.set_value( &env );
 					},
 					[&io_svc](so_5::environment_params_t & params) {
 						using namespace so_5::extra::env_infrastructures::asio::simple_mtsafe;
@@ -35,7 +37,7 @@ TEST_CASE("Do not shutdown if there is no more work")
 
 		std::cout << "stopping the SObjectizer..." << std::endl;
 		const auto stop_at = std::chrono::steady_clock::now();
-		penv->stop();
+		penv.get_future().get()->stop();
 
 		std::cout << "waiting the SObjectizer's thread..." << std::endl;
 		sobj_thread.join();
