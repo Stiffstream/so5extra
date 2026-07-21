@@ -13,6 +13,8 @@ option(SO5EXTRA_BUILD_TESTS    "Enable building tests    [default: ON]" ON)
 option(SO5EXTRA_INSTALL "Generate install target for so5extra"
 	${SO5EXTRA_MASTER_PROJECT})
 
+option(SO5EXTRA_SANITIZE "Sanitizer to use (thread|address) [default: OFF]" OFF)
+
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
@@ -26,6 +28,11 @@ else()
 	message(STATUS "C++ standard is set to C++${CMAKE_CXX_STANDARD}")
 endif()
 
+set(SO5EXTRA_SUPPORTED_SANITIZERS "OFF" "thread" "address")
+if(NOT (SO5EXTRA_SANITIZE IN_LIST SO5EXTRA_SUPPORTED_SANITIZERS))
+	message(FATAL_ERROR "Unsupported sanitizer: ${SOBJECTIZER_SANITIZE}")
+endif()
+
 if(SO5EXTRA_MASTER_PROJECT)
 	include(FetchContent)
 
@@ -37,6 +44,7 @@ if(SO5EXTRA_MASTER_PROJECT)
 	set(BUILD_ALL OFF CACHE INTERNAL "")
 	set(BUILD_EXAMPLES OFF CACHE INTERNAL "")
 	set(BUILD_TESTS OFF CACHE INTERNAL "")
+	set(SOBJECTIZER_SANITIZE ${SO5EXTRA_SANITIZE} CACHE INTERNAL "")
 
 	FetchContent_Declare(sobjectizer
 		GIT_REPOSITORY https://github.com/stiffstream/sobjectizer
@@ -101,6 +109,13 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		-Wno-exit-time-destructors
 		-Wno-global-constructors
 	)
+	if(SOBJECTIZER_SANITIZE STREQUAL "thread")
+		add_compile_options(-fsanitize=thread)
+		add_link_options(-fsanitize=thread)
+	elseif(SOBJECTIZER_SANITIZE STREQUAL "address")
+		add_compile_options(-fsanitize=address)
+		add_link_options(-fsanitize=address)
+	endif()
 elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 	add_compile_options(
 		-Wextra
@@ -108,13 +123,30 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 		-Wall
 		-Wno-unused-function
 	)
-elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-	add_compile_options(
-		-W3
-	)
-	add_compile_definitions(
-		_WIN32_WINNT=0x0A00
-	)
+	if(SOBJECTIZER_SANITIZE STREQUAL "thread")
+		add_compile_options(-fsanitize=thread)
+		add_link_options(-fsanitize=thread)
+	elseif(SOBJECTIZER_SANITIZE STREQUAL "address")
+		add_compile_options(-fsanitize=address)
+		add_link_options(-fsanitize=address)
+	endif()
+else()
+	if(SOBJECTIZER_SANITIZE STREQUAL "thread")
+		add_compile_options(-fsanitize=thread)
+		add_link_options(-fsanitize=thread)
+	elseif(SOBJECTIZER_SANITIZE STREQUAL "address")
+		add_compile_options(-fsanitize=address)
+		add_link_options(-fsanitize=address)
+	endif()
+
+	if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+		add_compile_options(
+			-W3
+		)
+		add_compile_definitions(
+			_WIN32_WINNT=0x0A00
+		)
+	endif()
 endif()
 
 # FIXME: it seems that those lines have to be removed.
@@ -127,6 +159,7 @@ add_subdirectory(so_5_extra)
 if(SO5EXTRA_BUILD_TESTS)
 	enable_testing()
 	add_subdirectory(test/so_5_extra)
+	add_subdirectory(test/asio/deadlock_on_exit)
 endif()
 
 if(SO5EXTRA_BUILD_EXAMPLES)

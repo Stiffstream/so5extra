@@ -434,8 +434,9 @@ env_infrastructure_t<Activity_Tracker>::stop() noexcept
 				expected_status,
 				shutdown_status_t::must_be_started ) )
 			{
+//FIXME: asio::post or asio::dispatch has to be use here?
 				// All registered cooperations must be deregistered now.
-				::asio::dispatch( m_io_svc.get(),
+				::asio::post( m_io_svc.get(),
 					[this] {
 						m_shutdown_status = shutdown_status_t::in_progress;
 

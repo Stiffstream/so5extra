@@ -7,6 +7,8 @@
 
 #include <test/3rd_party/various_helpers/time_limited_execution.hpp>
 
+#include <future>
+
 struct run_results
 {
 	bool evt_start_invoked_{ false };
@@ -39,7 +41,7 @@ public :
 TEST_CASE("Do not shutdown if there is no more work")
 {
 	run_with_time_limit( [] {
-		so_5::environment_t * penv{};
+		std::promise<so_5::environment_t *> penv;
 		run_results results;
 
 		std::thread sobj_thread( [&] {
@@ -47,7 +49,7 @@ TEST_CASE("Do not shutdown if there is no more work")
 
 			so_5::launch(
 					[&](so_5::environment_t & env) {
-						penv = &env;
+						penv.set_value( &env );
 
 						env.introduce_coop([&](so_5::coop_t & coop) {
 							coop.make_agent<dummy_agent>(std::ref(results));
@@ -58,17 +60,19 @@ TEST_CASE("Do not shutdown if there is no more work")
 
 						params.infrastructure_factory( factory(io_svc) );
 					} );
-			} );
+		} );
 
 		std::cout << "sleeping for some time..." << std::endl;
 		std::this_thread::sleep_for( std::chrono::milliseconds(350) );
 
 		std::cout << "stopping the SObjectizer..." << std::endl;
 		const auto stop_at = std::chrono::steady_clock::now();
-		penv->stop();
+		penv.get_future().get()->stop();
 
 		std::cout << "waiting the SObjectizer's thread..." << std::endl;
 		sobj_thread.join();
+
+		std::cout << "the SObjectizer's thread joined" << std::endl;
 
 		REQUIRE( results.evt_start_invoked_ );
 		REQUIRE( results.evt_finish_invoked_ );
