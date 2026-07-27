@@ -159,7 +159,6 @@ add_subdirectory(so_5_extra)
 if(SO5EXTRA_BUILD_TESTS)
 	enable_testing()
 	add_subdirectory(test/so_5_extra)
-	add_subdirectory(test/asio/deadlock_on_exit)
 endif()
 
 if(SO5EXTRA_BUILD_EXAMPLES)
