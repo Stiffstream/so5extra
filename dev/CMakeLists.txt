@@ -48,7 +48,7 @@ if(SO5EXTRA_MASTER_PROJECT)
 
 	FetchContent_Declare(sobjectizer
 		GIT_REPOSITORY https://github.com/stiffstream/sobjectizer
-		GIT_TAG e633be9bfd02c9088a531a39f55105702409285b
+		GIT_TAG v5.8.6
 		SOURCE_SUBDIR dev
 		OVERRIDE_FIND_PACKAGE
 		LOG_DOWNLOAD TRUE
