@@ -82,7 +82,7 @@ if(SO5EXTRA_MASTER_PROJECT)
 	# For some reason there is no need to add /asio/include for Windows.
 	# Maybe it's because symbolic links are used on Linux?
 	if(WIN32)
-		target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio)
+		target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/include)
 	else()
 		target_include_directories(asio INTERFACE ${asio_SOURCE_DIR}/asio/include)
 	endif()
