@@ -37,10 +37,7 @@ so5extra can be obtained from source-code repository via Git. For example:
 
     git clone https://github.com/stiffstream/so5extra
 
-so5extra can also be downloaded from the corresponding [Releases](https://github.com/Stiffstream/so5extra/releases) section on GitHub. There are two types of achives with so5extra: 
-
-* archives with so5extra sources only (with names like `so5extra-1.6.0.tar.xz`);
-* archives with so5extra and all dependecies, like SObjectizer and Asio. These archives have names like `so5extra-1.6.0-full.tar.xz`).
+so5extra can also be downloaded from the corresponding [Releases](https://github.com/Stiffstream/so5extra/releases) section on GitHub. Dependencies are downloaded automatically via CMake's FetchContent.
 
 ### Building via CMake
 
