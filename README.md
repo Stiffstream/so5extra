@@ -42,24 +42,28 @@ so5extra can also be downloaded from the corresponding [Releases](https://github
 * archives with so5extra sources only (with names like `so5extra-1.6.0.tar.xz`);
 * archives with so5extra and all dependecies, like SObjectizer and Asio. These archives have names like `so5extra-1.6.0-full.tar.xz`).
 
-If so5extra is got from repository or downloaded as archive without dependecies inside then obtaining of dependecies could be necessary. It can be done via mxxruexternals command: 
+### Building via CMake
 
-    git clone https://github.com/stiffstream/so5extra
-    cd so5extra
-    mxxruexternals
+Since v.1.6.3 the only way to build so5extra's samples and test is CMake:
 
-Note: `mxxruexternals` is a part of Mxx_ru gem. To use Mxx_ru it is necessary to install Ruby and then Mxx_ru gem (by `gem install Mxx_ru`).
+```sh
+git clone https://github.com/stiffstream/so5extra
+cd so5extra
+mkdir cmake_build_release
+cd cmake_build_release
+cmake -DCMAKE_BUILD_TYPE=Release ..
+cmake --build .
+```
 
-### Using
+There are several options supported by so5extra's CMakeLists.txt file:
 
-so5extra is a header-only library. There is no need to compile and link so5extra itself. Only INCLUDE path must be set appropriately.
+* `SO5EXTRA_BUILD_EXAMPLES` (default `ON`) for building examples;
+* `SO5EXTRA_BUILD_TESTS` (default `ON`) for building tests;
+* `SO5EXTRA_SANITIZE` (default `OFF`) for using sanitizers in case of GCC or
+clang compilers. Supported values: `OFF`, `thread` and `address`. Note that
+this option will be transformed into SObjectizer's
+`SOBJECTIZER_SANITIZE` option.
 
-### Using via CMake
-
-Since v.1.2.1 there is the very basic support for CMake: so5extra can be used in CMake-based projects. There is `dev/so_5_extra/CMakeFiles.txt` for that.
-
-But building so5extra's examples and/or tests via CMake is not supported.
-If you want to have CMake support for these things let us known via "info at stiffstream dot com".
 
 ## Obtaining And Using Via vcpkg
 
@@ -132,24 +136,6 @@ Please note that so5extra and SObjectizer should be added to your CMakeLists.txt
     target_link_libraries(your_target sobjectizer::SharedLib) # Or sobjectizer::StaticLib
     target_link_libraries(your_target sobjectizer::so5extra)
 
-
-# Building Samples And Tests
-
-To build so5extra samples and tests it is necessary to use Ruby and Mxx_ru gem. For example:
-
-    git clone https://github.com/stiffstream/so5extra
-    cd so5extra
-    mxxruexternals
-    cd dev
-    ruby build.rb
-
-All tests and samples will be built. If it is necessary to build only examples it can be done by:
-
-    git clone https://github.com/stiffstream/so5extra
-    cd so5extra
-    mxxruexternals
-    cd dev
-    ruby sample/so_5_extra/build_samples.rb
 
 # Building API Reference Manual
 
