@@ -4,7 +4,8 @@
  * \since
  * v.1.0.2
  */
-#pragma once
+#if !defined( SO_5_EXTRA_ERROR_RANGES_HPP )
+#define SO_5_EXTRA_ERROR_RANGES_HPP
 
 namespace so_5 {
 
@@ -121,4 +122,6 @@ const int msg_hierarchy_errors = 21600;
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

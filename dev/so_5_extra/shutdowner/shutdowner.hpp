@@ -3,7 +3,8 @@
  * \brief Implementation of shutdowner-related stuff.
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_SHUTDOWNER_SHUTDOWNER_HPP )
+#define SO_5_EXTRA_SHUTDOWNER_SHUTDOWNER_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -878,4 +879,6 @@ layer( ::so_5::environment_t & env )
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

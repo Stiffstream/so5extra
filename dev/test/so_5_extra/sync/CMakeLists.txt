@@ -1,0 +1,12 @@
+add_subdirectory(moveable_only)
+add_subdirectory(no_subscriber)
+add_subdirectory(not_default_constructible)
+add_subdirectory(reply_timeout)
+add_subdirectory(reply_to_agent)
+add_subdirectory(reply_to_mbox)
+add_subdirectory(reply_to_mchain_1)
+add_subdirectory(reply_to_mchain_2)
+add_subdirectory(simple)
+add_subdirectory(simple_holder)
+add_subdirectory(simple_signal)
+

@@ -3,7 +3,8 @@
  * \brief Common parts for Asio's env_infrastructures.
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ENV_INFRASTRUCTURES_ASIO_IMPL_COMMON_HPP )
+#define SO_5_EXTRA_ENV_INFRASTRUCTURES_ASIO_IMPL_COMMON_HPP
 
 #include <so_5/impl/st_env_infrastructure_reuse.hpp>
 
@@ -238,4 +239,6 @@ class actual_timer_t : public timer_t
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

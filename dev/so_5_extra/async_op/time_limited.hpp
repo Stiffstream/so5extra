@@ -6,7 +6,8 @@
  * v.1.0.4
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ASYNC_OP_TIME_LIMITED_HPP )
+#define SO_5_EXTRA_ASYNC_OP_TIME_LIMITED_HPP
 
 #include <so_5_extra/async_op/details.hpp>
 #include <so_5_extra/async_op/errors.hpp>
@@ -1526,4 +1527,6 @@ make(
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

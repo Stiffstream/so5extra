@@ -1,0 +1,10 @@
+add_subdirectory(agent_ring)
+add_subdirectory(agent_ring_2)
+add_subdirectory(custom_thread)
+add_subdirectory(multifile_hello)
+add_subdirectory(simplest_agent)
+add_subdirectory(simplest_agent_2)
+add_subdirectory(simplest_agent_3)
+add_subdirectory(stats)
+add_subdirectory(stats_wt_activity)
+

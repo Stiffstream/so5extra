@@ -6,7 +6,8 @@
  * v.1.2.0
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ENVELOPED_MSG_TIME_LIMITED_DELIVERY_HPP )
+#define SO_5_EXTRA_ENVELOPED_MSG_TIME_LIMITED_DELIVERY_HPP
 
 #include <so_5_extra/enveloped_msg/just_envelope.hpp>
 
@@ -100,4 +101,6 @@ class time_limited_delivery_t final : public just_envelope_t
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

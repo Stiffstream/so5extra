@@ -4,7 +4,8 @@
  * environment infrastructure.
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ENV_INFRASTRUCTURES_SIMPLE_NOT_MTSAFE_HPP )
+#define SO_5_EXTRA_ENV_INFRASTRUCTURES_SIMPLE_NOT_MTSAFE_HPP
 
 #include <so_5_extra/env_infrastructures/asio/impl/common.hpp>
 
@@ -434,7 +435,7 @@ env_infrastructure_t<Activity_Tracker>::stop() noexcept
 		if( shutdown_status_t::not_started == m_shutdown_status )
 			{
 				m_shutdown_status = shutdown_status_t::must_be_started;
-				::asio::post( m_io_svc.get(), [this] {
+				::asio::dispatch( m_io_svc.get(), [this] {
 					// Shutdown procedure must be started.
 					m_shutdown_status = shutdown_status_t::in_progress;
 
@@ -740,4 +741,6 @@ factory( ::asio::io_context & io_svc )
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

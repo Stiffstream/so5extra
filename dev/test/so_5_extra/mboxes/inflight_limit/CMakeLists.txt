@@ -1,0 +1,4 @@
+add_subdirectory(mutable_and_mpmc)
+add_subdirectory(simple)
+add_subdirectory(simple_mutable)
+add_subdirectory(wrong_type)

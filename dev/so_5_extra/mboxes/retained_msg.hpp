@@ -6,7 +6,8 @@
  * v.1.0.3
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MBOXES_RETAINED_MSG_HPP )
+#define SO_5_EXTRA_MBOXES_RETAINED_MSG_HPP
 
 #include <so_5/version.hpp>
 
@@ -635,4 +636,6 @@ make_mbox( environment_t & env )
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

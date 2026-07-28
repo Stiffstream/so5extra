@@ -4,7 +4,8 @@
  * environment infrastructure.
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ENV_INFRASTRUCTURES_ASIO_SIMPLE_MTSAFE_HPP )
+#define SO_5_EXTRA_ENV_INFRASTRUCTURES_ASIO_SIMPLE_MTSAFE_HPP
 
 #include <so_5_extra/env_infrastructures/asio/impl/common.hpp>
 
@@ -733,4 +734,6 @@ factory( ::asio::io_context & io_svc )
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

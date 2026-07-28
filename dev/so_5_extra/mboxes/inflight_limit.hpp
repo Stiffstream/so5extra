@@ -5,7 +5,8 @@
  * \since v.1.5.2
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MBOXES_INFLIGHT_LIMIT_HPP )
+#define SO_5_EXTRA_MBOXES_INFLIGHT_LIMIT_HPP
 
 #include <so_5_extra/mboxes/proxy.hpp>
 
@@ -576,4 +577,6 @@ make_mbox(
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

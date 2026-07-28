@@ -6,7 +6,8 @@
  * v.1.0.4
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ASYNC_OP_DETAILS_HPP )
+#define SO_5_EXTRA_ASYNC_OP_DETAILS_HPP
 
 #include <so_5/agent.hpp>
 
@@ -41,4 +42,6 @@ target_to_mbox( const ::so_5::agent_t & agent )
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

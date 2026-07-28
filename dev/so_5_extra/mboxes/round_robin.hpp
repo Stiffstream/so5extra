@@ -3,7 +3,8 @@
  * \brief Implementation of round-robin mbox.
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MBOXES_ROUND_ROBIN_HPP )
+#define SO_5_EXTRA_MBOXES_ROUND_ROBIN_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -434,4 +435,6 @@ make_mbox( environment_t & env )
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

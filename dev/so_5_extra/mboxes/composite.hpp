@@ -5,7 +5,8 @@
  * \since v.1.5.2
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MBOXES_COMPOSITE_HPP )
+#define SO_5_EXTRA_MBOXES_COMPOSITE_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -1234,4 +1235,6 @@ single_consumer_builder(
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

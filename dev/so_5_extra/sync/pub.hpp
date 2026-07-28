@@ -6,7 +6,8 @@
  * v.1.3.0
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_SYNC_PUB_HPP )
+#define SO_5_EXTRA_SYNC_PUB_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -1195,4 +1196,6 @@ request_opt_reply(
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

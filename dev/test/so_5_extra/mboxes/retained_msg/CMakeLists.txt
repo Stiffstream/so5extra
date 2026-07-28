@@ -1,0 +1,6 @@
+add_subdirectory(delivery_filter)
+add_subdirectory(mutable_enveloped_msg)
+add_subdirectory(mutable_msg)
+add_subdirectory(simple)
+add_subdirectory(simple_enveloped_msg)
+add_subdirectory(simple_single_threaded)

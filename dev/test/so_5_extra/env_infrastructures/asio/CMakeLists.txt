@@ -1,0 +1,3 @@
+add_subdirectory(simple_mtsafe)
+add_subdirectory(simple_not_mtsafe)
+

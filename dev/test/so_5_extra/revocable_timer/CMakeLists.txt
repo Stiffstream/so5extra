@@ -1,0 +1,5 @@
+add_subdirectory(mutable_periodic)
+add_subdirectory(resend_existing)
+add_subdirectory(resend_mutable_periodic)
+add_subdirectory(simple)
+add_subdirectory(simple_deliver)

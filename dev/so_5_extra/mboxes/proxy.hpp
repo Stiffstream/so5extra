@@ -6,7 +6,8 @@
  * v.1.2.0
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MBOXES_PROXY_HPP )
+#define SO_5_EXTRA_MBOXES_PROXY_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -281,4 +282,6 @@ class simple_t : public ::so_5::abstract_message_box_t
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

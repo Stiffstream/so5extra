@@ -1,0 +1,10 @@
+add_subdirectory(ensure_destroyed_1)
+add_subdirectory(ensure_destroyed_2)
+add_subdirectory(ensure_destroyed_3)
+add_subdirectory(exception_on_activation)
+add_subdirectory(exception_on_activation_2)
+add_subdirectory(several_completion)
+add_subdirectory(simple)
+add_subdirectory(simple_2)
+add_subdirectory(simple_cancel)
+
