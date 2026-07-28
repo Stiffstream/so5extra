@@ -6,7 +6,8 @@
  * v.1.2.0
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_REVOCABLE_MSG_PUB_HPP )
+#define SO_5_EXTRA_REVOCABLE_MSG_PUB_HPP
 
 #include <so_5/version.hpp>
 
@@ -536,4 +537,6 @@ send(
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

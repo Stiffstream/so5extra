@@ -6,7 +6,8 @@
  * v.1.0.2
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_DISP_ASIO_THREAD_POOL_HPP )
+#define SO_5_EXTRA_DISP_ASIO_THREAD_POOL_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -1604,4 +1605,5 @@ make_dispatcher(
 
 } /* namespace so_5 */
 
+#endif
 

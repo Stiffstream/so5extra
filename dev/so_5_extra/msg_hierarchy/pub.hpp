@@ -5,7 +5,8 @@
  * @since v.1.6.2
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MSG_HIERARCHY_PUB_HPP )
+#define SO_5_EXTRA_MSG_HIERARCHY_PUB_HPP
 
 #include <so_5/version.hpp>
 
@@ -1608,4 +1609,6 @@ inline constexpr ::so_5::mbox_type_t single_consumer =
 		::so_5::mbox_type_t::multi_producer_single_consumer;
 
 } /* namespace so_5::extra::msg_hierarchy */
+
+#endif
 

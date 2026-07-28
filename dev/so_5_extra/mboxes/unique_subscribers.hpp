@@ -6,7 +6,8 @@
  * v.1.5.0
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MBOXES_UNIQUE_SUBSCRIBERS_HPP )
+#define SO_5_EXTRA_MBOXES_UNIQUE_SUBSCRIBERS_HPP
 
 #include <so_5/version.hpp>
 
@@ -109,4 +110,6 @@ make_mbox( so_5::environment_t & env )
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

@@ -6,7 +6,8 @@
  * v.1.0.1
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MBOXES_COLLECTING_MBOX_HPP )
+#define SO_5_EXTRA_MBOXES_COLLECTING_MBOX_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -1203,4 +1204,6 @@ class mbox_template_t final
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

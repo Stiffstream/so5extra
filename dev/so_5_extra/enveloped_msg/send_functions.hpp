@@ -7,7 +7,8 @@
  * v.1.2.0
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ENVELOPED_MSG_SEND_FUNCTIONS_HPP )
+#define SO_5_EXTRA_ENVELOPED_MSG_SEND_FUNCTIONS_HPP
 
 #include <so_5/version.hpp>
 
@@ -281,4 +282,6 @@ make( Args && ...args )
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

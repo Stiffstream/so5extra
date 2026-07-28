@@ -5,7 +5,8 @@
  * v.1.3.1
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MBOXES_BROADCAST_HPP )
+#define SO_5_EXTRA_MBOXES_BROADCAST_HPP
 
 #include <so_5/mbox.hpp>
 #include <so_5/custom_mbox.hpp>
@@ -374,4 +375,6 @@ public :
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

@@ -6,7 +6,8 @@
  * v.1.4.0
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MCHAINS_FIXED_SIZE_HPP )
+#define SO_5_EXTRA_MCHAINS_FIXED_SIZE_HPP
 
 #include <so_5/impl/mchain_details.hpp>
 #include <so_5/impl/make_mchain.hpp>
@@ -237,4 +238,6 @@ create_mchain(
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

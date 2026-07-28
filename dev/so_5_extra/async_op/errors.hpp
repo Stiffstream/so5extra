@@ -6,7 +6,8 @@
  * v.1.0.4
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ASYNC_OP_ERRORS_HPP )
+#define SO_5_EXTRA_ASYNC_OP_ERRORS_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -73,4 +74,6 @@ const int rc_empty_definition_point_object =
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

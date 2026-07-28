@@ -6,7 +6,8 @@
  * \since v.1.5.2
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_MBOXES_FIRST_LAST_SUBSCRIBER_NOTIFICATION_HPP )
+#define SO_5_EXTRA_MBOXES_FIRST_LAST_SUBSCRIBER_NOTIFICATION_HPP
 
 #include <so_5/version.hpp>
 
@@ -840,4 +841,6 @@ make_single_consumer_mbox(
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

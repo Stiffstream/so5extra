@@ -6,7 +6,8 @@
  * v.1.4.1
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_DISP_ASIO_ONE_THREAD_PUB_HPP )
+#define SO_5_EXTRA_DISP_ASIO_ONE_THREAD_PUB_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -927,4 +928,6 @@ make_dispatcher(
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

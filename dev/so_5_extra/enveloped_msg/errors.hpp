@@ -6,7 +6,8 @@
  * v.1.2.0
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ENVELOPED_MSG_ERRORS_HPP )
+#define SO_5_EXTRA_ENVELOPED_MSG_ERRORS_HPP
 
 #include <so_5_extra/error_ranges.hpp>
 
@@ -55,4 +56,6 @@ const int rc_empty_payload_holder =
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 

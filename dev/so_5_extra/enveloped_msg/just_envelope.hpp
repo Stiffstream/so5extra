@@ -6,7 +6,8 @@
  * v.1.2.0
  */
 
-#pragma once
+#if !defined( SO_5_EXTRA_ENVELOPED_MSG_JUST_ENVELOPE_HPP )
+#define SO_5_EXTRA_ENVELOPED_MSG_JUST_ENVELOPE_HPP
 
 #include <so_5_extra/enveloped_msg/errors.hpp>
 
@@ -144,4 +145,6 @@ class just_envelope_t : public so_5::enveloped_msg::envelope_t
 } /* namespace extra */
 
 } /* namespace so_5 */
+
+#endif
 
