@@ -349,18 +349,41 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 
 		//! Creates the default timeout handler if it is not set
 		//! by the user.
+		template< typename Actual_Op_Data_Type >
 		void
 		make_default_timeout_handler_if_necessary()
 			{
 				if( !m_default_timeout_handler )
 					{
+						auto * self = static_cast<Actual_Op_Data_Type *>(this);
 						m_default_timeout_handler =
-							[op = ::so_5::intrusive_ptr_t<op_data_t>(this)](
+							[op = ::so_5::intrusive_ptr_t<Actual_Op_Data_Type>(self)](
 								::so_5::message_ref_t & /*msg*/ )
 							{
 								op->timedout();
 							};
 					}
+			}
+
+		//! Dropping bodies of completion/timeout handlers.
+		/*!
+		 * There is no need to hold bodies of completion/timeout handlers
+		 * after activation of the operation. Such handlers hold a hard
+		 * reference to this op_data object and that reference
+		 * creates a circular dependency that may lead to memory leak.
+		 *
+		 * \since v.1.6.4
+		 */
+		void
+		drop_handlers_bodies() noexcept
+			{
+				for( auto & ch : m_completion_handlers )
+					ch.m_handler = ::so_5::event_handler_method_t{};
+
+				for( auto & th : m_timeout_handlers )
+					th.m_handler = ::so_5::event_handler_method_t{};
+
+				m_default_timeout_handler = ::so_5::event_handler_method_t{};
 			}
 
 		//! Cleans the operation data and sets the status specified.
@@ -443,10 +466,11 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 		 * If an exception is thrown during subscription then all already
 		 * subscribed completion and timeout handler will be unsubscribed.
 		 */
+		template< typename Actual_Op_Data_Type >
 		void
 		do_activation_actions()
 			{
-				make_default_timeout_handler_if_necessary();
+				make_default_timeout_handler_if_necessary< Actual_Op_Data_Type >();
 
 				create_completion_handlers_subscriptions();
 
@@ -457,6 +481,10 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 					[&] {
 						drop_all_completion_handlers_subscriptions();
 					} );
+
+				// If we're here without exceptions then there is no more
+				// need in completion/timeout handlers bodies.
+				drop_handlers_bodies();
 			}
 
 		//! Change the status of async operation.
@@ -1442,7 +1470,7 @@ class definition_point_t
 				auto op = std::move(this->m_op);
 
 				::so_5::details::do_with_rollback_on_exception( [&] {
-						op->do_activation_actions();
+						op->template do_activation_actions< Operation_Data >();
 						op->setup_timer_id(
 								::so_5::send_periodic<Message>(
 										op->timeout_mbox(),
