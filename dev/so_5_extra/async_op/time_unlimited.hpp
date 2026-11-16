@@ -885,10 +885,14 @@ class definition_point_t
 							"definition_point_t doesn't hold operation data anymore." );
 				auto op = std::move(m_op);
 
-				op->activate();
-
 				::so_5::details::do_with_rollback_on_exception(
-					[&] { action(); },
+					[&] {
+						// It's important to do rollback actions if op->activate()
+						// throws an exception.
+						op->activate();
+						// The user provided action can also throw.
+						action();
+					},
 					[&] { op->cancel(); } );
 
 				return { std::move(op) };

@@ -32,9 +32,32 @@ class a_test_t final : public so_5::agent_t
 				C( int value ) : m_value(value) {}
 			};
 
+		struct additional_data
+			{
+				int * m_destructions_counter;
+
+				additional_data( int * destructions_counter )
+					: m_destructions_counter{ destructions_counter }
+					{}
+
+				~additional_data()
+					{
+						(*m_destructions_counter) += 1;
+					}
+			};
+
+		int * m_destructions_counter;
+
+		std::shared_ptr< additional_data >
+		make_additional_data()
+			{
+				return std::make_shared< additional_data >( m_destructions_counter );
+			}
+
 	public :
-		a_test_t( context_t ctx )
+		a_test_t( context_t ctx, int * destructions_counter )
 			:	so_5::agent_t( std::move(ctx) )
+			,	m_destructions_counter{ destructions_counter }
 			{}
 
 		virtual void
@@ -44,19 +67,19 @@ class a_test_t final : public so_5::agent_t
 				dp.completed_on(
 						*this,
 						st_A,
-						[](mhood_t<A>) {} )
+						[ad = make_additional_data()](mhood_t<A>) {} )
 					.completed_on(
 						*this,
 						st_B,
-						[](mhood_t<B>) {} )
+						[ad = make_additional_data()](mhood_t<B>) {} )
 					.completed_on(
 						*this,
 						st_C,
-						[](mhood_t<C>) {} )
+						[ad = make_additional_data()](mhood_t<C>) {} )
 					.completed_on(
 						*this,
 						st_A,
-						[](mhood_t<A>) {} );
+						[ad = make_additional_data()](mhood_t<A>) {} );
 
 				ensure_no_subscriptions();
 
@@ -103,10 +126,16 @@ class a_test_t final : public so_5::agent_t
 int main()
 {
 	run_with_time_limit( [&] {
+			int destructions = 0;
+
 			so_5::launch( [&](so_5::environment_t & env) {
 						env.register_agent_as_coop(
-								env.make_agent< a_test_t >() );
+								env.make_agent< a_test_t >( &destructions ) );
 					});
+
+			ensure_or_die( 4 == destructions,
+					"unexpected number of additional data destructions: "
+					+ std::to_string( destructions ) );
 		},
 		5 );
 
