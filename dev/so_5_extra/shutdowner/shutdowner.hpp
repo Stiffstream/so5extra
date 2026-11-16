@@ -562,6 +562,11 @@ class notify_mbox_t
 				m_data.m_shutdown_timer.release();
 
 				m_env.get().remove_stop_guard( m_shutdowner_guard );
+
+				// There is a circular dependency between this mbox and
+				// the shutdowner_guard. This dependency has to be destroyed
+				// right now to avoid a memory leak.
+				m_shutdowner_guard.reset();
 			}
 
 		//! Do all necessary actions for start of shutdown operation.
