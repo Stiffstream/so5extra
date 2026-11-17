@@ -92,14 +92,14 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 				std::type_index m_subscription_type;
 
 				//! Event handler.
-				::so_5::event_handler_method_t m_handler;
+				::so_5::event_handler_holder_t m_handler;
 
 				//! Initializing constructor.
 				completion_handler_subscription_t(
 					so_5::mbox_t mbox,
 					const so_5::state_t & state,
 					std::type_index subscription_type,
-					so_5::event_handler_method_t handler )
+					so_5::event_handler_holder_t handler )
 					:	m_mbox( std::move(mbox) )
 					,	m_state( ::so_5::outliving_const(state) )
 					,	m_subscription_type( std::move(subscription_type) )
@@ -114,12 +114,12 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 				::so_5::outliving_reference_t< const ::so_5::state_t > m_state;
 
 				//! Event handler.
-				::so_5::event_handler_method_t m_handler;
+				::so_5::event_handler_holder_t m_handler;
 
 				//! Initializing constructor.
 				timeout_handler_subscription_t(
 					const so_5::state_t & state,
-					so_5::event_handler_method_t handler )
+					so_5::event_handler_holder_t handler )
 					:	m_state( ::so_5::outliving_const(state) )
 					,	m_handler( std::move(handler) )
 					{}
@@ -149,7 +149,7 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 		 * Can be nullptr. If so the default timeout handler will
 		 * be created during activation procedure.
 		 */
-		::so_5::event_handler_method_t m_default_timeout_handler;
+		::so_5::event_handler_holder_t m_default_timeout_handler;
 
 		//! A mbox to which timeout message/signal will be sent.
 		/*!
@@ -344,7 +344,7 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 				// is no more needed.
 				m_completion_handlers.clear();
 				m_timeout_handlers.clear();
-				m_default_timeout_handler = ::so_5::event_handler_method_t{};
+				m_default_timeout_handler = ::so_5::event_handler_holder_t{};
 			}
 
 		//! Creates the default timeout handler if it is not set
@@ -353,7 +353,7 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 		void
 		make_default_timeout_handler_if_necessary()
 			{
-				if( !m_default_timeout_handler )
+				if( !::so_5::is_defined( m_default_timeout_handler ) )
 					{
 						auto * self = static_cast<Actual_Op_Data_Type *>(this);
 						m_default_timeout_handler =
@@ -378,12 +378,12 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 		drop_handlers_bodies() noexcept
 			{
 				for( auto & ch : m_completion_handlers )
-					ch.m_handler = ::so_5::event_handler_method_t{};
+					ch.m_handler = ::so_5::event_handler_holder_t{};
 
 				for( auto & th : m_timeout_handlers )
-					th.m_handler = ::so_5::event_handler_method_t{};
+					th.m_handler = ::so_5::event_handler_holder_t{};
 
-				m_default_timeout_handler = ::so_5::event_handler_method_t{};
+				m_default_timeout_handler = ::so_5::event_handler_holder_t{};
 			}
 
 		//! Cleans the operation data and sets the status specified.
@@ -513,7 +513,7 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 			//! A type of the completion message/signal.
 			const std::type_index msg_type,
 			//! Completion handler itself.
-			::so_5::event_handler_method_t evt_handler )
+			::so_5::event_handler_holder_t evt_handler )
 			{
 				m_completion_handlers.emplace_back(
 						mbox,
@@ -528,7 +528,7 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 			//! A state for timeout handler.
 			const ::so_5::state_t & state,
 			//! Timeout handler itself.
-			::so_5::event_handler_method_t evt_handler )
+			::so_5::event_handler_holder_t evt_handler )
 			{
 				m_timeout_handlers.emplace_back(
 						state,
@@ -544,7 +544,7 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 		void
 		default_timeout_handler(
 			//! Timeout handler itself.
-			::so_5::event_handler_method_t evt_handler )
+			::so_5::event_handler_holder_t evt_handler )
 			{
 				m_default_timeout_handler = std::move(evt_handler);
 			}
@@ -882,13 +882,14 @@ class msg_independent_part_of_definition_point_t
 								m_op->owner(),
 								std::forward<Event_Handler>(evt_handler) );
 
-				::so_5::event_handler_method_t actual_handler =
+				::so_5::event_handler_holder_t actual_handler =
 					[op = m_op,
 					user_handler = std::move(evt_handler_info.m_handler)](
 						::so_5::message_ref_t & msg )
 					{
 						op->completed();
-						user_handler( msg );
+						::so_5::low_level_api::invoke_sync_event_handler(
+								user_handler, msg );
 					};
 
 				m_op->add_completion_handler(
@@ -942,7 +943,7 @@ class msg_independent_part_of_definition_point_t
 	private :
 		//! A helper method for creation a wrapper for a timeout handler.
 		template< typename Event_Handler >
-		[[nodiscard]] ::so_5::event_handler_method_t
+		[[nodiscard]] ::so_5::event_handler_holder_t
 		create_actual_timeout_handler(
 			//! Timeout handler to be wrapped.
 			Event_Handler && evt_handler )
@@ -967,7 +968,8 @@ class msg_independent_part_of_definition_point_t
 						::so_5::message_ref_t & msg )
 					{
 						op->timedout();
-						user_handler( msg );
+						::so_5::low_level_api::invoke_sync_event_handler(
+								user_handler, msg );
 					};
 			}
 	};

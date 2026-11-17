@@ -20,8 +20,8 @@ set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin)
 
 if(NOT CMAKE_CXX_STANDARD)
-	message(STATUS "C++17 will be used by default")
-	set(CMAKE_CXX_STANDARD 17)
+	message(STATUS "C++20 will be used by default")
+	set(CMAKE_CXX_STANDARD 20)
 	set(CMAKE_CXX_STANDARD_REQUIRED ON)
 	set(CXX_EXTENSIONS NO)
 else()
@@ -48,7 +48,7 @@ if(SO5EXTRA_MASTER_PROJECT)
 
 	FetchContent_Declare(sobjectizer
 		GIT_REPOSITORY https://github.com/stiffstream/sobjectizer
-		GIT_TAG v5.8.6
+		GIT_TAG ce062212b5fb0214f756bbbf5f4f863885ebd9b4
 		SOURCE_SUBDIR dev
 		OVERRIDE_FIND_PACKAGE
 		LOG_DOWNLOAD TRUE

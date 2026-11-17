@@ -112,14 +112,14 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 				std::type_index m_subscription_type;
 
 				//! Event handler.
-				::so_5::event_handler_method_t m_handler;
+				::so_5::event_handler_holder_t m_handler;
 
 				//! Initializing constructor.
 				subscription_data_t(
 					so_5::mbox_t mbox,
 					const so_5::state_t & state,
 					std::type_index subscription_type,
-					so_5::event_handler_method_t handler )
+					so_5::event_handler_holder_t handler )
 					:	m_mbox( std::move(mbox) )
 					,	m_state( &state )
 					,	m_subscription_type( std::move(subscription_type) )
@@ -203,13 +203,14 @@ class op_data_t : protected ::so_5::atomic_refcounted_t
 								m_owner.get(),
 								std::forward<Event_Handler>(evt_handler) );
 
-				::so_5::event_handler_method_t actual_handler =
+				::so_5::event_handler_holder_t actual_handler =
 					[self = std::move(actual_data),
 					user_handler = std::move(evt_handler_info.m_handler)](
 						::so_5::message_ref_t & msg )
 					{
 						self->completed();
-						user_handler( msg );
+						::so_5::low_level_api::invoke_sync_event_handler(
+								user_handler, msg );
 					};
 
 				m_subscriptions.emplace_back(
