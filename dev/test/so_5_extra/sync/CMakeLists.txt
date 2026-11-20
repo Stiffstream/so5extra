@@ -10,3 +10,8 @@ add_subdirectory(simple)
 add_subdirectory(simple_holder)
 add_subdirectory(simple_signal)
 
+add_subdirectory(async_simple)
+add_subdirectory(async_simple_signal)
+add_subdirectory(async_simple_holder)
+add_subdirectory(async_moveable_only)
+add_subdirectory(async_not_default_constructible)

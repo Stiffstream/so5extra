@@ -18,6 +18,8 @@
 #error "SObjectizer-5.7.3 is required"
 #endif
 
+#include <so_5/cpp_coro/mchain_select.hpp>
+
 #include <so_5/send_functions.hpp>
 
 #include <so_5/details/always_false.hpp>
@@ -723,6 +725,49 @@ class request_reply_t final
 				return result;
 			}
 
+		//FIXME: document this!
+		/*!
+		 * \since v.1.6.5
+		 */
+		template<typename Target, typename Duration, typename... Args>
+		[[nodiscard]]
+		static so_5::cpp_coro::task_t< reply_t >
+		ask_default_constructible_value_async(
+			Target && target,
+			Duration duration,
+			Args && ...args )
+			{
+				// Because reply object is default constructible we can create it
+				// on the stack. And this can be the subject of NRVO.
+				reply_t result;
+
+				auto reply_ch = initiate(
+						std::forward<Target>(target),
+						std::forward<Args>(args)... );
+
+				bool result_received{false};
+				co_await so_5::cpp_coro::select(
+						from_all().handle_n(1).empty_timeout(duration),
+						receive_case(
+							reply_ch,
+							[&result, &result_received]( reply_mhood_t cmd ) {
+								result_received = true;
+								borrow_from_reply_mhood( cmd, result );
+							} ) );
+
+				if( !result_received )
+					{
+						SO_5_THROW_EXCEPTION( errors::rc_no_reply,
+								std::string{ "no reply received, request_reply type: " } +
+								typeid(request_reply_t).name() );
+					}
+
+				if constexpr( is_reply_moveable )
+					co_return std::move(result);
+				else
+					co_return result;
+			}
+
 		//! An actual implementation of request_value for the case when
 		//! reply object is not DefaultConstructible.
 		template<typename Target, typename Duration, typename... Args>
@@ -751,6 +796,38 @@ class request_reply_t final
 					return std::move(*result);
 				else
 					return *result;
+			}
+
+		//FIXME: document this!
+		/*!
+		 * \since v.1.6.5
+		 */
+		template<typename Target, typename Duration, typename... Args>
+		[[nodiscard]]
+		static so_5::cpp_coro::task_t< reply_t >
+		ask_not_default_constructible_value_async(
+			Target && target,
+			Duration duration,
+			Args && ...args )
+			{
+				// For the case when Reply is not default constructible we
+				// will use request_opt_value that can handle then case.
+				auto result = co_await ask_opt_value_async(
+						std::forward<Target>(target),
+						duration,
+						std::forward<Args>(args)... );
+
+				if( !result )
+					{
+						SO_5_THROW_EXCEPTION( errors::rc_no_reply,
+								std::string{ "no reply received, request_reply type: " } +
+								typeid(request_reply_t).name() );
+					}
+
+				if constexpr( is_reply_moveable )
+					co_return std::move(*result);
+				else
+					co_return *result;
 			}
 
 	public :
@@ -1084,6 +1161,52 @@ class request_reply_t final
 							duration,
 							std::forward<Args>(args)... );
 			}
+
+		//FIXME: document this!
+		template<typename Target, typename Duration, typename... Args>
+		[[nodiscard]]
+		static so_5::cpp_coro::task_t< optional<reply_t> >
+		ask_opt_value_async(
+			Target && target,
+			Duration duration,
+			Args && ...args )
+			{
+				auto reply_ch = initiate(
+						std::forward<Target>(target),
+						std::forward<Args>(args)... );
+
+				optional<reply_t> result;
+				co_await so_5::cpp_coro::select(
+						from_all().handle_n(1).empty_timeout(duration),
+						receive_case(
+							reply_ch,
+							[&result]( reply_mhood_t cmd ) {
+								borrow_from_reply_mhood( cmd, result );
+							} ) );
+
+				co_return result;
+			}
+
+		//FIXME: document this!
+		template<typename Target, typename Duration, typename... Args>
+		[[nodiscard]]
+		static auto
+		ask_value_async(
+			Target && target,
+			Duration duration,
+			Args && ...args )
+			{
+				if constexpr( std::is_default_constructible_v<reply_t> )
+					return ask_default_constructible_value_async(
+							std::forward<Target>(target),
+							duration,
+							std::forward<Args>(args)... );
+				else
+					return ask_not_default_constructible_value_async(
+							std::forward<Target>(target),
+							duration,
+							std::forward<Args>(args)... );
+			}
 	};
 
 //
@@ -1186,6 +1309,46 @@ request_opt_reply(
 	Args && ...args )
 	{
 		return request_reply_t<Request, Reply>::ask_opt_value(
+				std::forward<Target>(target),
+				duration,
+				std::forward<Args>(args)... );
+	}
+
+//FIXME: document this!
+/*!
+ * \since v.1.6.5
+ */
+template<
+	typename Request, typename Reply,
+	typename Target, typename Duration, typename... Args>
+[[nodiscard]]
+auto
+request_reply_async(
+	Target && target,
+	Duration duration,
+	Args && ...args )
+	{
+		return request_reply_t<Request, Reply>::ask_value_async(
+				std::forward<Target>(target),
+				duration,
+				std::forward<Args>(args)... );
+	}
+
+//FIXME: document this!
+/*!
+ * \since v.1.6.5
+ */
+template<
+	typename Request, typename Reply,
+	typename Target, typename Duration, typename... Args>
+[[nodiscard]]
+auto
+request_opt_reply_async(
+	Target && target,
+	Duration duration,
+	Args && ...args )
+	{
+		return request_reply_t<Request, Reply>::ask_opt_value_async(
 				std::forward<Target>(target),
 				duration,
 				std::forward<Args>(args)... );
