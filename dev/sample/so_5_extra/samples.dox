@@ -60,6 +60,7 @@
 /*!
  * \example sync/simple/main.cpp
  * \example sync/mchains/main.cpp
+ * \example sync/async_simple/main.cpp
  */
 
 /*!

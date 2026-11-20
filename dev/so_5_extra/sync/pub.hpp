@@ -14,8 +14,8 @@
 #include <so_5_extra/mchains/fixed_size.hpp>
 
 #include <so_5/version.hpp>
-#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 7u, 3u)
-#error "SObjectizer-5.7.3 is required"
+#if SO_5_VERSION < SO_5_VERSION_MAKE(5u, 8u, 7u)
+#error "SObjectizer-5.8.7 is required"
 #endif
 
 #include <so_5/cpp_coro/mchain_select.hpp>
@@ -725,7 +725,8 @@ class request_reply_t final
 				return result;
 			}
 
-		//FIXME: document this!
+		//! An actual implementation of async ask_value for the case when
+		//! reply object is DefaultConstructible.
 		/*!
 		 * \since v.1.6.5
 		 */
@@ -768,7 +769,7 @@ class request_reply_t final
 					co_return result;
 			}
 
-		//! An actual implementation of request_value for the case when
+		//! An actual implementation of ask_value for the case when
 		//! reply object is not DefaultConstructible.
 		template<typename Target, typename Duration, typename... Args>
 		[[nodiscard]]
@@ -798,7 +799,8 @@ class request_reply_t final
 					return *result;
 			}
 
-		//FIXME: document this!
+		//! An actual implementation of async ask_value for the case when
+		//! reply object is not DefaultConstructible.
 		/*!
 		 * \since v.1.6.5
 		 */
@@ -1162,7 +1164,47 @@ class request_reply_t final
 							std::forward<Args>(args)... );
 			}
 
-		//FIXME: document this!
+		/*!
+		 * \brief Create a coroutine that sends a request and
+		 * waits for the reply.
+		 *
+		 * \note
+		 * It's async version of ask_opt_value().
+		 *
+		 * The coroutine is created in suspended state. It has be resumed
+		 * by applying `co_await` to it.
+		 *
+		 * The coroutine returns a task_t of std::optional<Reply>.
+		 *
+		 * Usage example:
+		 * \code
+		 * struct check_user_request final {...};
+		 * struct check_user_result final {...};
+		 * using check_user = so_5::extra::sync::request_reply_t<check_user_request, check_user_result>;
+		 * ...
+		 * std::optional<check_user_result> result =
+		 * 	co_await check_user::ask_opt_value_async(
+		 * 		target,
+		 * 		10s,
+		 * 		... );
+		 * if(result) {
+		 * 	... // Some handling of *result.
+		 * }
+		 * \endcode
+		 *
+		 * \note
+		 * If Request is a type of a signal then \a args should be an empty
+		 * sequence:
+		 * \code
+		 * struct statistics_request final : public so_5::signal_t {};
+		 * class current_stats final {...};
+		 *
+		 * std::optional<current_stats> stats = co_await
+		 * 	so_5::extra::sync::request_reply_t<statistics_request, current_stats>::ask_opt_value_async(target, 10s);
+		 * \endcode
+		 *
+		 * \since v.1.6.5
+		 */
 		template<typename Target, typename Duration, typename... Args>
 		[[nodiscard]]
 		static so_5::cpp_coro::task_t< optional<reply_t> >
@@ -1187,7 +1229,43 @@ class request_reply_t final
 				co_return result;
 			}
 
-		//FIXME: document this!
+		/*!
+		 * \brief Create a coroutine that sends a request and waits for the
+		 * reply.
+		 *
+		 * \note
+		 * It's async version of ask_value().
+		 *
+		 * The coroutine is created in suspended state. It has be resumed
+		 * by applying `co_await` to it.
+		 *
+		 * The coroutine returns a task_t of Reply.
+		 *
+		 * Usage example:
+		 * \code
+		 * struct check_user_request final {...};
+		 * struct check_user_result final {...};
+		 * using check_user = so_5::extra::sync::request_reply_t<check_user_request, check_user_result>;
+		 * ...
+		 * check_user_result result = co_await check_user::ask_value_async(
+		 * 		target,
+		 * 		10s,
+		 * 		... );
+		 * \endcode
+		 *
+		 * \note
+		 * If Request is a type of a signal then \a args should be an empty
+		 * sequence:
+		 * \code
+		 * struct statistics_request final : public so_5::signal_t {};
+		 * class current_stats final {...};
+		 *
+		 * std::optional<current_stats> stats = co_await
+		 * 	so_5::extra::sync::request_reply_t<statistics_request, current_stats>::ask_value_async(target, 10s);
+		 * \endcode
+		 *
+		 * \since v.1.6.5
+		 */
 		template<typename Target, typename Duration, typename... Args>
 		[[nodiscard]]
 		static auto
@@ -1314,8 +1392,31 @@ request_opt_reply(
 				std::forward<Args>(args)... );
 	}
 
-//FIXME: document this!
 /*!
+ * \brief A helper function for performing request_reply-iteraction
+ * via C++20 coroutines.
+ *
+ * Creates a coroutine that sends a
+ * so_5::extra::sync::request_reply_t<Request,Reply> to the specified
+ * \a target and waits the reply for no more
+ * that \a duration. If there is no reply then an exception will be thrown.
+ *
+ * \note
+ * It's async version of request_reply().
+ *
+ * The coroutine is created in suspended state. It has be resumed
+ * by applying `co_await` to it.
+ *
+ * Usage example:
+ * \code
+ * auto r = co_await so_5::extra::sync::request_reply_async<my_request, my_reply>(
+ * 		some_mchain,
+ * 		10s,
+ * 		...);
+ * \endcode
+ *
+ * Returns an instance of so_5::cpp_coro::task_t<Reply> object.
+ *
  * \since v.1.6.5
  */
 template<
@@ -1334,8 +1435,34 @@ request_reply_async(
 				std::forward<Args>(args)... );
 	}
 
-//FIXME: document this!
 /*!
+ * \brief A helper function for performing request_reply-iteraction
+ * via C++20 coroutines.
+ *
+ * Creates a coroutine that sends a
+ * so_5::extra::sync::request_reply_t <Request,Reply> to the specified
+ * \a target and waits the reply for no more that \a duration. If there is no
+ * reply then an empty optional object will be returned.
+ *
+ * \note
+ * It's async version of request_reply().
+ *
+ * The coroutine is created in suspended state. It has be resumed
+ * by applying `co_await` to it.
+ *
+ * Usage example:
+ * \code
+ * auto r = co_await so_5::extra::sync::request_opt_reply_async<my_request, my_reply>(
+ * 		some_mchain,
+ * 		10s,
+ * 		...);
+ * if(r) {
+ * 	... // Do something with *r.
+ * }
+ * \endcode
+ *
+ * Returns an instance of so_5::cpp_coro::task_t<std::optional<Reply>> object.
+ *
  * \since v.1.6.5
  */
 template<
