@@ -42,6 +42,8 @@ TEST_CASE("Do not shutdown if there is no more work")
 {
 	run_with_time_limit( [] {
 		std::promise<so_5::environment_t *> penv;
+		std::promise<void> stop_completed;
+
 		run_results results;
 
 		std::thread sobj_thread( [&] {
@@ -60,6 +62,8 @@ TEST_CASE("Do not shutdown if there is no more work")
 
 						params.infrastructure_factory( factory(io_svc) );
 					} );
+
+			stop_completed.get_future().get();
 		} );
 
 		std::cout << "sleeping for some time..." << std::endl;
@@ -68,6 +72,7 @@ TEST_CASE("Do not shutdown if there is no more work")
 		std::cout << "stopping the SObjectizer..." << std::endl;
 		const auto stop_at = std::chrono::steady_clock::now();
 		penv.get_future().get()->stop();
+		stop_completed.set_value();
 
 		std::cout << "waiting the SObjectizer's thread..." << std::endl;
 		sobj_thread.join();

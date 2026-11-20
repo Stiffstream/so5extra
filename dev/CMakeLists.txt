@@ -30,7 +30,10 @@ endif()
 
 set(SO5EXTRA_SUPPORTED_SANITIZERS "OFF" "thread" "address")
 if(NOT (SO5EXTRA_SANITIZE IN_LIST SO5EXTRA_SUPPORTED_SANITIZERS))
-	message(FATAL_ERROR "Unsupported sanitizer: ${SOBJECTIZER_SANITIZE}")
+	message(FATAL_ERROR "Unsupported sanitizer: ${SO5EXTRA_SANITIZE}")
+endif()
+if(NOT (SO5EXTRA_SANITIZE STREQUAL "OFF"))
+	message(STATUS "Sanitizer to be used: ${SO5EXTRA_SANITIZE}")
 endif()
 
 if(SO5EXTRA_MASTER_PROJECT)
@@ -109,10 +112,10 @@ if(CMAKE_CXX_COMPILER_ID STREQUAL "Clang")
 		-Wno-exit-time-destructors
 		-Wno-global-constructors
 	)
-	if(SOBJECTIZER_SANITIZE STREQUAL "thread")
+	if(SO5EXTRA_SANITIZE STREQUAL "thread")
 		add_compile_options(-fsanitize=thread)
 		add_link_options(-fsanitize=thread)
-	elseif(SOBJECTIZER_SANITIZE STREQUAL "address")
+	elseif(SO5EXTRA_SANITIZE STREQUAL "address")
 		add_compile_options(-fsanitize=address)
 		add_link_options(-fsanitize=address)
 	endif()
@@ -123,30 +126,20 @@ elseif(CMAKE_CXX_COMPILER_ID STREQUAL "GNU")
 		-Wall
 		-Wno-unused-function
 	)
-	if(SOBJECTIZER_SANITIZE STREQUAL "thread")
+	if(SO5EXTRA_SANITIZE STREQUAL "thread")
 		add_compile_options(-fsanitize=thread)
 		add_link_options(-fsanitize=thread)
-	elseif(SOBJECTIZER_SANITIZE STREQUAL "address")
+	elseif(SO5EXTRA_SANITIZE STREQUAL "address")
 		add_compile_options(-fsanitize=address)
 		add_link_options(-fsanitize=address)
 	endif()
-else()
-	if(SOBJECTIZER_SANITIZE STREQUAL "thread")
-		add_compile_options(-fsanitize=thread)
-		add_link_options(-fsanitize=thread)
-	elseif(SOBJECTIZER_SANITIZE STREQUAL "address")
-		add_compile_options(-fsanitize=address)
-		add_link_options(-fsanitize=address)
-	endif()
-
-	if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-		add_compile_options(
-			-W3
-		)
-		add_compile_definitions(
-			_WIN32_WINNT=0x0A00
-		)
-	endif()
+elseif(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+	add_compile_options(
+		-W3
+	)
+	add_compile_definitions(
+		_WIN32_WINNT=0x0A00
+	)
 endif()
 
 # FIXME: it seems that those lines have to be removed.
